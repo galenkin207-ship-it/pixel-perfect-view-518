@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ObjectsIdRouteImport } from './routes/objects.$id'
@@ -20,6 +21,11 @@ import { Route as ReportsAllRouteImport } from './routes/reports.all'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MessagesRoute = MessagesRouteImport.update({
@@ -55,6 +61,7 @@ const ReportsAllRoute = ReportsAllRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRoute
   '/objects/$id': typeof ObjectsIdRoute
@@ -64,6 +71,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRoute
   '/objects/$id': typeof ObjectsIdRoute
@@ -74,6 +82,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRoute
   '/objects/$id': typeof ObjectsIdRoute
@@ -85,6 +94,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/login'
     | '/messages'
     | '/profile'
     | '/objects/$id'
@@ -94,6 +104,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
     | '/messages'
     | '/profile'
     | '/objects/$id'
@@ -103,6 +114,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/login'
     | '/messages'
     | '/profile'
     | '/objects/$id'
@@ -113,6 +125,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRoute
   ProfileRoute: typeof ProfileRoute
   ObjectsIdRoute: typeof ObjectsIdRoute
@@ -128,6 +141,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/messages': {
@@ -177,6 +197,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
   MessagesRoute: MessagesRoute,
   ProfileRoute: ProfileRoute,
   ObjectsIdRoute: ObjectsIdRoute,
