@@ -92,7 +92,7 @@ export const workTypes: WorkType[] = [
   { id: "w7", name: "Демонтаж перегородок", unit: "м²", price: 240 },
   { id: "w8", name: "Монтаж плинтуса", unit: "м. п.", price: 180 },
   { id: "w9", name: "Электрика: прокладка кабеля", unit: "м. п.", price: 130 },
-  { id: "w10", name: "Монтаж窗 оконных блоков", unit: "шт", price: 2600 },
+  { id: "w10", name: "Монтаж оконных блоков", unit: "шт", price: 2600 },
 ];
 
 export const records: WorkRecord[] = [
@@ -244,7 +244,7 @@ export const requests: WorkRequest[] = [
   {
     id: "q1",
     author: "Иванов К.",
-    requested_text: "Устройство温 примыкания кровли к парапету, погонные метры",
+    requested_text: "Устройство примыкания кровли к парапету, погонные метры",
     status: "pending",
     created_at: "18.08.2026",
     comments: [
