@@ -161,10 +161,10 @@ function ProfilePage() {
               ))}
             {tab === "workTypes" &&
               workTypes.map((w) => (
-                <li key={w.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                  <span>{w.name}</span>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {w.unit} · {w.price} ₽
+                <li key={w.id} className="flex items-start justify-between gap-3 px-4 py-2.5 text-sm">
+                  <span className="min-w-0 flex-1 break-words whitespace-normal">{w.name}</span>
+                  <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                    {isAdmin ? `${w.unit} · ${w.price} ₽` : w.unit}
                   </span>
                 </li>
               ))}
