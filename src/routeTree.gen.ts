@@ -10,33 +10,128 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as MessagesRouteImport } from './routes/messages'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as ObjectsIdRouteImport } from './routes/objects.$id'
+import { Route as RecordsNewRouteImport } from './routes/records.new'
+import { Route as ReportsIndexRouteImport } from './routes/reports.index'
+import { Route as ReportsAllRouteImport } from './routes/reports.all'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MessagesRoute = MessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ObjectsIdRoute = ObjectsIdRouteImport.update({
+  id: '/objects/$id',
+  path: '/objects/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecordsNewRoute = RecordsNewRouteImport.update({
+  id: '/records/new',
+  path: '/records/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsIndexRoute = ReportsIndexRouteImport.update({
+  id: '/reports/',
+  path: '/reports/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsAllRoute = ReportsAllRouteImport.update({
+  id: '/reports/all',
+  path: '/reports/all',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/messages': typeof MessagesRoute
+  '/profile': typeof ProfileRoute
+  '/objects/$id': typeof ObjectsIdRoute
+  '/records/new': typeof RecordsNewRoute
+  '/reports/all': typeof ReportsAllRoute
+  '/reports/': typeof ReportsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/messages': typeof MessagesRoute
+  '/profile': typeof ProfileRoute
+  '/objects/$id': typeof ObjectsIdRoute
+  '/records/new': typeof RecordsNewRoute
+  '/reports/all': typeof ReportsAllRoute
+  '/reports': typeof ReportsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/messages': typeof MessagesRoute
+  '/profile': typeof ProfileRoute
+  '/objects/$id': typeof ObjectsIdRoute
+  '/records/new': typeof RecordsNewRoute
+  '/reports/all': typeof ReportsAllRoute
+  '/reports/': typeof ReportsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/messages'
+    | '/profile'
+    | '/objects/$id'
+    | '/records/new'
+    | '/reports/all'
+    | '/reports/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/login'
+    | '/messages'
+    | '/profile'
+    | '/objects/$id'
+    | '/records/new'
+    | '/reports/all'
+    | '/reports'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/messages'
+    | '/profile'
+    | '/objects/$id'
+    | '/records/new'
+    | '/reports/all'
+    | '/reports/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
+  MessagesRoute: typeof MessagesRoute
+  ProfileRoute: typeof ProfileRoute
+  ObjectsIdRoute: typeof ObjectsIdRoute
+  RecordsNewRoute: typeof RecordsNewRoute
+  ReportsAllRoute: typeof ReportsAllRoute
+  ReportsIndexRoute: typeof ReportsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +143,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/objects/$id': {
+      id: '/objects/$id'
+      path: '/objects/$id'
+      fullPath: '/objects/$id'
+      preLoaderRoute: typeof ObjectsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/records/new': {
+      id: '/records/new'
+      path: '/records/new'
+      fullPath: '/records/new'
+      preLoaderRoute: typeof RecordsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports/': {
+      id: '/reports/'
+      path: '/reports'
+      fullPath: '/reports/'
+      preLoaderRoute: typeof ReportsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports/all': {
+      id: '/reports/all'
+      path: '/reports/all'
+      fullPath: '/reports/all'
+      preLoaderRoute: typeof ReportsAllRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
+  MessagesRoute: MessagesRoute,
+  ProfileRoute: ProfileRoute,
+  ObjectsIdRoute: ObjectsIdRoute,
+  RecordsNewRoute: RecordsNewRoute,
+  ReportsAllRoute: ReportsAllRoute,
+  ReportsIndexRoute: ReportsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
