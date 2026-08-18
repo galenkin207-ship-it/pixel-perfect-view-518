@@ -26,6 +26,7 @@ type AppState = {
   setObjects: React.Dispatch<React.SetStateAction<WorkObject[]>>;
   records: WorkRecord[];
   addRecord: (r: WorkRecord) => void;
+  updateRecord: (r: WorkRecord) => void;
   requests: WorkRequest[];
   setRequests: React.Dispatch<React.SetStateAction<WorkRequest[]>>;
   workTypes: WorkType[];
@@ -68,6 +69,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setObjects,
     records,
     addRecord: (r) => setRecords((prev) => [r, ...prev]),
+    updateRecord: (r) => setRecords((prev) => prev.map((p) => (p.id === r.id ? r : p))),
     requests,
     setRequests,
     workTypes,
