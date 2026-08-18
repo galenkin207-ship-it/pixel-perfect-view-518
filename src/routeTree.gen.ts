@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ObjectsIdRouteImport } from './routes/objects.$id'
+import { Route as RecordsNewRouteImport } from './routes/records.new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const ObjectsIdRoute = ObjectsIdRouteImport.update({
   path: '/objects/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RecordsNewRoute = RecordsNewRouteImport.update({
+  id: '/records/new',
+  path: '/records/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/objects/$id': typeof ObjectsIdRoute
+  '/records/new': typeof RecordsNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/objects/$id': typeof ObjectsIdRoute
+  '/records/new': typeof RecordsNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/objects/$id': typeof ObjectsIdRoute
+  '/records/new': typeof RecordsNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/objects/$id'
+  fullPaths: '/' | '/objects/$id' | '/records/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/objects/$id'
-  id: '__root__' | '/' | '/objects/$id'
+  to: '/' | '/objects/$id' | '/records/new'
+  id: '__root__' | '/' | '/objects/$id' | '/records/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ObjectsIdRoute: typeof ObjectsIdRoute
+  RecordsNewRoute: typeof RecordsNewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ObjectsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/records/new': {
+      id: '/records/new'
+      path: '/records/new'
+      fullPath: '/records/new'
+      preLoaderRoute: typeof RecordsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ObjectsIdRoute: ObjectsIdRoute,
+  RecordsNewRoute: RecordsNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

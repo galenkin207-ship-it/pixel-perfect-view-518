@@ -51,11 +51,12 @@ function NewRecordPage() {
       object_id: objectId,
       execution_type: executionType,
       employees: executionType === "employee" ? selectedEmployees : [],
-      brigade_name: executionType === "brigade" ? brigadeName : undefined,
-      brigade_members:
-        executionType === "brigade"
-          ? brigades.find((b) => b.name === brigadeName)?.members
-          : undefined,
+      ...(executionType === "brigade"
+        ? {
+            brigade_name: brigadeName,
+            brigade_members: brigades.find((b) => b.name === brigadeName)?.members ?? [],
+          }
+        : {}),
       date: new Intl.DateTimeFormat("ru-RU").format(new Date()),
       time: new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(
         new Date(),
