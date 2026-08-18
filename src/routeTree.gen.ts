@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ObjectsIdRouteImport } from './routes/objects.$id'
+import { Route as RecordsIdRouteImport } from './routes/records.$id'
 import { Route as RecordsNewRouteImport } from './routes/records.new'
 import { Route as ReportsIndexRouteImport } from './routes/reports.index'
 import { Route as ReportsAllRouteImport } from './routes/reports.all'
@@ -43,6 +44,11 @@ const ObjectsIdRoute = ObjectsIdRouteImport.update({
   path: '/objects/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RecordsIdRoute = RecordsIdRouteImport.update({
+  id: '/records/$id',
+  path: '/records/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RecordsNewRoute = RecordsNewRouteImport.update({
   id: '/records/new',
   path: '/records/new',
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRoute
   '/objects/$id': typeof ObjectsIdRoute
+  '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
   '/reports/all': typeof ReportsAllRoute
   '/reports/': typeof ReportsIndexRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRoute
   '/objects/$id': typeof ObjectsIdRoute
+  '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
   '/reports/all': typeof ReportsAllRoute
   '/reports': typeof ReportsIndexRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRoute
   '/objects/$id': typeof ObjectsIdRoute
+  '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
   '/reports/all': typeof ReportsAllRoute
   '/reports/': typeof ReportsIndexRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/profile'
     | '/objects/$id'
+    | '/records/$id'
     | '/records/new'
     | '/reports/all'
     | '/reports/'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/profile'
     | '/objects/$id'
+    | '/records/$id'
     | '/records/new'
     | '/reports/all'
     | '/reports'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/profile'
     | '/objects/$id'
+    | '/records/$id'
     | '/records/new'
     | '/reports/all'
     | '/reports/'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   MessagesRoute: typeof MessagesRoute
   ProfileRoute: typeof ProfileRoute
   ObjectsIdRoute: typeof ObjectsIdRoute
+  RecordsIdRoute: typeof RecordsIdRoute
   RecordsNewRoute: typeof RecordsNewRoute
   ReportsAllRoute: typeof ReportsAllRoute
   ReportsIndexRoute: typeof ReportsIndexRoute
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ObjectsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/records/$id': {
+      id: '/records/$id'
+      path: '/records/$id'
+      fullPath: '/records/$id'
+      preLoaderRoute: typeof RecordsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/records/new': {
       id: '/records/new'
       path: '/records/new'
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   MessagesRoute: MessagesRoute,
   ProfileRoute: ProfileRoute,
   ObjectsIdRoute: ObjectsIdRoute,
+  RecordsIdRoute: RecordsIdRoute,
   RecordsNewRoute: RecordsNewRoute,
   ReportsAllRoute: ReportsAllRoute,
   ReportsIndexRoute: ReportsIndexRoute,

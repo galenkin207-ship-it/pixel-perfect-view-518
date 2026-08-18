@@ -249,6 +249,32 @@ export const records: WorkRecord[] = [
   },
 ];
 
+records.unshift({
+  id: "r0",
+  object_id: "14",
+  execution_type: "employee",
+  employees: ["Петров В.", "Козлов И."],
+  date: "18.08.2026",
+  time: "16:45",
+  items: [
+    {
+      name: "Устройство примыкания кровли к парапету с монтажом фартука из оцинкованной стали",
+      unit: "м. п.",
+      qty: 24,
+      price: 470,
+      allocations: [
+        { employee: "Петров В.", qty: 12 },
+        { employee: "Козлов И.", qty: 12 },
+      ],
+    },
+  ],
+  total: 11280,
+  comment: "Не завершено: нужно добавить объёмы по второму участку",
+  photos: ["Фото 1", "Фото 2"],
+  status: "draft",
+  created_by: "Иванов К.",
+});
+
 export const requests: WorkRequest[] = [
   {
     id: "q1",
