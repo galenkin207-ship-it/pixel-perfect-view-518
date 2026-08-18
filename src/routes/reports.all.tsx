@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar } from "@/components/app/bits";
+import { RecordDetail } from "@/components/app/record-detail";
 import { StatusBadge } from "@/components/app/status-badge";
+import { itemQty } from "@/lib/record-utils";
 import { statusLabels, type RecordStatus } from "@/data/mock";
 import { useApp } from "@/state/app-context";
 
@@ -29,7 +30,8 @@ function AllRecordsPage() {
   const [objectId, setObjectId] = useState("all");
   const [status, setStatus] = useState<"all" | RecordStatus>("all");
   const [query, setQuery] = useState("");
-  const [expanded, setExpanded] = useState<string | null>("r2");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const openRecord = records.find((r) => r.id === openId) ?? null;
 
   const filtered = records.filter(
     (r) =>
@@ -128,64 +130,44 @@ function AllRecordsPage() {
           const object = objects.find((o) => o.id === r.object_id);
           const performer =
             r.execution_type === "brigade" ? (r.brigade_name ?? "") : r.employees.join(", ");
-          const open = expanded === r.id;
           return (
             <div key={r.id} className="border-b border-border last:border-0">
               <button
-                onClick={() => setExpanded(open ? null : r.id)}
-                className="grid w-full grid-cols-1 gap-2 px-4 py-3 text-left hover:bg-muted/40 lg:grid-cols-[2.5fr_1.2fr_1.2fr_0.8fr_1fr_1fr] lg:items-center lg:gap-3"
+                onClick={() => setOpenId(r.id)}
+                className="grid w-full grid-cols-1 gap-2 px-4 py-3 text-left hover:bg-muted/40 lg:grid-cols-[2.5fr_1.2fr_1.2fr_0.8fr_1fr_1fr] lg:items-start lg:gap-3"
               >
                 <span>
-                  <span className="block text-sm font-semibold">
+                  <span className="block text-sm font-semibold break-words whitespace-normal">
                     {r.items.map((i) => i.name).join(", ")}
                   </span>
                   <span className="block text-xs text-muted-foreground">
                     {object?.name} · {object?.address}
                   </span>
                 </span>
-                <span className="flex items-center gap-2 text-sm">
+                <span className="flex items-center gap-2 text-sm break-words">
                   <InitialsAvatar name={r.created_by} />
                   {r.created_by}
                 </span>
-                <span className="flex items-center gap-2 text-sm">
+                <span className="flex items-center gap-2 text-sm break-words">
                   <InitialsAvatar name={performer} />
                   {performer}
                 </span>
                 <span className="font-mono text-sm">
-                  {r.items[0]!.qty} {r.items[0]!.unit}
+                  {itemQty(r.items[0]!)} {r.items[0]!.unit}
                 </span>
                 <span className="text-sm text-muted-foreground">
                   {r.date.slice(0, 5)}, {r.time}
                 </span>
                 <span className="flex items-center gap-2">
                   <StatusBadge status={r.status} />
-                  <ChevronDown
-                    className={`size-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
-                  />
                 </span>
               </button>
-              {open && (
-                <div className="grid gap-4 bg-surface px-4 py-3 text-sm sm:grid-cols-3 lg:grid-cols-5">
-                  <Cell label="Начало" value={r.started_at ?? "—"} />
-                  <Cell label="Окончание" value={r.finished_at ?? "—"} />
-                  <Cell label="Материал" value={r.material ?? "—"} />
-                  <Cell label="Комментарий прораба" value={r.comment || "—"} />
-                  <Cell label="Сумма" value={`${r.total.toLocaleString("ru-RU")} ₽`} />
-                </div>
-              )}
             </div>
           );
         })}
       </div>
-    </AppShell>
-  );
-}
 
-function Cell({ label, value }: { label: string; value: string }) {
-  return (
-    <span className="block">
-      <span className="label-caps">{label}</span>
-      <span className="mt-0.5 block font-semibold">{value}</span>
-    </span>
+      {openRecord && <RecordDetail record={openRecord} onClose={() => setOpenId(null)} />}
+    </AppShell>
   );
 }
