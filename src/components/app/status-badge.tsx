@@ -6,6 +6,7 @@ const map: Record<RecordStatus, string> = {
   in_progress: "bg-status-progress-soft text-status-progress",
   on_review: "bg-status-review-soft text-status-review",
   rejected: "bg-status-rejected-soft text-status-rejected",
+  draft: "bg-muted text-muted-foreground",
 };
 
 export const statusBar: Record<RecordStatus, string> = {
@@ -13,6 +14,7 @@ export const statusBar: Record<RecordStatus, string> = {
   in_progress: "bg-status-progress",
   on_review: "bg-status-review",
   rejected: "bg-status-rejected",
+  draft: "bg-muted-foreground/40",
 };
 
 export function StatusBadge({ status, className }: { status: RecordStatus; className?: string }) {

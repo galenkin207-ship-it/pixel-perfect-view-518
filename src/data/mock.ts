@@ -1,5 +1,5 @@
 export type Role = "user" | "curator" | "admin";
-export type RecordStatus = "done" | "in_progress" | "on_review" | "rejected";
+export type RecordStatus = "done" | "in_progress" | "on_review" | "rejected" | "draft";
 export type ExecutionType = "employee" | "brigade";
 
 export type WorkObject = {
@@ -10,7 +10,16 @@ export type WorkObject = {
   progress_percent: number;
 };
 
-export type WorkItem = { name: string; unit: string; qty: number; price: number };
+export type EmployeeQty = { employee: string; qty: number };
+
+export type WorkItem = {
+  name: string;
+  unit: string;
+  qty: number;
+  price: number;
+  allocations?: EmployeeQty[];
+  manual?: boolean;
+};
 
 export type WorkRecord = {
   id: string;
@@ -291,4 +300,5 @@ export const statusLabels: Record<RecordStatus, string> = {
   in_progress: "В работе",
   on_review: "На проверке",
   rejected: "Отклонено",
+  draft: "Не завершена",
 };
