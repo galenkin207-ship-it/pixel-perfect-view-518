@@ -52,7 +52,7 @@ function ProfilePage() {
     if (tab === "objects")
       setObjects((p) => [
         ...p,
-        { id: `o${Date.now()}`, name: v, address: "Адрес уточняется", stages: 4, done: 0 },
+        { id: `o${Date.now()}`, name: v, address: "Адрес уточняется", records_today: 0, progress_percent: 0 },
       ]);
     if (tab === "workTypes")
       setWorkTypes((p) => [...p, { id: `w${Date.now()}`, name: v, unit: "м²", price: 0 }]);
@@ -69,7 +69,7 @@ function ProfilePage() {
         <div className="min-w-0">
           <p className="text-lg font-bold">{currentUser.full_name}</p>
           <p className="text-sm text-muted-foreground">
-            {roleLabels[currentUser.role as Role]} · {currentUser.phone}
+            {roleLabels[currentUser.role as Role]} · {currentUser.login}
           </p>
         </div>
       </div>
@@ -173,7 +173,7 @@ function ProfilePage() {
                 <li key={u.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
                   <span>
                     {u.full_name}
-                    <span className="block text-xs text-muted-foreground">{u.phone}</span>
+                    <span className="block text-xs text-muted-foreground">{u.login}</span>
                   </span>
                   <span className="text-xs font-semibold text-muted-foreground">
                     {roleLabels[u.role as Role]}
