@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ObjectsIdRouteImport } from './routes/objects.$id'
 import { Route as RecordsNewRouteImport } from './routes/records.new'
+import { Route as ReportsIndexRouteImport } from './routes/reports.index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +29,44 @@ const RecordsNewRoute = RecordsNewRouteImport.update({
   path: '/records/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReportsIndexRoute = ReportsIndexRouteImport.update({
+  id: '/reports/',
+  path: '/reports/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/objects/$id': typeof ObjectsIdRoute
   '/records/new': typeof RecordsNewRoute
+  '/reports/': typeof ReportsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/objects/$id': typeof ObjectsIdRoute
   '/records/new': typeof RecordsNewRoute
+  '/reports': typeof ReportsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/objects/$id': typeof ObjectsIdRoute
   '/records/new': typeof RecordsNewRoute
+  '/reports/': typeof ReportsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/objects/$id' | '/records/new'
+  fullPaths: '/' | '/objects/$id' | '/records/new' | '/reports/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/objects/$id' | '/records/new'
-  id: '__root__' | '/' | '/objects/$id' | '/records/new'
+  to: '/' | '/objects/$id' | '/records/new' | '/reports'
+  id: '__root__' | '/' | '/objects/$id' | '/records/new' | '/reports/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ObjectsIdRoute: typeof ObjectsIdRoute
   RecordsNewRoute: typeof RecordsNewRoute
+  ReportsIndexRoute: typeof ReportsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +92,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecordsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reports/': {
+      id: '/reports/'
+      path: '/reports'
+      fullPath: '/reports/'
+      preLoaderRoute: typeof ReportsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ObjectsIdRoute: ObjectsIdRoute,
   RecordsNewRoute: RecordsNewRoute,
+  ReportsIndexRoute: ReportsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
