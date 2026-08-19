@@ -155,7 +155,10 @@ export function AppShell({
             <Link
               to={fab.to}
               aria-label={fab.label ?? "Новая запись"}
-              className="fixed right-5 bottom-24 z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:absolute md:right-8 md:bottom-8"
+              className={cn(
+                "fixed right-5 z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:absolute md:right-8 md:bottom-8",
+                fab.className ?? "bottom-24 md:bottom-8",
+              )}
             >
               <Plus className="size-6" />
             </Link>
