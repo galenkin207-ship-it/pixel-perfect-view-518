@@ -16,11 +16,12 @@ export const Route = createFileRoute("/reports/all")({
       {
         name: "description",
         content:
-          "Таблица всех выполненных работ по объектам с фильтрами по прорабу, дате и статусу.",
+          "Таблица всех выполненных работ по объектам с фильтрами по подавшему, дате и статусу.",
       },
       { property: "og:title", content: "Все записи — Учёт работ" },
       { property: "og:description", content: "Реестр выполненных работ строительной компании." },
     ],
+
   }),
   component: AllRecordsPage,
 });
@@ -30,15 +31,20 @@ function AllRecordsPage() {
   const [objectId, setObjectId] = useState("all");
   const [status, setStatus] = useState<"all" | RecordStatus>("all");
   const [query, setQuery] = useState("");
+  const [submitter, setSubmitter] = useState("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const openRecord = records.find((r) => r.id === openId) ?? null;
+
+  const submitters = Array.from(new Set(records.map((r) => r.created_by))).sort();
 
   const filtered = records.filter(
     (r) =>
       (objectId === "all" || r.object_id === objectId) &&
       (status === "all" || r.status === status) &&
+      (submitter === "all" || r.created_by === submitter) &&
       r.items.some((i) => i.name.toLowerCase().includes(query.toLowerCase())),
   );
+
 
   return (
     <AppShell fab={{ to: "/records/new" }}>
@@ -57,7 +63,7 @@ function AllRecordsPage() {
         </Link>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <label className="block">
           <span className="label-caps">Объект</span>
           <select
@@ -74,13 +80,28 @@ function AllRecordsPage() {
           </select>
         </label>
         <label className="block">
-          <span className="label-caps">Поиск</span>
+          <span className="label-caps">Поиск по работе</span>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск по виду работы..."
+            placeholder="Вид работы..."
             className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
           />
+        </label>
+        <label className="block">
+          <span className="label-caps">Кто подал</span>
+          <select
+            value={submitter}
+            onChange={(e) => setSubmitter(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
+          >
+            <option value="all">Все</option>
+            {submitters.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="block">
           <span className="label-caps">Дата</span>
@@ -105,6 +126,7 @@ function AllRecordsPage() {
           </select>
         </label>
       </div>
+
 
       <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
         <span>
