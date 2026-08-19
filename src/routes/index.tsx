@@ -49,7 +49,7 @@ function ObjectsPage() {
         title={isForeman ? "Мои объекты" : "Объекты"}
       />
 
-      <div className="relative mt-4 w-full max-w-xl">
+      <div className="relative mt-4 w-full max-w-xl lg:max-w-2xl xl:max-w-3xl">
         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
         <input
           value={query}
