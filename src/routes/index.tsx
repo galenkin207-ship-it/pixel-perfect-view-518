@@ -69,6 +69,44 @@ function ObjectsPage() {
         />
       </div>
 
+      {/* Add object to screen — visible first so it’s always on screen */}
+      {isForeman && addable.length > 0 && (
+        <div className="mt-5 rounded-2xl border border-border bg-surface p-4">
+          <div className="flex items-center gap-2">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Plus className="size-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold">Добавить объект на экран</p>
+              <p className="text-xs text-muted-foreground">
+                {addable.length} объект{addable.length === 1 ? "" : addable.length < 5 ? "а" : "ов"} можно добавить
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {addable.slice(0, query ? addable.length : 6).map((o) => (
+              <div
+                key={o.id}
+                className="flex items-center justify-between gap-3 rounded-xl border border-border border-dashed bg-card p-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{o.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{o.address}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPinned((p) => [...p, o.id])}
+                  className="flex shrink-0 items-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
+                >
+                  <Plus className="size-4" /> На экран
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {filtered.map((o) => (
           <Link
@@ -92,43 +130,14 @@ function ObjectsPage() {
                 {o.records_today > 0 ? `${o.records_today} записей сегодня` : "Нет записей"}
               </span>
             </div>
-
           </Link>
         ))}
       </div>
 
       {filtered.length === 0 && (
         <p className="mt-4 text-sm text-muted-foreground">
-          Объектов на экране нет — найдите объект в списке ниже и добавьте его.
+          Объектов на экране нет — добавьте объект из блока выше.
         </p>
-      )}
-
-      {addable.length > 0 && (
-        <div className="mt-8">
-          <p className="text-sm font-semibold text-muted-foreground">
-            Добавить объект на экран
-          </p>
-          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {addable.slice(0, query ? addable.length : 6).map((o) => (
-              <div
-                key={o.id}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-border border-dashed bg-surface p-3"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{o.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{o.address}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setPinned((p) => [...p, o.id])}
-                  className="flex shrink-0 items-center gap-1 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
-                >
-                  <Plus className="size-4" /> На экран
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
       )}
     </AppShell>
   );
