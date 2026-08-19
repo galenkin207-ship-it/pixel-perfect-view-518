@@ -122,6 +122,8 @@ export const records: WorkRecord[] = [
     photos: [],
     status: "done",
     created_by: "Иванов К.",
+    updated_by: "Дьяченко Л.",
+    updated_at: "18.08.2026, 14:20",
     started_at: "07:40",
     finished_at: "12:10",
     material: "Бетон М300",
