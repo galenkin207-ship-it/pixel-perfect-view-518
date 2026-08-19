@@ -212,6 +212,7 @@ function ReportsPage() {
                   submitter: rSubmitter,
                   from: rFrom,
                   to: rTo,
+                  apply: "1",
                 }}
                 className="block rounded-lg bg-primary py-2.5 text-center text-sm font-semibold text-primary-foreground"
               >
