@@ -16,11 +16,12 @@ export const Route = createFileRoute("/reports/all")({
       {
         name: "description",
         content:
-          "Таблица всех выполненных работ по объектам с фильтрами по прорабу, дате и статусу.",
+          "Таблица всех выполненных работ по объектам с фильтрами по подавшему, дате и статусу.",
       },
       { property: "og:title", content: "Все записи — Учёт работ" },
       { property: "og:description", content: "Реестр выполненных работ строительной компании." },
     ],
+
   }),
   component: AllRecordsPage,
 });
