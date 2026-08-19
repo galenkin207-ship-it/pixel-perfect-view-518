@@ -18,6 +18,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { roleLabels, type Role } from "@/data/mock";
 import { useApp } from "@/state/use-app";
+import { useSwipeNav } from "@/hooks/use-swipe-nav";
 import { InitialsAvatar } from "./bits";
 
 type NavItem = { to: string; label: string; icon: typeof Building2; badge?: number };
@@ -50,6 +51,11 @@ export function AppShell({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isAdminLike = role === "admin" || role === "curator";
   const pending = requests.filter((r) => r.status === "pending").length;
+
+  useSwipeNav(
+    mobileTabs(role).map((t) => t.to),
+    pathname,
+  );
 
   const home: NavItem[] = [
     { to: "/", label: "Объекты", icon: Building2 },
