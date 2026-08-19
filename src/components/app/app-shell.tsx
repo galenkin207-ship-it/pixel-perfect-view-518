@@ -85,13 +85,19 @@ export function AppShell({
             </span>
           </Link>
 
-          <button className="mb-5 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted">
+          <Link
+            to="/notifications"
+            className={cn(
+              "mb-5 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted",
+              isActive("/notifications") && "bg-accent font-semibold text-accent-foreground",
+            )}
+          >
             <span className="flex items-center gap-2">
               <Bell className="size-4 text-muted-foreground" />
               Уведомления
             </span>
             <span className="text-xs font-semibold text-primary">{notificationsCount}</span>
-          </button>
+          </Link>
 
           <NavGroup title="Аналитика" items={tabs.slice(1, 2)} isActive={isActive} />
           {isAdminLike && <NavGroup title="Управление" items={manage} isActive={isActive} />}
@@ -150,6 +156,18 @@ export function AppShell({
                 </option>
               ))}
             </select>
+            <Link
+              to="/notifications"
+              aria-label="Уведомления"
+              className="relative flex size-8 items-center justify-center rounded-full border border-border bg-surface"
+            >
+              <Bell className="size-4" />
+              {notificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                  {notificationsCount}
+                </span>
+              )}
+            </Link>
           </div>
 
           <div className="w-full px-4 py-5 md:px-6 md:py-6 xl:px-10 xl:py-8">{children}</div>
