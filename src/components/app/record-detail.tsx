@@ -19,7 +19,7 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
 
   return (
     <div className="fixed inset-0 z-50 flex bg-black/50 md:items-center md:justify-center md:p-6">
-      <div className="h-full w-full overflow-y-auto bg-card p-5 md:max-h-[90vh] md:max-w-2xl md:rounded-3xl">
+      <div className="h-full w-full overflow-y-auto bg-card p-5 md:max-h-[90vh] md:max-w-3xl md:rounded-3xl lg:max-w-4xl xl:max-w-5xl">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs text-muted-foreground">
