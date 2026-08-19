@@ -18,8 +18,8 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
     record.execution_type === "brigade" ? (record.brigade_members ?? []) : record.employees;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 md:items-center md:p-6">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-card p-5 md:rounded-3xl">
+    <div className="fixed inset-0 z-50 flex bg-black/50 md:items-center md:justify-center md:p-6">
+      <div className="h-full w-full overflow-y-auto bg-card p-5 md:max-h-[90vh] md:max-w-2xl md:rounded-3xl">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs text-muted-foreground">
