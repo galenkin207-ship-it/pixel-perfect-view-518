@@ -27,13 +27,26 @@ export const Route = createFileRoute("/records/$id")({
 
 function EditRecordPage() {
   const { id } = useParams({ from: "/records/$id" });
-  const { records } = useApp();
+  const { records, role, currentUser } = useApp();
   const record = records.find((r) => r.id === id);
+  const canEdit =
+    !!record &&
+    (role === "admin" || role === "curator" || record.created_by === currentUser.full_name);
 
   return (
     <AppShell>
-      {record ? (
+      {record && canEdit ? (
         <RecordForm record={record} />
+      ) : record ? (
+        <>
+          <p className="text-sm text-muted-foreground">
+            Изменять эту запись может только её автор ({record.created_by}), куратор или
+            администратор.
+          </p>
+          <Link to="/" className="mt-3 inline-block text-sm font-semibold text-primary">
+            К списку объектов
+          </Link>
+        </>
       ) : (
         <>
           <p className="text-sm text-muted-foreground">Запись не найдена.</p>
