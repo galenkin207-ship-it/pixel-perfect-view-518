@@ -1,6 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar, PageHeading } from "@/components/app/bits";
@@ -23,8 +21,6 @@ export const Route = createFileRoute("/profile")({
   }),
   component: ProfilePage,
 });
-
-type Tab = "employees" | "objects" | "workTypes" | "users";
 
 function Switch({
   checked,
@@ -79,34 +75,7 @@ function ProfilePage() {
     setThemeMode,
     notifications,
     setNotifications,
-    employees,
-    setEmployees,
-    objects,
-    setObjects,
-    workTypes,
-    setWorkTypes,
-    users,
   } = useApp();
-  const [tab, setTab] = useState<Tab>("employees");
-  const [value, setValue] = useState("");
-
-  const isAdmin = role === "admin";
-
-  const add = () => {
-    const v = value.trim();
-    if (!v) return;
-    if (tab === "employees") setEmployees((p) => [...p, v]);
-    if (tab === "objects")
-      setObjects((p) => [
-        ...p,
-        { id: `o${Date.now()}`, name: v, address: "Адрес уточняется", records_today: 0, progress_percent: 0 },
-      ]);
-    if (tab === "workTypes")
-      setWorkTypes((p) => [...p, { id: `w${Date.now()}`, name: v, unit: "м²", price: 0 }]);
-    setValue("");
-    toast.success("Добавлено");
-  };
-
   const setNotif = <K extends keyof typeof notifications>(key: K, v: (typeof notifications)[K]) =>
     setNotifications((p) => ({ ...p, [key]: v }));
 
