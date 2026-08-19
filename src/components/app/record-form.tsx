@@ -388,32 +388,32 @@ function WorkTypePicker({
   const filtered = types.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 md:items-center md:p-6">
-      <div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-t-3xl bg-card shadow-2xl md:rounded-3xl">
-        <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-4 md:px-8 md:pt-8 md:pb-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 md:items-center md:p-4">
+      <div className="flex max-h-[95vh] w-full max-w-6xl flex-col rounded-t-3xl bg-card shadow-2xl md:rounded-3xl">
+        <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-5 md:px-10 md:pt-10 md:pb-7">
           <div>
-            <h2 className="text-xl font-bold md:text-2xl">Выбор вида работ</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h2 className="text-2xl font-bold md:text-3xl">Выбор вида работ</h2>
+            <p className="mt-1.5 text-base text-muted-foreground">
               Найдите позицию в справочнике или укажите свой вариант
             </p>
           </div>
-          <button onClick={onClose} aria-label="Закрыть" className="rounded-full p-2 hover:bg-muted">
-            <X className="size-5 text-muted-foreground" />
+          <button onClick={onClose} aria-label="Закрыть" className="rounded-full p-2.5 hover:bg-muted">
+            <X className="size-6 text-muted-foreground" />
           </button>
         </div>
 
-        <div className="px-5 md:px-8">
+        <div className="px-6 md:px-10">
           <div className="relative">
-            <Search className="absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" />
             <input
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Поиск по названию..."
-              className="w-full rounded-xl border border-border bg-surface py-3.5 pr-4 pl-11 text-base"
+              className="w-full rounded-xl border border-border bg-surface py-4 pr-5 pl-12 text-base"
             />
           </div>
-          <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
+          <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
             <span className="label-caps">Справочник</span>
             <span>
               {filtered.length} {filtered.length === 1 ? "позиция" : filtered.length < 5 ? "позиции" : "позиций"}
@@ -421,38 +421,39 @@ function WorkTypePicker({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 md:px-8 md:py-5">
+        <div className="flex-1 overflow-y-auto px-6 py-5 md:px-10 md:py-7">
           {filtered.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border bg-surface p-6 text-center">
-              <p className="text-sm text-muted-foreground">Ничего не найдено</p>
+            <div className="rounded-2xl border border-dashed border-border bg-surface p-8 text-center">
+              <p className="text-base text-muted-foreground">Ничего не найдено</p>
               <button
                 onClick={() => setCustomOpen(true)}
-                className="mt-2 text-sm font-semibold text-primary"
+                className="mt-3 text-base font-semibold text-primary"
               >
                 Указать свой вариант
               </button>
             </div>
           ) : (
-            <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((t) => (
                 <li key={t.id}>
                   <button
                     onClick={() => onPick({ name: t.name, unit: t.unit, qty: 0, price: t.price })}
-                    className="group flex h-full w-full items-start justify-between gap-4 rounded-2xl border border-border bg-surface p-4 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
+                    className="group flex h-full w-full flex-col items-start justify-between gap-4 rounded-2xl border border-border bg-surface p-5 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
                   >
-                    <div className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold leading-snug break-words whitespace-normal group-hover:text-primary">
-                        {t.name}
-                      </span>
+                    <span className="block text-base font-semibold leading-snug break-words whitespace-normal group-hover:text-primary">
+                      {t.name}
+                    </span>
+                    <div className="flex w-full items-center justify-between gap-3">
                       {isAdmin && (
-                        <span className="mt-2 inline-block font-mono text-xs text-muted-foreground">
+                        <span className="font-mono text-sm text-muted-foreground">
                           {t.price.toLocaleString("ru-RU")} ₽ / {t.unit}
                         </span>
                       )}
+                      {!isAdmin && <span />}
+                      <span className="shrink-0 rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                        {t.unit}
+                      </span>
                     </div>
-                    <span className="shrink-0 rounded-lg bg-muted px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {t.unit}
-                    </span>
                   </button>
                 </li>
               ))}
@@ -460,40 +461,40 @@ function WorkTypePicker({
           )}
         </div>
 
-        <div className="border-t border-border px-5 py-4 md:px-8 md:py-5">
+        <div className="border-t border-border px-6 py-5 md:px-10 md:py-7">
           {!customOpen ? (
             <button
               onClick={() => setCustomOpen(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3 text-sm font-semibold text-primary transition-colors hover:bg-muted/40"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-4 text-base font-semibold text-primary transition-colors hover:bg-muted/40"
             >
-              <Plus className="size-4" />
+              <Plus className="size-5" />
               Не нашли нужный вид работы? Указать свой вариант
             </button>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold">Свой вариант</span>
-                <button onClick={() => setCustomOpen(false)} className="text-xs text-muted-foreground">
+                <span className="text-base font-semibold">Свой вариант</span>
+                <button onClick={() => setCustomOpen(false)} className="text-sm text-muted-foreground">
                   Скрыть
                 </button>
               </div>
               <textarea
-                rows={3}
+                rows={4}
                 value={custom}
                 onChange={(e) => setCustom(e.target.value)}
                 placeholder="Опишите недостающие позиции, по одной на строку"
-                className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm"
+                className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-base"
               />
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <button
                   onClick={() => setCustomOpen(false)}
-                  className="flex-1 rounded-xl border border-border bg-surface py-3 text-sm font-semibold"
+                  className="flex-1 rounded-xl border border-border bg-surface py-3.5 text-base font-semibold"
                 >
                   Отмена
                 </button>
                 <button
                   onClick={() => custom.trim() && onRequest(custom.trim())}
-                  className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground"
+                  className="flex-1 rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground"
                 >
                   Отправить заявку
                 </button>
@@ -505,3 +506,4 @@ function WorkTypePicker({
     </div>
   );
 }
+
