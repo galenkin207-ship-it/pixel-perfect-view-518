@@ -76,6 +76,8 @@ function ProfilePage() {
     notifications,
     setNotifications,
   } = useApp();
+  const isAdmin = role === "admin";
+
   const setNotif = <K extends keyof typeof notifications>(key: K, v: (typeof notifications)[K]) =>
     setNotifications((p) => ({ ...p, [key]: v }));
 
