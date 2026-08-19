@@ -51,9 +51,12 @@ export function AppShell({
   const isAdminLike = role === "admin" || role === "curator";
   const pending = requests.filter((r) => r.status === "pending").length;
 
-  const manage: NavItem[] = [
+  const home: NavItem[] = [
+    { to: "/", label: "Объекты", icon: Building2 },
     { to: "/reports/all", label: "Все записи", icon: ListChecks },
     { to: "/messages", label: "Заявки на согласование", icon: Inbox, badge: pending },
+  ];
+  const manage: NavItem[] = [
     { to: "/profile/manage/work-types", label: "Виды работ", icon: ClipboardList },
     { to: "/profile/manage/objects", label: "Объекты", icon: Building2 },
     { to: "/profile/manage/employees", label: "Сотрудники", icon: Users },
@@ -99,11 +102,12 @@ export function AppShell({
             <span className="text-xs font-semibold text-primary">{notificationsCount}</span>
           </Link>
 
+          {isAdminLike && <NavGroup title="Главная" items={home} isActive={isActive} />}
           <NavGroup title="Аналитика" items={tabs.slice(1, 2)} isActive={isActive} />
           {isAdminLike && <NavGroup title="Управление" items={manage} isActive={isActive} />}
           <NavGroup
             title={isAdminLike ? "Администрирование" : "Разделы"}
-            items={isAdminLike ? admin : [tabs[0]!, tabs[2]!, tabs[3]!]}
+            items={isAdminLike ? [...admin, tabs[2]!] : [tabs[0]!, tabs[2]!, tabs[3]!]}
             isActive={isActive}
           />
 
