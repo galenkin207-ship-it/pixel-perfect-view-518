@@ -13,7 +13,7 @@ import {
   User,
   Users,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import { roleLabels, type Role } from "@/data/mock";
@@ -52,10 +52,8 @@ export function AppShell({
   const isAdminLike = role === "admin" || role === "curator";
   const pending = requests.filter((r) => r.status === "pending").length;
 
-  useSwipeNav(
-    mobileTabs(role).map((t) => t.to),
-    pathname,
-  );
+  const swipeOrder = useMemo(() => mobileTabs(role).map((t) => t.to), [role]);
+  useSwipeNav(swipeOrder, pathname);
 
   const home: NavItem[] = [
     { to: "/", label: "Объекты", icon: Building2 },

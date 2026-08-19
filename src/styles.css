@@ -178,6 +178,7 @@
     background-color: var(--color-shell);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    overscroll-behavior-x: contain;
   }
 }
 
