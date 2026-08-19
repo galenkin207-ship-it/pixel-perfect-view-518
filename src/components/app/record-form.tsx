@@ -388,70 +388,119 @@ function WorkTypePicker({
   const filtered = types.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 md:items-center md:p-6">
-      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-card p-5 md:rounded-3xl">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">Выбор вида работ</h2>
-          <button onClick={onClose} aria-label="Закрыть">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 md:items-center md:p-6">
+      <div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-t-3xl bg-card shadow-2xl md:rounded-3xl">
+        <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-4 md:px-8 md:pt-8 md:pb-6">
+          <div>
+            <h2 className="text-xl font-bold md:text-2xl">Выбор вида работ</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Найдите позицию в справочнике или укажите свой вариант
+            </p>
+          </div>
+          <button onClick={onClose} aria-label="Закрыть" className="rounded-full p-2 hover:bg-muted">
             <X className="size-5 text-muted-foreground" />
           </button>
         </div>
 
-        <div className="relative mt-4">
-          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск по справочнику..."
-            className="w-full rounded-xl border border-border bg-surface py-3 pr-4 pl-9 text-sm"
-          />
+        <div className="px-5 md:px-8">
+          <div className="relative">
+            <Search className="absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Поиск по названию..."
+              className="w-full rounded-xl border border-border bg-surface py-3.5 pr-4 pl-11 text-base"
+            />
+          </div>
+          <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
+            <span className="label-caps">Справочник</span>
+            <span>
+              {filtered.length} {filtered.length === 1 ? "позиция" : filtered.length < 5 ? "позиции" : "позиций"}
+            </span>
+          </div>
         </div>
 
-        <ul className="mt-3 space-y-1">
-          {filtered.map((t) => (
-            <li key={t.id}>
+        <div className="flex-1 overflow-y-auto px-5 py-4 md:px-8 md:py-5">
+          {filtered.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-surface p-6 text-center">
+              <p className="text-sm text-muted-foreground">Ничего не найдено</p>
               <button
-                onClick={() => onPick({ name: t.name, unit: t.unit, qty: 0, price: t.price })}
-                className="flex w-full items-start justify-between gap-3 rounded-xl px-3 py-3 text-left text-sm hover:bg-muted"
+                onClick={() => setCustomOpen(true)}
+                className="mt-2 text-sm font-semibold text-primary"
               >
-                <span className="min-w-0 flex-1 break-words whitespace-normal">{t.name}</span>
-                <span className="shrink-0 text-right text-muted-foreground">
-                  {t.unit}
-                  {isAdmin && (
-                    <span className="block font-mono text-xs">
-                      {t.price.toLocaleString("ru-RU")} ₽
-                    </span>
-                  )}
-                </span>
+                Указать свой вариант
               </button>
-            </li>
-          ))}
-        </ul>
+            </div>
+          ) : (
+            <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {filtered.map((t) => (
+                <li key={t.id}>
+                  <button
+                    onClick={() => onPick({ name: t.name, unit: t.unit, qty: 0, price: t.price })}
+                    className="group flex h-full w-full items-start justify-between gap-4 rounded-2xl border border-border bg-surface p-4 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold leading-snug break-words whitespace-normal group-hover:text-primary">
+                        {t.name}
+                      </span>
+                      {isAdmin && (
+                        <span className="mt-2 inline-block font-mono text-xs text-muted-foreground">
+                          {t.price.toLocaleString("ru-RU")} ₽ / {t.unit}
+                        </span>
+                      )}
+                    </div>
+                    <span className="shrink-0 rounded-lg bg-muted px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {t.unit}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-        <button
-          onClick={() => setCustomOpen((v) => !v)}
-          className="mt-3 text-sm font-semibold text-primary"
-        >
-          Не нашли? Указать свой вариант
-        </button>
-        {customOpen && (
-          <div className="mt-2 space-y-2">
-            <textarea
-              rows={3}
-              value={custom}
-              onChange={(e) => setCustom(e.target.value)}
-              placeholder="Опишите недостающие позиции, по одной на строку"
-              className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm"
-            />
+        <div className="border-t border-border px-5 py-4 md:px-8 md:py-5">
+          {!customOpen ? (
             <button
-              onClick={() => custom.trim() && onRequest(custom.trim())}
-              className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground"
+              onClick={() => setCustomOpen(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3 text-sm font-semibold text-primary transition-colors hover:bg-muted/40"
             >
-              Отправить заявку администратору
+              <Plus className="size-4" />
+              Не нашли нужный вид работы? Указать свой вариант
             </button>
-          </div>
-        )}
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold">Свой вариант</span>
+                <button onClick={() => setCustomOpen(false)} className="text-xs text-muted-foreground">
+                  Скрыть
+                </button>
+              </div>
+              <textarea
+                rows={3}
+                value={custom}
+                onChange={(e) => setCustom(e.target.value)}
+                placeholder="Опишите недостающие позиции, по одной на строку"
+                className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCustomOpen(false)}
+                  className="flex-1 rounded-xl border border-border bg-surface py-3 text-sm font-semibold"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={() => custom.trim() && onRequest(custom.trim())}
+                  className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground"
+                >
+                  Отправить заявку
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
