@@ -227,7 +227,7 @@ function ManagePage() {
 
 function TwoCol({ left, right }: { left: React.ReactNode; right: React.ReactNode }) {
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
+    <div className="grid gap-4 xl:grid-cols-2 2xl:gap-6">
       <div className="space-y-4">{left}</div>
       <div className="space-y-4">{right}</div>
     </div>
@@ -451,7 +451,7 @@ function WorkTypesList() {
         />
       </div>
 
-      <ul className="mt-3 max-h-[640px] divide-y divide-border overflow-auto rounded-xl border border-border">
+      <ul className="mt-3 max-h-[min(70vh,900px)] divide-y divide-border overflow-auto rounded-xl border border-border">
         {slice.map((w, i) => (
           <li key={w.id} className="bg-surface">
             <button
@@ -791,7 +791,7 @@ function UnitsSection() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2 2xl:gap-6">
         <Card title="Подтянуть из справочника">
           <p className="text-sm text-muted-foreground">
             {missing.length

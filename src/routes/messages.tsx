@@ -269,7 +269,7 @@ function MessagesPage() {
 
       <section className="mt-5">
         <h2 className="label-caps">На рассмотрении</h2>
-        <div className="mt-3 grid gap-3 xl:grid-cols-2">{pending.map(renderCard)}</div>
+        <div className="mt-3 grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">{pending.map(renderCard)}</div>
         {pending.length === 0 && (
           <p className="mt-2 text-sm text-muted-foreground">Нет заявок на рассмотрении.</p>
         )}
@@ -282,7 +282,7 @@ function MessagesPage() {
             <button className="text-sm font-semibold text-primary">Экспорт в Excel</button>
           )}
         </div>
-        <div className="mt-3 grid gap-3 xl:grid-cols-2">{history.map(renderCard)}</div>
+        <div className="mt-3 grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">{history.map(renderCard)}</div>
       </section>
     </AppShell>
   );

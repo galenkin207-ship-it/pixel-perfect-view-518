@@ -50,7 +50,7 @@ function ObjectRecordsPage() {
     <AppShell fab={{ to: "/records/new" }}>
       <PageHeading context={object.name} title={object.address} />
 
-      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {list.map((r) => {
           const crew =
             r.execution_type === "brigade" ? (r.brigade_members ?? []) : r.employees;

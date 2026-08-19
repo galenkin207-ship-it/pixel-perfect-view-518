@@ -58,7 +58,7 @@ function ReportsPage() {
         ))}
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4 2xl:gap-4">
         <Metric value="128" label="записей за неделю" accent />
         <Metric value={String(objects.length)} label="активных объектов" />
         <Metric value={`${Math.round(volume)}`} label="суммарный объём (ед.)" />
