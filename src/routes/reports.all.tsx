@@ -35,6 +35,7 @@ function AllRecordsPage() {
   const [query, setQuery] = useState("");
   const [submitter, setSubmitter] = useState("all");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const openRecord = records.find((r) => r.id === openId) ?? null;
 
   const submitters = Array.from(new Set(records.map((r) => r.created_by))).sort();
