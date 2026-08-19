@@ -4,7 +4,8 @@ import { useState } from "react";
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
 import { RecordDetail } from "@/components/app/record-detail";
-import { StatusBadge, statusBar } from "@/components/app/status-badge";
+import { StatusBadge } from "@/components/app/status-badge";
+import { statusBar } from "@/lib/status-styles";
 import { allocationsFor, itemQty } from "@/lib/record-utils";
 import { useApp } from "@/state/use-app";
 
