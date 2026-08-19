@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { roleLabels, type Role } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
-export const Route = createFileRoute("/profile")({
+export const Route = createFileRoute("/profile/")({
   head: () => ({
     meta: [
       { title: "Профиль и настройки — Учёт работ" },

@@ -12,8 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MessagesRouteImport } from './routes/messages'
-import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ObjectsIdRouteImport } from './routes/objects.$id'
+import { Route as ProfileIndexRouteImport } from './routes/profile.index'
 import { Route as RecordsIdRouteImport } from './routes/records.$id'
 import { Route as RecordsNewRouteImport } from './routes/records.new'
 import { Route as ReportsIndexRouteImport } from './routes/reports.index'
@@ -36,14 +36,14 @@ const MessagesRoute = MessagesRouteImport.update({
   path: '/messages',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProfileRoute = ProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ObjectsIdRoute = ObjectsIdRouteImport.update({
   id: '/objects/$id',
   path: '/objects/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileIndexRoute = ProfileIndexRouteImport.update({
+  id: '/profile/',
+  path: '/profile/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RecordsIdRoute = RecordsIdRouteImport.update({
@@ -72,21 +72,21 @@ const ReportsDetailRoute = ReportsDetailRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileManageSectionRoute = ProfileManageSectionRouteImport.update({
-  id: '/manage/$section',
-  path: '/manage/$section',
-  getParentRoute: () => ProfileRoute,
+  id: '/profile/manage/$section',
+  path: '/profile/manage/$section',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
-  '/profile': typeof ProfileRouteWithChildren
   '/objects/$id': typeof ObjectsIdRoute
   '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
   '/reports/all': typeof ReportsAllRoute
   '/reports/detail': typeof ReportsDetailRoute
+  '/profile/': typeof ProfileIndexRoute
   '/reports/': typeof ReportsIndexRoute
   '/profile/manage/$section': typeof ProfileManageSectionRoute
 }
@@ -94,12 +94,12 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
-  '/profile': typeof ProfileRouteWithChildren
   '/objects/$id': typeof ObjectsIdRoute
   '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
   '/reports/all': typeof ReportsAllRoute
   '/reports/detail': typeof ReportsDetailRoute
+  '/profile': typeof ProfileIndexRoute
   '/reports': typeof ReportsIndexRoute
   '/profile/manage/$section': typeof ProfileManageSectionRoute
 }
@@ -108,12 +108,12 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
-  '/profile': typeof ProfileRouteWithChildren
   '/objects/$id': typeof ObjectsIdRoute
   '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
   '/reports/all': typeof ReportsAllRoute
   '/reports/detail': typeof ReportsDetailRoute
+  '/profile/': typeof ProfileIndexRoute
   '/reports/': typeof ReportsIndexRoute
   '/profile/manage/$section': typeof ProfileManageSectionRoute
 }
@@ -123,12 +123,12 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/messages'
-    | '/profile'
     | '/objects/$id'
     | '/records/$id'
     | '/records/new'
     | '/reports/all'
     | '/reports/detail'
+    | '/profile/'
     | '/reports/'
     | '/profile/manage/$section'
   fileRoutesByTo: FileRoutesByTo
@@ -136,12 +136,12 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/messages'
-    | '/profile'
     | '/objects/$id'
     | '/records/$id'
     | '/records/new'
     | '/reports/all'
     | '/reports/detail'
+    | '/profile'
     | '/reports'
     | '/profile/manage/$section'
   id:
@@ -149,12 +149,12 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/messages'
-    | '/profile'
     | '/objects/$id'
     | '/records/$id'
     | '/records/new'
     | '/reports/all'
     | '/reports/detail'
+    | '/profile/'
     | '/reports/'
     | '/profile/manage/$section'
   fileRoutesById: FileRoutesById
@@ -163,13 +163,14 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRoute
-  ProfileRoute: typeof ProfileRouteWithChildren
   ObjectsIdRoute: typeof ObjectsIdRoute
   RecordsIdRoute: typeof RecordsIdRoute
   RecordsNewRoute: typeof RecordsNewRoute
   ReportsAllRoute: typeof ReportsAllRoute
   ReportsDetailRoute: typeof ReportsDetailRoute
+  ProfileIndexRoute: typeof ProfileIndexRoute
   ReportsIndexRoute: typeof ReportsIndexRoute
+  ProfileManageSectionRoute: typeof ProfileManageSectionRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -195,18 +196,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MessagesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/profile': {
-      id: '/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/objects/$id': {
       id: '/objects/$id'
       path: '/objects/$id'
       fullPath: '/objects/$id'
       preLoaderRoute: typeof ObjectsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile/': {
+      id: '/profile/'
+      path: '/profile'
+      fullPath: '/profile/'
+      preLoaderRoute: typeof ProfileIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/records/$id': {
@@ -246,36 +247,26 @@ declare module '@tanstack/react-router' {
     }
     '/profile/manage/$section': {
       id: '/profile/manage/$section'
-      path: '/manage/$section'
+      path: '/profile/manage/$section'
       fullPath: '/profile/manage/$section'
       preLoaderRoute: typeof ProfileManageSectionRouteImport
-      parentRoute: typeof ProfileRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
-
-interface ProfileRouteChildren {
-  ProfileManageSectionRoute: typeof ProfileManageSectionRoute
-}
-
-const ProfileRouteChildren: ProfileRouteChildren = {
-  ProfileManageSectionRoute: ProfileManageSectionRoute,
-}
-
-const ProfileRouteWithChildren =
-  ProfileRoute._addFileChildren(ProfileRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   MessagesRoute: MessagesRoute,
-  ProfileRoute: ProfileRouteWithChildren,
   ObjectsIdRoute: ObjectsIdRoute,
   RecordsIdRoute: RecordsIdRoute,
   RecordsNewRoute: RecordsNewRoute,
   ReportsAllRoute: ReportsAllRoute,
   ReportsDetailRoute: ReportsDetailRoute,
+  ProfileIndexRoute: ProfileIndexRoute,
   ReportsIndexRoute: ReportsIndexRoute,
+  ProfileManageSectionRoute: ProfileManageSectionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
