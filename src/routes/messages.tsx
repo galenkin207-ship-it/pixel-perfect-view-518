@@ -135,6 +135,9 @@ function MessagesPage() {
             />
           )}
           <div className="min-w-0">
+            <p className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+              Запрошено автором
+            </p>
             <p className="font-semibold">{r.requested_text}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {r.author} · {r.created_at}
@@ -154,10 +157,18 @@ function MessagesPage() {
       </div>
 
       {r.status === "approved" && (
-        <p className="mt-2 text-sm text-muted-foreground">
-          {r.resolved_name} · {r.resolved_unit} ·{" "}
-          {(r.resolved_price ?? 0).toLocaleString("ru-RU")} ₽
-        </p>
+        <div className="mt-2 rounded-xl bg-status-done-soft px-3 py-2">
+          <p className="text-[10px] font-semibold tracking-[0.08em] text-status-done uppercase">
+            Одобрено как
+          </p>
+          <p className="mt-0.5 text-sm font-semibold">{r.resolved_name}</p>
+          <p className="text-xs text-muted-foreground">
+            {r.resolved_unit}
+            {isAdmin && r.resolved_price != null
+              ? ` · ${r.resolved_price.toLocaleString("ru-RU")} ₽`
+              : ""}
+          </p>
+        </div>
       )}
 
       <div className="mt-3 space-y-2">
