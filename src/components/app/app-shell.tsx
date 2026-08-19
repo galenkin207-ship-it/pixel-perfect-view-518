@@ -45,7 +45,7 @@ export function AppShell({
   children: ReactNode;
   fab?: { to: string; label?: string };
 }) {
-  const { role, setRole, currentUser, notifications, requests } = useApp();
+  const { role, setRole, currentUser, notificationsCount, requests } = useApp();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isAdminLike = role === "admin" || role === "curator";
   const pending = requests.filter((r) => r.status === "pending").length;
@@ -87,7 +87,7 @@ export function AppShell({
               <Bell className="size-4 text-muted-foreground" />
               Уведомления
             </span>
-            <span className="text-xs font-semibold text-primary">{notifications}</span>
+            <span className="text-xs font-semibold text-primary">{notificationsCount}</span>
           </button>
 
           <NavGroup title="Аналитика" items={tabs.slice(1, 2)} isActive={isActive} />
