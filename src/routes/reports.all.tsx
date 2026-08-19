@@ -30,15 +30,20 @@ function AllRecordsPage() {
   const [objectId, setObjectId] = useState("all");
   const [status, setStatus] = useState<"all" | RecordStatus>("all");
   const [query, setQuery] = useState("");
+  const [submitter, setSubmitter] = useState("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const openRecord = records.find((r) => r.id === openId) ?? null;
+
+  const submitters = Array.from(new Set(records.map((r) => r.created_by))).sort();
 
   const filtered = records.filter(
     (r) =>
       (objectId === "all" || r.object_id === objectId) &&
       (status === "all" || r.status === status) &&
+      (submitter === "all" || r.created_by === submitter) &&
       r.items.some((i) => i.name.toLowerCase().includes(query.toLowerCase())),
   );
+
 
   return (
     <AppShell fab={{ to: "/records/new" }}>
