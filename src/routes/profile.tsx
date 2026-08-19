@@ -26,12 +26,59 @@ export const Route = createFileRoute("/profile")({
 
 type Tab = "employees" | "objects" | "workTypes" | "users";
 
+function Switch({
+  checked,
+  onChange,
+  label,
+  hint,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  hint?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "flex w-full items-center justify-between gap-3 rounded-xl bg-surface px-4 py-3 text-left text-sm",
+        disabled && "opacity-50",
+      )}
+    >
+      <span className="min-w-0">
+        <span className="block font-medium">{label}</span>
+        {hint && <span className="block text-xs text-muted-foreground">{hint}</span>}
+      </span>
+      <span
+        className={cn(
+          "relative h-6 w-11 shrink-0 rounded-full transition-colors",
+          checked ? "bg-primary" : "bg-muted",
+        )}
+      >
+        <span
+          className={cn(
+            "absolute top-0.5 size-5 rounded-full bg-white transition-all",
+            checked ? "left-[22px]" : "left-0.5",
+          )}
+        />
+      </span>
+    </button>
+  );
+}
+
 function ProfilePage() {
   const {
     role,
     currentUser,
     theme,
-    toggleTheme,
+    themeMode,
+    setThemeMode,
+    notifications,
+    setNotifications,
     employees,
     setEmployees,
     objects,
@@ -60,6 +107,9 @@ function ProfilePage() {
     toast.success("Добавлено");
   };
 
+  const setNotif = <K extends keyof typeof notifications>(key: K, v: (typeof notifications)[K]) =>
+    setNotifications((p) => ({ ...p, [key]: v }));
+
   return (
     <AppShell>
       <PageHeading context={roleLabels[role]} title="Профиль" />
@@ -76,25 +126,110 @@ function ProfilePage() {
 
       <section className="mt-4 rounded-2xl border border-border bg-card p-4">
         <h2 className="font-semibold">Оформление</h2>
-        <button
-          onClick={toggleTheme}
-          className="mt-3 flex w-full items-center justify-between rounded-xl bg-surface px-4 py-3 text-sm"
-        >
-          Тёмная тема
-          <span
-            className={cn(
-              "relative h-6 w-11 rounded-full transition-colors",
-              theme === "dark" ? "bg-primary" : "bg-muted",
-            )}
-          >
-            <span
+        <p className="label-caps mt-3">Тема</p>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {(
+            [
+              ["light", "Светлая"],
+              ["dark", "Тёмная"],
+              ["system", "Как в системе"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setThemeMode(key)}
               className={cn(
-                "absolute top-0.5 size-5 rounded-full bg-white transition-all",
-                theme === "dark" ? "left-[22px]" : "left-0.5",
+                "rounded-xl px-3 py-2.5 text-sm font-semibold",
+                themeMode === key ? "bg-primary text-primary-foreground" : "bg-surface",
               )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {themeMode === "system"
+            ? `Автоматически по настройке телефона — сейчас ${theme === "dark" ? "тёмная" : "светлая"}`
+            : "Ручной режим: тема не меняется вслед за системой"}
+        </p>
+      </section>
+
+      <section className="mt-4 rounded-2xl border border-border bg-card p-4">
+        <h2 className="font-semibold">Уведомления в Telegram</h2>
+        <div className="mt-3 space-y-2">
+          <Switch
+            checked={notifications.telegramEnabled}
+            onChange={(v) => setNotif("telegramEnabled", v)}
+            label="Присылать в Telegram"
+            hint="Бот отправляет сообщения в личный чат"
+          />
+          <label className="block">
+            <span className="label-caps">Telegram-аккаунт</span>
+            <input
+              value={notifications.telegramUsername}
+              onChange={(e) => setNotif("telegramUsername", e.target.value)}
+              disabled={!notifications.telegramEnabled}
+              placeholder="@username"
+              className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm disabled:opacity-50"
             />
-          </span>
-        </button>
+          </label>
+          <Switch
+            disabled={!notifications.telegramEnabled}
+            checked={notifications.telegramNewRecords}
+            onChange={(v) => setNotif("telegramNewRecords", v)}
+            label="Новые записи по объектам"
+          />
+          <Switch
+            disabled={!notifications.telegramEnabled}
+            checked={notifications.telegramRequests}
+            onChange={(v) => setNotif("telegramRequests", v)}
+            label="Заявки на новые виды работ"
+          />
+          <Switch
+            disabled={!notifications.telegramEnabled}
+            checked={notifications.telegramDailyDigest}
+            onChange={(v) => setNotif("telegramDailyDigest", v)}
+            label="Ежедневная сводка за день"
+            hint="Одно сообщение в 20:00"
+          />
+        </div>
+      </section>
+
+      <section className="mt-4 rounded-2xl border border-border bg-card p-4">
+        <h2 className="font-semibold">Уведомления в приложении</h2>
+        <div className="mt-3 space-y-2">
+          <Switch
+            checked={notifications.inAppEnabled}
+            onChange={(v) => setNotif("inAppEnabled", v)}
+            label="Показывать уведомления"
+            hint="Значок и всплывающие сообщения внутри приложения"
+          />
+          <Switch
+            disabled={!notifications.inAppEnabled}
+            checked={notifications.inAppNewRecords}
+            onChange={(v) => setNotif("inAppNewRecords", v)}
+            label="Новые записи по объектам"
+          />
+          <Switch
+            disabled={!notifications.inAppEnabled}
+            checked={notifications.inAppRequests}
+            onChange={(v) => setNotif("inAppRequests", v)}
+            label="Заявки и их одобрение"
+          />
+          <Switch
+            disabled={!notifications.inAppEnabled}
+            checked={notifications.inAppMessages}
+            onChange={(v) => setNotif("inAppMessages", v)}
+            label="Сообщения в переписке"
+          />
+          <Switch
+            disabled={!notifications.inAppEnabled}
+            checked={notifications.inAppSound}
+            onChange={(v) => setNotif("inAppSound", v)}
+            label="Звук уведомления"
+          />
+        </div>
       </section>
 
       {isAdmin && (

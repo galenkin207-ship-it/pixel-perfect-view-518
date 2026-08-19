@@ -6,7 +6,11 @@ export type AppState = {
   setRole: (r: Role) => void;
   currentUser: AppUser;
   theme: "light" | "dark";
+  themeMode: ThemeMode;
+  setThemeMode: (m: ThemeMode) => void;
   toggleTheme: () => void;
+  notifications: NotificationSettings;
+  setNotifications: React.Dispatch<React.SetStateAction<NotificationSettings>>;
   objects: WorkObject[];
   setObjects: React.Dispatch<React.SetStateAction<WorkObject[]>>;
   records: WorkRecord[];
@@ -23,7 +27,22 @@ export type AppState = {
   users: AppUser[];
   setUsers: React.Dispatch<React.SetStateAction<AppUser[]>>;
   brigades: { name: string; members: string[] }[];
-  notifications: number;
+  notificationsCount: number;
+};
+
+export type ThemeMode = "light" | "dark" | "system";
+
+export type NotificationSettings = {
+  telegramEnabled: boolean;
+  telegramUsername: string;
+  telegramNewRecords: boolean;
+  telegramRequests: boolean;
+  telegramDailyDigest: boolean;
+  inAppEnabled: boolean;
+  inAppNewRecords: boolean;
+  inAppRequests: boolean;
+  inAppMessages: boolean;
+  inAppSound: boolean;
 };
 
 export const AppContext = createContext<AppState | null>(null);
