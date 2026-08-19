@@ -7,12 +7,6 @@ const map: Record<RecordStatus, string> = {
   draft: "bg-muted text-muted-foreground",
 };
 
-export const statusBar: Record<RecordStatus, string> = {
-  done: "bg-status-done",
-  in_progress: "bg-status-progress",
-  draft: "bg-muted-foreground/40",
-};
-
 export function StatusBadge({ status, className }: { status: RecordStatus; className?: string }) {
   return (
     <span
