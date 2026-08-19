@@ -4,16 +4,12 @@ import { statusLabels, type RecordStatus } from "@/data/mock";
 const map: Record<RecordStatus, string> = {
   done: "bg-status-done-soft text-status-done",
   in_progress: "bg-status-progress-soft text-status-progress",
-  on_review: "bg-status-review-soft text-status-review",
-  rejected: "bg-status-rejected-soft text-status-rejected",
   draft: "bg-muted text-muted-foreground",
 };
 
 export const statusBar: Record<RecordStatus, string> = {
   done: "bg-status-done",
   in_progress: "bg-status-progress",
-  on_review: "bg-status-review",
-  rejected: "bg-status-rejected",
   draft: "bg-muted-foreground/40",
 };
 
