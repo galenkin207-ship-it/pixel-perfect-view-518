@@ -28,6 +28,16 @@ const tabs: NavItem[] = [
   { to: "/profile", label: "Профиль", icon: User },
 ];
 
+const mobileTabs = (role: Role): NavItem[] => [
+  { to: "/", label: "Объекты", icon: Building2 },
+  { to: "/reports/all", label: "Все записи", icon: ListChecks },
+  { to: "/reports", label: "Отчёты", icon: FileBarChart },
+  role === "admin"
+    ? { to: "/messages", label: "Заявки", icon: Inbox }
+    : { to: "/messages", label: "Переписка", icon: MessageSquare },
+  { to: "/profile", label: "Профиль", icon: User },
+];
+
 export function AppShell({
   children,
   fab,
@@ -51,7 +61,12 @@ export function AppShell({
     { to: "/profile", label: "Настройки", icon: Settings },
   ];
 
-  const isActive = (to: string) => (to === "/" ? pathname === "/" : pathname.startsWith(to));
+  const isActive = (to: string) =>
+    to === "/"
+      ? pathname === "/"
+      : to === "/reports"
+        ? pathname === "/reports"
+        : pathname.startsWith(to);
 
   return (
     <div className="min-h-screen bg-shell text-foreground md:p-6">
@@ -149,15 +164,15 @@ export function AppShell({
       </div>
 
       {/* Mobile bottom tabs */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-border bg-panel pt-2 pb-3 md:hidden">
-        {tabs.map((t) => {
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-panel pt-2 pb-3 md:hidden">
+        {mobileTabs(role).map((t) => {
           const active = isActive(t.to);
           return (
             <Link
               key={t.to}
               to={t.to}
               className={cn(
-                "flex flex-col items-center gap-1 text-[10px] font-semibold tracking-[0.08em] uppercase",
+                "flex flex-col items-center gap-1 text-center text-[9px] leading-tight font-semibold tracking-[0.04em] uppercase",
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
