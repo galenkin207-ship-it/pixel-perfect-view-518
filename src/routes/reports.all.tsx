@@ -175,15 +175,15 @@ function AllRecordsPage() {
                 onClick={() => setOpenId(r.id)}
                 className="grid w-full grid-cols-1 gap-2 px-4 py-3 text-left hover:bg-muted/40 lg:grid-cols-[2.5fr_1.2fr_1.2fr_0.8fr_1fr_1fr_1.2fr] lg:items-start lg:gap-3"
               >
-                <span>
+                <span className="block">
                   <span className="block text-sm font-semibold break-words whitespace-normal">
-                    {object?.name}
+                    {object?.name}{" "}
+                    <span className="font-normal text-muted-foreground">
+                      · {object?.address}
+                    </span>
                   </span>
-                  <span className="block text-xs text-muted-foreground">
+                  <span className="mt-1 block text-sm font-medium text-foreground">
                     {r.items.map((i) => i.name).join(", ")}
-                  </span>
-                  <span className="block text-xs text-muted-foreground/70">
-                    {object?.address}
                   </span>
                 </span>
                 <span className="flex items-center gap-2 text-sm break-words">
