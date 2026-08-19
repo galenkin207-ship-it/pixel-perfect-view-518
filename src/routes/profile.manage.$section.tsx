@@ -252,6 +252,7 @@ function WorkTypesSection() {
   };
 
   return (
+    <>
     <TwoCol
       left={
         <>
@@ -400,6 +401,207 @@ function WorkTypesSection() {
         />
       }
     />
+    <WorkTypesList />
+    </>
+  );
+}
+
+function WorkTypesList() {
+  const { workTypes, setWorkTypes } = useApp();
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(0);
+  const [openId, setOpenId] = useState("");
+  const [draft, setDraft] = useState({ name: "", unit: "", price: "" });
+  const [confirmId, setConfirmId] = useState("");
+
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return s ? workTypes.filter((w) => w.name.toLowerCase().includes(s)) : workTypes;
+  }, [workTypes, q]);
+
+  const perPage = 50;
+  const pages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const current = Math.min(page, pages - 1);
+  const slice = filtered.slice(current * perPage, current * perPage + perPage);
+
+  const open = (id: string) => {
+    const w = workTypes.find((x) => x.id === id);
+    if (!w) return;
+    setConfirmId("");
+    if (openId === id) { setOpenId(""); return; }
+    setOpenId(id);
+    setDraft({ name: w.name, unit: w.unit, price: String(w.price) });
+  };
+
+  return (
+    <section className="mt-4 rounded-2xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-semibold">Все виды работ</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Всего позиций: {filtered.length}. Нажмите на строку, чтобы отредактировать или удалить.
+            Удаление не затрагивает уже сохранённые записи.
+          </p>
+        </div>
+        <input
+          value={q}
+          onChange={(e) => { setQ(e.target.value); setPage(0); }}
+          placeholder="Поиск по названию..."
+          className={cn(input, "sm:w-72")}
+        />
+      </div>
+
+      <ul className="mt-3 max-h-[640px] divide-y divide-border overflow-auto rounded-xl border border-border">
+        {slice.map((w, i) => (
+          <li key={w.id} className="bg-surface">
+            <button
+              type="button"
+              onClick={() => open(w.id)}
+              className={cn(
+                "flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-muted",
+                openId === w.id && "bg-primary/10",
+              )}
+            >
+              <span className="w-8 shrink-0 pt-0.5 text-xs text-muted-foreground">
+                {current * perPage + i + 1}
+              </span>
+              <span className="min-w-0 flex-1 text-sm break-words whitespace-normal">{w.name}</span>
+              <span className="shrink-0 rounded-lg bg-card px-2 py-0.5 text-xs text-muted-foreground">
+                {w.unit}
+              </span>
+              <span className="w-24 shrink-0 text-right text-sm font-semibold">
+                {w.price.toLocaleString("ru-RU")} ₽
+              </span>
+            </button>
+
+            {openId === w.id && (
+              <div className="space-y-3 border-t border-border bg-card p-3">
+                <label className="block">
+                  <span className="label-caps">Название</span>
+                  <input
+                    value={draft.name}
+                    onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+                    className={cn(input, "mt-1")}
+                  />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="label-caps">Ед. изм.</span>
+                    <input
+                      value={draft.unit}
+                      onChange={(e) => setDraft((d) => ({ ...d, unit: e.target.value }))}
+                      className={cn(input, "mt-1")}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="label-caps">Цена, руб./ед.</span>
+                    <input
+                      value={draft.price}
+                      onChange={(e) => setDraft((d) => ({ ...d, price: e.target.value }))}
+                      inputMode="decimal"
+                      className={cn(input, "mt-1")}
+                    />
+                  </label>
+                </div>
+                {confirmId === w.id ? (
+                  <div className="rounded-xl border border-border bg-surface p-3">
+                    <p className="text-sm">
+                      Удалить «{w.name}» из справочника? В сохранённых записях этот вид работ останется.
+                    </p>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        className={cn(primaryBtn, "bg-status-rejected")}
+                        onClick={() => {
+                          setWorkTypes((p) => p.filter((x) => x.id !== w.id));
+                          setConfirmId("");
+                          setOpenId("");
+                          toast.success("Вид работ удалён из справочника");
+                        }}
+                      >
+                        Да, удалить
+                      </button>
+                      <button type="button" className={ghostBtn} onClick={() => setConfirmId("")}>
+                        Отмена
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className={primaryBtn}
+                      onClick={() => {
+                        if (!draft.name.trim() || !draft.unit.trim()) {
+                          toast.error("Заполните название и ед. изм.");
+                          return;
+                        }
+                        setWorkTypes((p) =>
+                          p.map((x) =>
+                            x.id === w.id
+                              ? {
+                                  ...x,
+                                  name: draft.name.trim(),
+                                  unit: draft.unit.trim(),
+                                  price: Number(String(draft.price).replace(",", ".")) || 0,
+                                }
+                              : x,
+                          ),
+                        );
+                        setOpenId("");
+                        toast.success("Сохранено");
+                      }}
+                    >
+                      Сохранить
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(ghostBtn, "text-status-rejected")}
+                      onClick={() => setConfirmId(w.id)}
+                    >
+                      <Trash2 className="mr-1 inline size-3.5" />
+                      Удалить
+                    </button>
+                    <button type="button" className={ghostBtn} onClick={() => setOpenId("")}>
+                      Закрыть
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </li>
+        ))}
+        {!slice.length && (
+          <li className="bg-surface px-3 py-6 text-center text-sm text-muted-foreground">
+            Ничего не найдено
+          </li>
+        )}
+      </ul>
+
+      {pages > 1 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className={ghostBtn}
+            disabled={current === 0}
+            onClick={() => setPage(current - 1)}
+          >
+            Назад
+          </button>
+          <span className="text-xs text-muted-foreground">
+            Страница {current + 1} из {pages}
+          </span>
+          <button
+            type="button"
+            className={ghostBtn}
+            disabled={current >= pages - 1}
+            onClick={() => setPage(current + 1)}
+          >
+            Вперёд
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 
