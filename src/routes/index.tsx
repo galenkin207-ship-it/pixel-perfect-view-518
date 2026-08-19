@@ -58,7 +58,11 @@ function ObjectsPage() {
     <AppShell
       fab={{
         to: "/records/new",
-        className: showAddPanel ? "bottom-[168px]" : "bottom-24",
+        className: showAddPanel
+          ? isAddPanelOpen
+            ? "bottom-[340px]"
+            : "bottom-[168px]"
+          : "bottom-24",
       }}
     >
       <PageHeading
