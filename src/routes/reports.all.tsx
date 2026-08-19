@@ -172,7 +172,7 @@ function AllRecordsPage() {
             <div key={r.id} className="border-b border-border last:border-0">
               <button
                 onClick={() => setOpenId(r.id)}
-                className="grid w-full grid-cols-1 gap-2 px-4 py-3 text-left hover:bg-muted/40 lg:grid-cols-[2.5fr_1.2fr_1.2fr_0.8fr_1fr_1fr_1.2fr] lg:items-start lg:gap-3"
+                className="grid h-auto w-full auto-rows-min grid-cols-1 gap-2 px-4 py-3 text-left hover:bg-muted/40 lg:grid-cols-[2.5fr_1.2fr_1.2fr_1fr_1fr_1.2fr] lg:items-start lg:gap-3"
               >
                 <span className="block">
                   <span className="block text-sm font-semibold break-words whitespace-normal">
@@ -181,8 +181,11 @@ function AllRecordsPage() {
                       · {object?.address}
                     </span>
                   </span>
-                  <span className="mt-1 block text-sm font-medium text-foreground">
+                  <span className="mt-1 block text-base font-semibold text-foreground">
                     {r.items.map((i) => i.name).join(", ")}
+                  </span>
+                  <span className="mt-1 block font-mono text-sm text-muted-foreground">
+                    {itemQty(r.items[0]!)} {r.items[0]!.unit}
                   </span>
                 </span>
                 <span className="flex items-center gap-2 text-sm break-words">
@@ -192,9 +195,6 @@ function AllRecordsPage() {
                 <span className="flex items-center gap-2 text-sm break-words">
                   <InitialsAvatar name={performer} />
                   {performer}
-                </span>
-                <span className="font-mono text-sm">
-                  {itemQty(r.items[0]!)} {r.items[0]!.unit}
                 </span>
                 <span className="text-sm text-muted-foreground">
                   {r.date.slice(0, 5)}, {r.time}
