@@ -13,11 +13,11 @@ import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/reports/detail")({
   validateSearch: (search: Record<string, unknown>) => ({
-    employee: typeof search.employee === "string" ? search.employee : "",
-    object: typeof search.object === "string" ? search.object : "",
-    submitter: typeof search.submitter === "string" ? search.submitter : "",
-    from: typeof search.from === "string" ? search.from : "",
-    to: typeof search.to === "string" ? search.to : "",
+    employee: typeof search["employee"] === "string" ? search["employee"] : "",
+    object: typeof search["object"] === "string" ? search["object"] : "",
+    submitter: typeof search["submitter"] === "string" ? search["submitter"] : "",
+    from: typeof search["from"] === "string" ? search["from"] : "",
+    to: typeof search["to"] === "string" ? search["to"] : "",
   }),
   head: () => ({
     meta: [
