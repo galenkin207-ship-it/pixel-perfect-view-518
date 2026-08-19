@@ -141,7 +141,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
         title={`${object.name}, ${object.address}`}
       />
 
-      <div className="mt-5 max-w-3xl space-y-5">
+      <div className="mt-5 w-full space-y-5 xl:max-w-5xl 2xl:max-w-none">
         <div>
           <FieldLabel>Дата работ</FieldLabel>
           <input
