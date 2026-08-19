@@ -12,6 +12,13 @@ import { roleLabels } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/reports/detail")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    employee: typeof search.employee === "string" ? search.employee : "",
+    object: typeof search.object === "string" ? search.object : "",
+    submitter: typeof search.submitter === "string" ? search.submitter : "",
+    from: typeof search.from === "string" ? search.from : "",
+    to: typeof search.to === "string" ? search.to : "",
+  }),
   head: () => ({
     meta: [
       { title: "Отчёт по объекту и сотруднику — Учёт работ" },
@@ -63,19 +70,30 @@ function ReportDetailPage() {
   const { records, objects, employees, role } = useApp();
   const isAdmin = role === "admin";
   const isMobile = useIsMobile();
+  const search = Route.useSearch();
+  const initial = {
+    employee: search.employee,
+    objectId: search.object,
+    submitter: search.submitter,
+    from: search.from,
+    to: search.to,
+  };
+  const hasInitial = Boolean(
+    initial.employee || initial.objectId || initial.submitter || initial.from || initial.to,
+  );
 
-  const [employee, setEmployee] = useState("");
-  const [objectId, setObjectId] = useState("");
-  const [submitter, setSubmitter] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [employee, setEmployee] = useState(initial.employee);
+  const [objectId, setObjectId] = useState(initial.objectId);
+  const [submitter, setSubmitter] = useState(initial.submitter);
+  const [from, setFrom] = useState(initial.from);
+  const [to, setTo] = useState(initial.to);
   const [applied, setApplied] = useState<{
     employee: string;
     objectId: string;
     submitter: string;
     from: string;
     to: string;
-  } | null>(null);
+  } | null>(hasInitial ? initial : null);
   const [sortDesc, setSortDesc] = useState(true);
   const [openDays, setOpenDays] = useState<string[]>([]);
   const [openRecords, setOpenRecords] = useState<string[]>([]);
