@@ -107,7 +107,7 @@ export function AppShell({
           {isAdminLike && <NavGroup title="Управление" items={manage} isActive={isActive} />}
           <NavGroup
             title={isAdminLike ? "Администрирование" : "Разделы"}
-            items={isAdminLike ? [...admin, tabs[2]!] : [tabs[0]!, tabs[2]!, tabs[3]!]}
+            items={isAdminLike ? admin : [tabs[0]!, tabs[2]!, tabs[3]!]}
             isActive={isActive}
           />
 
