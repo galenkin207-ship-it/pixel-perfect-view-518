@@ -37,3 +37,12 @@ export function syncItem(item: WorkItem, employees: string[]): WorkItem {
 export function recordTotal(items: WorkItem[]) {
   return items.reduce((s, i) => s + itemQty(i) * i.price, 0);
 }
+
+/** Кто может редактировать запись: свои — автор, любые — куратор и администратор. */
+export function canEditRecord(
+  role: "user" | "curator" | "admin",
+  fullName: string,
+  record: { created_by: string },
+) {
+  return role === "admin" || role === "curator" || record.created_by === fullName;
+}
