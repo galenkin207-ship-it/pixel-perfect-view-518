@@ -3,7 +3,7 @@ import { Search } from "lucide-react";
 import { useState } from "react";
 
 import { AppShell } from "@/components/app/app-shell";
-import { PageHeading, SegmentedProgress } from "@/components/app/bits";
+import { PageHeading } from "@/components/app/bits";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/")({
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Список строительных объектов прораба: записи за сегодня и прогресс выполнения по этапам.",
+          "Список строительных объектов: записи за сегодня и адреса.",
       },
       { property: "og:title", content: "Мои объекты — Учёт работ" },
       {
@@ -83,15 +83,6 @@ function ObjectsPage() {
               </span>
             </div>
 
-            {isForeman && (
-              <div className="mt-4">
-                <SegmentedProgress percent={o.progress_percent} />
-                <div className="mt-2 flex items-baseline justify-between">
-                  <span className="text-sm text-muted-foreground">Готово по этапу</span>
-                  <span className="text-sm font-bold">{o.progress_percent}%</span>
-                </div>
-              </div>
-            )}
           </Link>
         ))}
       </div>
