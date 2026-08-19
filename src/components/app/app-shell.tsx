@@ -43,7 +43,7 @@ export function AppShell({
   fab,
 }: {
   children: ReactNode;
-  fab?: { to: string; label?: string };
+  fab?: { to: string; label?: string; className?: string };
 }) {
   const { role, setRole, currentUser, notifications, requests } = useApp();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
