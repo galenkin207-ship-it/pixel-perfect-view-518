@@ -18,6 +18,7 @@ export const Route = createFileRoute("/reports/detail")({
     submitter: typeof search["submitter"] === "string" ? search["submitter"] : "",
     from: typeof search["from"] === "string" ? search["from"] : "",
     to: typeof search["to"] === "string" ? search["to"] : "",
+    apply: search["apply"] === "1" || search["apply"] === true ? "1" : "",
   }),
   head: () => ({
     meta: [
@@ -78,9 +79,9 @@ function ReportDetailPage() {
     from: search.from,
     to: search.to,
   };
-  const hasInitial = Boolean(
-    initial.employee || initial.objectId || initial.submitter || initial.from || initial.to,
-  );
+  const hasInitial =
+    search.apply === "1" ||
+    Boolean(initial.employee || initial.objectId || initial.submitter || initial.from || initial.to);
 
   const [employee, setEmployee] = useState(initial.employee);
   const [objectId, setObjectId] = useState(initial.objectId);
