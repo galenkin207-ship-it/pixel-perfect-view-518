@@ -157,7 +157,7 @@ function AllRecordsPage() {
 
       <div className="mt-3 overflow-hidden rounded-2xl border border-border">
         <div className="hidden grid-cols-[2.5fr_1.2fr_1.2fr_0.8fr_1fr_1fr_1.2fr] gap-3 border-b border-border bg-card px-4 py-3 lg:grid">
-          <span className="label-caps">Вид работы / Объект</span>
+          <span className="label-caps">Объект / Вид работы</span>
           <span className="label-caps">Кто подал</span>
           <span className="label-caps">Сотрудник / Бригада</span>
           <span className="label-caps">Объём</span>
@@ -177,10 +177,13 @@ function AllRecordsPage() {
               >
                 <span>
                   <span className="block text-sm font-semibold break-words whitespace-normal">
-                    {r.items.map((i) => i.name).join(", ")}
+                    {object?.name}
                   </span>
                   <span className="block text-xs text-muted-foreground">
-                    {object?.name} · {object?.address}
+                    {r.items.map((i) => i.name).join(", ")}
+                  </span>
+                  <span className="block text-xs text-muted-foreground/70">
+                    {object?.address}
                   </span>
                 </span>
                 <span className="flex items-center gap-2 text-sm break-words">
