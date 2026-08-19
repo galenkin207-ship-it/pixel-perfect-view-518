@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { AppContext, type AppState } from "./use-app";
 import {
   brigades as mockBrigades,
   employees as mockEmployees,
@@ -8,40 +9,8 @@ import {
   units as mockUnits,
   users as mockUsers,
   workTypes as mockWorkTypes,
-  type AppUser,
   type Role,
-  type WorkObject,
-  type WorkRecord,
-  type WorkRequest,
-  type WorkType,
 } from "@/data/mock";
-
-type AppState = {
-  role: Role;
-  setRole: (r: Role) => void;
-  currentUser: AppUser;
-  theme: "light" | "dark";
-  toggleTheme: () => void;
-  objects: WorkObject[];
-  setObjects: React.Dispatch<React.SetStateAction<WorkObject[]>>;
-  records: WorkRecord[];
-  addRecord: (r: WorkRecord) => void;
-  updateRecord: (r: WorkRecord) => void;
-  requests: WorkRequest[];
-  setRequests: React.Dispatch<React.SetStateAction<WorkRequest[]>>;
-  workTypes: WorkType[];
-  setWorkTypes: React.Dispatch<React.SetStateAction<WorkType[]>>;
-  employees: string[];
-  setEmployees: React.Dispatch<React.SetStateAction<string[]>>;
-  units: string[];
-  setUnits: React.Dispatch<React.SetStateAction<string[]>>;
-  users: AppUser[];
-  setUsers: React.Dispatch<React.SetStateAction<AppUser[]>>;
-  brigades: { name: string; members: string[] }[];
-  notifications: number;
-};
-
-const AppContext = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>("user");
@@ -89,10 +58,4 @@ export function AppProvider({ children }: { children: ReactNode }) {
       <div className={theme === "dark" ? "dark" : undefined}>{children}</div>
     </AppContext.Provider>
   );
-}
-
-export function useApp() {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error("useApp must be used within AppProvider");
-  return ctx;
 }

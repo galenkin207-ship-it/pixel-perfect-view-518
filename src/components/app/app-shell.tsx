@@ -16,7 +16,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import { roleLabels, type Role } from "@/data/mock";
-import { useApp } from "@/state/app-context";
+import { useApp } from "@/state/use-app";
 import { InitialsAvatar } from "./bits";
 
 type NavItem = { to: string; label: string; icon: typeof Building2; badge?: number };

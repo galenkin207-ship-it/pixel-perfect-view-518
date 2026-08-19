@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { cn } from "@/lib/utils";
 import { roleLabels } from "@/data/mock";
-import { useApp } from "@/state/app-context";
+import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/reports/")({
   head: () => ({

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { roleLabels } from "@/data/mock";
-import { useApp } from "@/state/app-context";
+import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/login")({
   head: () => ({

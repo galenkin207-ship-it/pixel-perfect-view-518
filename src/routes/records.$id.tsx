@@ -2,7 +2,7 @@ import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app/app-shell";
 import { RecordForm } from "@/components/app/record-form";
-import { useApp } from "@/state/app-context";
+import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/records/$id")({
   head: () => ({

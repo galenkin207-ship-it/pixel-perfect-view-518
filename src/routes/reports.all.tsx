@@ -7,7 +7,7 @@ import { RecordDetail } from "@/components/app/record-detail";
 import { StatusBadge } from "@/components/app/status-badge";
 import { itemQty } from "@/lib/record-utils";
 import { statusLabels, type RecordStatus } from "@/data/mock";
-import { useApp } from "@/state/app-context";
+import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/reports/all")({
   head: () => ({
