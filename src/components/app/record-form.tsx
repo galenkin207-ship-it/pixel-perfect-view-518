@@ -81,8 +81,8 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
       }),
     );
 
-  const save = (status: "draft" | "on_review") => {
-    if (status === "on_review" && items.length === 0) {
+  const save = (status: "draft" | "in_progress") => {
+    if (status === "in_progress" && items.length === 0) {
       toast.error("Добавьте хотя бы один вид работы");
       return;
     }
@@ -331,7 +331,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
             Сохранить черновик
           </button>
           <button
-            onClick={() => save("on_review")}
+            onClick={() => save("in_progress")}
             className="w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground"
           >
             Сохранить запись

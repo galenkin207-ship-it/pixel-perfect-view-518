@@ -1,5 +1,5 @@
 export type Role = "user" | "curator" | "admin";
-export type RecordStatus = "done" | "in_progress" | "on_review" | "rejected" | "draft";
+export type RecordStatus = "done" | "in_progress" | "draft";
 export type ExecutionType = "employee" | "brigade";
 
 export type WorkObject = {
@@ -135,7 +135,7 @@ export const records: WorkRecord[] = [
     total: 72150,
     comment: "Заявка отправлена на согласование расценки",
     photos: [],
-    status: "on_review",
+    status: "in_progress",
     created_by: "Иванов К.",
     started_at: "09:15",
     finished_at: "14:20",
@@ -189,7 +189,7 @@ export const records: WorkRecord[] = [
     total: 53760,
     comment: "Объём не подтверждён замером",
     photos: [],
-    status: "rejected",
+    status: "in_progress",
     created_by: "Смирнов М.",
     started_at: "14:05",
     finished_at: "18:30",
@@ -241,7 +241,7 @@ export const records: WorkRecord[] = [
     total: 18850,
     comment: "",
     photos: [],
-    status: "on_review",
+    status: "in_progress",
     created_by: "Иванов К.",
     started_at: "16:10",
     finished_at: "19:00",
@@ -302,7 +302,7 @@ export const requests: WorkRequest[] = [
     id: "q3",
     author: "Иванов К.",
     requested_text: "Уборка территории после демонтажа",
-    status: "rejected",
+    status: "in_progress",
     created_at: "15.08.2026",
     comments: [{ id: "c4", author: "Константин Г.", own: false, text: "Входит в состав демонтажных работ.", time: "12:30" }],
   },
@@ -324,7 +324,5 @@ export const roleLabels: Record<Role, string> = {
 export const statusLabels: Record<RecordStatus, string> = {
   done: "Готово",
   in_progress: "В работе",
-  on_review: "На проверке",
-  rejected: "Отклонено",
   draft: "Не завершена",
 };
