@@ -19,6 +19,7 @@ import { Route as RecordsNewRouteImport } from './routes/records.new'
 import { Route as ReportsIndexRouteImport } from './routes/reports.index'
 import { Route as ReportsAllRouteImport } from './routes/reports.all'
 import { Route as ReportsDetailRouteImport } from './routes/reports.detail'
+import { Route as ProfileManageSectionRouteImport } from './routes/profile.manage.$section'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -70,43 +71,51 @@ const ReportsDetailRoute = ReportsDetailRouteImport.update({
   path: '/reports/detail',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileManageSectionRoute = ProfileManageSectionRouteImport.update({
+  id: '/manage/$section',
+  path: '/manage/$section',
+  getParentRoute: () => ProfileRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
-  '/profile': typeof ProfileRoute
+  '/profile': typeof ProfileRouteWithChildren
   '/objects/$id': typeof ObjectsIdRoute
   '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
   '/reports/all': typeof ReportsAllRoute
   '/reports/detail': typeof ReportsDetailRoute
   '/reports/': typeof ReportsIndexRoute
+  '/profile/manage/$section': typeof ProfileManageSectionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
-  '/profile': typeof ProfileRoute
+  '/profile': typeof ProfileRouteWithChildren
   '/objects/$id': typeof ObjectsIdRoute
   '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
   '/reports/all': typeof ReportsAllRoute
   '/reports/detail': typeof ReportsDetailRoute
   '/reports': typeof ReportsIndexRoute
+  '/profile/manage/$section': typeof ProfileManageSectionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
-  '/profile': typeof ProfileRoute
+  '/profile': typeof ProfileRouteWithChildren
   '/objects/$id': typeof ObjectsIdRoute
   '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
   '/reports/all': typeof ReportsAllRoute
   '/reports/detail': typeof ReportsDetailRoute
   '/reports/': typeof ReportsIndexRoute
+  '/profile/manage/$section': typeof ProfileManageSectionRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
     | '/reports/all'
     | '/reports/detail'
     | '/reports/'
+    | '/profile/manage/$section'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/reports/all'
     | '/reports/detail'
     | '/reports'
+    | '/profile/manage/$section'
   id:
     | '__root__'
     | '/'
@@ -145,13 +156,14 @@ export interface FileRouteTypes {
     | '/reports/all'
     | '/reports/detail'
     | '/reports/'
+    | '/profile/manage/$section'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRoute
-  ProfileRoute: typeof ProfileRoute
+  ProfileRoute: typeof ProfileRouteWithChildren
   ObjectsIdRoute: typeof ObjectsIdRoute
   RecordsIdRoute: typeof RecordsIdRoute
   RecordsNewRoute: typeof RecordsNewRoute
@@ -232,14 +244,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReportsDetailRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile/manage/$section': {
+      id: '/profile/manage/$section'
+      path: '/manage/$section'
+      fullPath: '/profile/manage/$section'
+      preLoaderRoute: typeof ProfileManageSectionRouteImport
+      parentRoute: typeof ProfileRoute
+    }
   }
 }
+
+interface ProfileRouteChildren {
+  ProfileManageSectionRoute: typeof ProfileManageSectionRoute
+}
+
+const ProfileRouteChildren: ProfileRouteChildren = {
+  ProfileManageSectionRoute: ProfileManageSectionRoute,
+}
+
+const ProfileRouteWithChildren =
+  ProfileRoute._addFileChildren(ProfileRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   MessagesRoute: MessagesRoute,
-  ProfileRoute: ProfileRoute,
+  ProfileRoute: ProfileRouteWithChildren,
   ObjectsIdRoute: ObjectsIdRoute,
   RecordsIdRoute: RecordsIdRoute,
   RecordsNewRoute: RecordsNewRoute,
