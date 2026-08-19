@@ -10,6 +10,18 @@ import { itemQty, recordTotal, round2, syncItem } from "@/lib/record-utils";
 import type { ExecutionType, WorkItem, WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
+function toIso(ru?: string) {
+  const m = ru?.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function fromIso(iso: string) {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
+}
+
 export function RecordForm({ record }: { record?: WorkRecord }) {
   const navigate = useNavigate();
   const {
@@ -40,6 +52,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
   const [brigadeName, setBrigadeName] = useState(record?.brigade_name ?? brigades[0]!.name);
   const [comment, setComment] = useState(record?.comment ?? "");
   const [photos, setPhotos] = useState<string[]>(record?.photos ?? []);
+  const [dateIso, setDateIso] = useState(() => toIso(record?.date));
 
   const object = objects.find((o) => o.id === objectId)!;
   const total = recordTotal(items);
@@ -98,7 +111,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
             brigade_members: brigades.find((b) => b.name === brigadeName)?.members ?? [],
           }
         : {}),
-      date: record?.date ?? new Intl.DateTimeFormat("ru-RU").format(now),
+      date: fromIso(dateIso) || new Intl.DateTimeFormat("ru-RU").format(now),
       time:
         record?.time ??
         new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(now),
@@ -123,6 +136,16 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
       />
 
       <div className="mt-5 max-w-3xl space-y-5">
+        <div>
+          <FieldLabel>Дата работ</FieldLabel>
+          <input
+            type="date"
+            value={dateIso}
+            onChange={(e) => setDateIso(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm"
+          />
+        </div>
+
         <div>
           <FieldLabel>Объект</FieldLabel>
           <select
