@@ -1,5 +1,5 @@
 export type Role = "user" | "curator" | "admin";
-export type RecordStatus = "done" | "in_progress" | "draft";
+export type RecordStatus = "done" | "draft";
 export type ExecutionType = "employee" | "brigade";
 
 export type WorkObject = {
@@ -135,7 +135,7 @@ export const records: WorkRecord[] = [
     total: 72150,
     comment: "Заявка отправлена на согласование расценки",
     photos: [],
-    status: "in_progress",
+    status: "done",
     created_by: "Иванов К.",
     started_at: "09:15",
     finished_at: "14:20",
@@ -154,7 +154,7 @@ export const records: WorkRecord[] = [
     total: 22200,
     comment: "",
     photos: [],
-    status: "in_progress",
+    status: "done",
     created_by: "Смирнов М.",
     started_at: "11:00",
     material: "Арматура А500С",
@@ -189,7 +189,7 @@ export const records: WorkRecord[] = [
     total: 53760,
     comment: "Объём не подтверждён замером",
     photos: [],
-    status: "in_progress",
+    status: "done",
     created_by: "Смирнов М.",
     started_at: "14:05",
     finished_at: "18:30",
@@ -208,7 +208,7 @@ export const records: WorkRecord[] = [
     total: 186900,
     comment: "",
     photos: [],
-    status: "in_progress",
+    status: "done",
     created_by: "Петров В.",
     started_at: "15:40",
     material: "Мембрана ПВХ",
@@ -241,7 +241,7 @@ export const records: WorkRecord[] = [
     total: 18850,
     comment: "",
     photos: [],
-    status: "in_progress",
+    status: "done",
     created_by: "Иванов К.",
     started_at: "16:10",
     finished_at: "19:00",
@@ -316,13 +316,12 @@ export const users: AppUser[] = [
 ];
 
 export const roleLabels: Record<Role, string> = {
-  user: "Прораб",
+  user: "Кто подал",
   curator: "Куратор",
   admin: "Администратор",
 };
 
 export const statusLabels: Record<RecordStatus, string> = {
   done: "Готово",
-  in_progress: "В работе",
   draft: "Не завершена",
 };

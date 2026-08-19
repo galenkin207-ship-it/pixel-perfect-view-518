@@ -120,7 +120,7 @@ function AllRecordsPage() {
       <div className="mt-3 overflow-hidden rounded-2xl border border-border">
         <div className="hidden grid-cols-[2.5fr_1.2fr_1.2fr_0.8fr_1fr_1fr] gap-3 border-b border-border bg-card px-4 py-3 lg:grid">
           <span className="label-caps">Вид работы / Объект</span>
-          <span className="label-caps">Прораб</span>
+          <span className="label-caps">Кто подал</span>
           <span className="label-caps">Сотрудник / Бригада</span>
           <span className="label-caps">Объём</span>
           <span className="label-caps">Дата</span>
