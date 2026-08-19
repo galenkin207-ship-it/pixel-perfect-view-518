@@ -8,6 +8,7 @@ import {
   ListChecks,
   MessageSquare,
   Plus,
+  Ruler,
   Settings,
   User,
   Users,

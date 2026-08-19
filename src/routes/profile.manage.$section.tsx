@@ -98,7 +98,7 @@ function Bulk({
             .split("\n")
             .map((l) => l.trim())
             .filter(Boolean);
-          if (!lines.length) return toast.error("Вставьте данные для загрузки");
+          if (!lines.length) { toast.error("Вставьте данные для загрузки"); return; }
           const n = onSubmit(lines);
           setText("");
           toast.success(`Загружено позиций: ${n}`);
@@ -290,7 +290,7 @@ function WorkTypesSection() {
               type="button"
               className={primaryBtn}
               onClick={() => {
-                if (!name.trim() || !unit.trim()) return toast.error("Заполните название и ед. изм.");
+                if (!name.trim() || !unit.trim()) { toast.error("Заполните название и ед. изм."); return; }
                 setWorkTypes((p) => [
                   ...p,
                   { id: `w${Date.now()}`, name: name.trim(), unit: unit.trim(), price: Number(price) || 0 },
@@ -447,7 +447,7 @@ function StringSection({
               type="button"
               className={primaryBtn}
               onClick={() => {
-                if (!value.trim()) return toast.error("Заполните поле");
+                if (!value.trim()) { toast.error("Заполните поле"); return; }
                 onAdd(value.trim());
                 setValue("");
                 toast.success("Добавлено");
@@ -620,7 +620,7 @@ function UnitsSection() {
             type="button"
             className={primaryBtn}
             onClick={() => {
-              if (!value.trim()) return toast.error("Введите единицу");
+              if (!value.trim()) { toast.error("Введите единицу"); return; }
               setUnits((p) => [...p, value.trim()]);
               setValue("");
               toast.success("Добавлено");
@@ -754,7 +754,7 @@ function UsersSection() {
             className={primaryBtn}
             onClick={() => {
               if (!form.login.trim() || !form.full_name.trim())
-                return toast.error("Заполните логин и ФИО");
+                { toast.error("Заполните логин и ФИО"); return; }
               setUsers((p) => [...p, { id: `u${Date.now()}`, ...form, login: form.login.trim(), full_name: form.full_name.trim() }]);
               setForm({ login: "", password: "", full_name: "", role: "user" });
               toast.success("Пользователь добавлен");
