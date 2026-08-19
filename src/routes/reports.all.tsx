@@ -1,10 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar } from "@/components/app/bits";
 import { RecordDetail } from "@/components/app/record-detail";
 import { StatusBadge } from "@/components/app/status-badge";
+import { cn } from "@/lib/utils";
 import { itemQty } from "@/lib/record-utils";
 import { statusLabels, type RecordStatus } from "@/data/mock";
 import { useApp } from "@/state/use-app";
