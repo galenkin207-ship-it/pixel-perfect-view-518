@@ -326,6 +326,6 @@ export const roleLabels: Record<Role, string> = {
 };
 
 export const statusLabels: Record<RecordStatus, string> = {
-  done: "Готово",
+  done: "Записано",
   draft: "Не завершена",
 };
