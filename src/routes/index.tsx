@@ -45,7 +45,7 @@ function ObjectsPage() {
   return (
     <AppShell fab={{ to: "/records/new" }}>
       <PageHeading
-        context={isForeman ? `Прораб · ${today}` : `Все объекты компании · ${today}`}
+        context={isForeman ? `Кто подал · ${today}` : `Все объекты компании · ${today}`}
         title={isForeman ? "Мои объекты" : "Объекты"}
       />
 

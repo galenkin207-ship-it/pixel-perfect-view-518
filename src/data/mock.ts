@@ -316,7 +316,7 @@ export const users: AppUser[] = [
 ];
 
 export const roleLabels: Record<Role, string> = {
-  user: "Прораб",
+  user: "Кто подал",
   curator: "Куратор",
   admin: "Администратор",
 };

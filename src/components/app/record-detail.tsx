@@ -28,7 +28,7 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
               Запись от {record.date}, {record.time}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Прораб: {record.created_by} ·{" "}
+              Кто подал: {record.created_by} ·{" "}
               {record.execution_type === "brigade" ? record.brigade_name : "По сотрудникам"}
             </p>
           </div>
