@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Search } from "lucide-react";
-import { useState } from "react";
+import { Plus, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { AppShell } from "@/components/app/app-shell";
-import { PageHeading, SegmentedProgress } from "@/components/app/bits";
+import { PageHeading } from "@/components/app/bits";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/")({
@@ -26,8 +26,9 @@ export const Route = createFileRoute("/")({
 });
 
 function ObjectsPage() {
-  const { objects, role } = useApp();
+  const { objects, role, records, currentUser } = useApp();
   const [query, setQuery] = useState("");
+  const [pinned, setPinned] = useState<string[]>([]);
   const isForeman = role === "user";
 
   const today = new Intl.DateTimeFormat("ru-RU", {
@@ -36,11 +37,20 @@ function ObjectsPage() {
     month: "long",
   }).format(new Date());
 
-  const filtered = objects.filter(
-    (o) =>
-      o.name.toLowerCase().includes(query.toLowerCase()) ||
-      o.address.toLowerCase().includes(query.toLowerCase()),
-  );
+  const visibleIds = useMemo(() => {
+    if (!isForeman) return new Set(objects.map((o) => o.id));
+    const mine = records
+      .filter((r) => r.created_by === currentUser.full_name)
+      .map((r) => r.object_id);
+    return new Set([...mine, ...pinned]);
+  }, [isForeman, objects, records, currentUser.full_name, pinned]);
+
+  const match = (o: { name: string; address: string }) =>
+    o.name.toLowerCase().includes(query.toLowerCase()) ||
+    o.address.toLowerCase().includes(query.toLowerCase());
+
+  const filtered = objects.filter((o) => visibleIds.has(o.id) && match(o));
+  const addable = objects.filter((o) => !visibleIds.has(o.id) && match(o));
 
   return (
     <AppShell fab={{ to: "/records/new" }}>
@@ -83,18 +93,43 @@ function ObjectsPage() {
               </span>
             </div>
 
-            {isForeman && (
-              <div className="mt-4">
-                <SegmentedProgress percent={o.progress_percent} />
-                <div className="mt-2 flex items-baseline justify-between">
-                  <span className="text-sm text-muted-foreground">Готово по этапу</span>
-                  <span className="text-sm font-bold">{o.progress_percent}%</span>
-                </div>
-              </div>
-            )}
           </Link>
         ))}
       </div>
+
+      {filtered.length === 0 && (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Объектов на экране нет — найдите объект в списке ниже и добавьте его.
+        </p>
+      )}
+
+      {addable.length > 0 && (
+        <div className="mt-8">
+          <p className="text-sm font-semibold text-muted-foreground">
+            Добавить объект на экран
+          </p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {addable.slice(0, query ? addable.length : 6).map((o) => (
+              <div
+                key={o.id}
+                className="flex items-center justify-between gap-3 rounded-2xl border border-border border-dashed bg-surface p-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{o.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{o.address}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPinned((p) => [...p, o.id])}
+                  className="flex shrink-0 items-center gap-1 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
+                >
+                  <Plus className="size-4" /> На экран
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
