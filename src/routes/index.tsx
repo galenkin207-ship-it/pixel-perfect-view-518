@@ -55,7 +55,12 @@ function ObjectsPage() {
   const showAddPanel = isForeman && addable.length > 0;
 
   return (
-    <AppShell fab={{ to: "/records/new" }}>
+    <AppShell
+      fab={{
+        to: "/records/new",
+        className: showAddPanel ? "bottom-[168px]" : "bottom-24",
+      }}
+    >
       <PageHeading
         context={isForeman ? `Кто подал · ${today}` : `Все объекты компании · ${today}`}
         title={isForeman ? "Мои объекты" : "Объекты"}
