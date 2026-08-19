@@ -110,7 +110,7 @@ function ReportsPage() {
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-4">
-            <h3 className="font-semibold">Отчёт по объекту / сотруднику</h3>
+            <h3 className="font-semibold">Отчёт по объекту / сотруднику / подавшему</h3>
             <div className="mt-3 space-y-2">
               <select className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm">
                 <option>Все объекты</option>
@@ -129,6 +129,12 @@ function ReportsPage() {
                 <option>Иванов К.</option>
                 <option>Смирнов М.</option>
               </select>
+              <Link
+                to="/reports/detail"
+                className="block rounded-lg bg-primary py-2.5 text-center text-sm font-semibold text-primary-foreground"
+              >
+                Открыть подробный отчёт
+              </Link>
             </div>
           </div>
 
