@@ -121,6 +121,15 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
       photos,
       status,
       created_by: record?.created_by ?? currentUser.full_name,
+      ...(record
+        ? {
+            updated_by: currentUser.full_name,
+            updated_at: `${new Intl.DateTimeFormat("ru-RU").format(now)}, ${new Intl.DateTimeFormat(
+              "ru-RU",
+              { hour: "2-digit", minute: "2-digit" },
+            ).format(now)}`,
+          }
+        : {}),
     };
     if (record) updateRecord(payload);
     else addRecord(payload);

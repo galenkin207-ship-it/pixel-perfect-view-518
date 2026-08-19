@@ -36,6 +36,8 @@ export type WorkRecord = {
   photos: string[];
   status: RecordStatus;
   created_by: string;
+  updated_by?: string;
+  updated_at?: string;
   started_at?: string;
   finished_at?: string;
   material?: string;

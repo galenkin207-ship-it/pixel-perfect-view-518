@@ -9,10 +9,12 @@ import type { WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
 export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose: () => void }) {
-  const { objects, role } = useApp();
+  const { objects, role, currentUser } = useApp();
   const [photo, setPhoto] = useState<string | null>(null);
   const object = objects.find((o) => o.id === record.object_id);
   const isAdmin = role === "admin";
+  const canEdit =
+    role === "admin" || role === "curator" || record.created_by === currentUser.full_name;
   const crew =
     record.execution_type === "brigade" ? (record.brigade_members ?? []) : record.employees;
 
@@ -31,6 +33,12 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
               Кто подал: {record.created_by} ·{" "}
               {record.execution_type === "brigade" ? record.brigade_name : "По сотрудникам"}
             </p>
+            {record.updated_by && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Изменил: <span className="font-semibold text-foreground">{record.updated_by}</span>
+                {record.updated_at ? ` · ${record.updated_at}` : ""}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <StatusBadge status={record.status} />
@@ -119,13 +127,19 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
           </div>
         )}
 
-        <Link
-          to="/records/$id"
-          params={{ id: record.id }}
-          className="mt-4 block rounded-xl bg-primary py-3 text-center text-sm font-semibold text-primary-foreground"
-        >
-          {record.status === "draft" ? "Продолжить заполнение" : "Редактировать запись"}
-        </Link>
+        {canEdit ? (
+          <Link
+            to="/records/$id"
+            params={{ id: record.id }}
+            className="mt-4 block rounded-xl bg-primary py-3 text-center text-sm font-semibold text-primary-foreground"
+          >
+            {record.status === "draft" ? "Продолжить заполнение" : "Редактировать запись"}
+          </Link>
+        ) : (
+          <p className="mt-4 rounded-xl bg-surface py-3 text-center text-sm text-muted-foreground">
+            Изменять запись может только автор, куратор или администратор
+          </p>
+        )}
 
         {photo && (
           <div
