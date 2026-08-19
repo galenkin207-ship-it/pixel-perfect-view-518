@@ -2,6 +2,7 @@ import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app/app-shell";
 import { RecordForm } from "@/components/app/record-form";
+import { canEditRecord } from "@/lib/record-utils";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/records/$id")({
@@ -27,13 +28,23 @@ export const Route = createFileRoute("/records/$id")({
 
 function EditRecordPage() {
   const { id } = useParams({ from: "/records/$id" });
-  const { records } = useApp();
+  const { records, role, currentUser } = useApp();
   const record = records.find((r) => r.id === id);
+  const allowed = record ? canEditRecord(role, currentUser.full_name, record) : false;
 
   return (
     <AppShell>
-      {record ? (
+      {record && allowed ? (
         <RecordForm record={record} />
+      ) : record ? (
+        <>
+          <p className="text-sm text-muted-foreground">
+            Редактировать эту запись может только её автор, куратор или администратор.
+          </p>
+          <Link to="/" className="mt-3 inline-block text-sm font-semibold text-primary">
+            К списку объектов
+          </Link>
+        </>
       ) : (
         <>
           <p className="text-sm text-muted-foreground">Запись не найдена.</p>
