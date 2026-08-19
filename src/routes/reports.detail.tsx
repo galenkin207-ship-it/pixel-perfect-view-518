@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronDown, ChevronLeft, ChevronRight, Image as ImageIcon, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Download, Image as ImageIcon, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
@@ -54,6 +55,8 @@ function money(n: number) {
 type Breakdown = { employee: string; qty: number; unit: string; item: string };
 
 type DayGroup = { date: string; records: WorkRecord[]; total: number };
+
+type SummaryRow = { name: string; unit: string; qty: number; total: number; count: number };
 
 function crewOf(r: WorkRecord) {
   return r.execution_type === "brigade" ? (r.brigade_members ?? []) : r.employees;
@@ -131,6 +134,60 @@ function ReportDetailPage() {
     );
     return list;
   }, [applied, records, sortDesc]);
+
+  const summary: SummaryRow[] = useMemo(() => {
+    const map = new Map<string, SummaryRow>();
+    for (const day of days) {
+      for (const r of day.records) {
+        for (const item of r.items) {
+          const key = `${item.name}||${item.unit}`;
+          const prev = map.get(key) ?? { name: item.name, unit: item.unit, qty: 0, total: 0, count: 0 };
+          prev.qty += itemQty(item);
+          prev.total += itemQty(item) * item.price;
+          prev.count += 1;
+          map.set(key, prev);
+        }
+      }
+    }
+    return [...map.values()]
+      .map((s) => ({ ...s, qty: Math.round(s.qty * 100) / 100 }))
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+  }, [days]);
+
+  const exportExcel = () => {
+    const detail: (string | number)[][] = [
+      ["Дата", "День", "Время", "Вид работы", "Сотрудник", "Объём", "Ед.", "Кто подал", ...(isAdmin ? ["Сумма, ₽"] : [])],
+    ];
+    for (const day of days) {
+      for (const r of day.records) {
+        for (const item of r.items) {
+          const crew = crewOf(r);
+          const allocs = item.allocations?.length ? item.allocations : allocationsFor(item, crew);
+          for (const a of allocs) {
+            detail.push([
+              day.date,
+              weekday(day.date),
+              r.time,
+              item.name,
+              a.employee,
+              a.qty,
+              item.unit,
+              r.created_by,
+              ...(isAdmin ? [Math.round(a.qty * item.price)] : []),
+            ]);
+          }
+        }
+      }
+    }
+    const summarySheet: (string | number)[][] = [
+      ["Вид работы", "Ед.", "Всего объём", "Записей", ...(isAdmin ? ["Сумма, ₽"] : [])],
+      ...summary.map((s) => [s.name, s.unit, s.qty, s.count, ...(isAdmin ? [Math.round(s.total)] : [])]),
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detail), "Детализация");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summarySheet), "Сводная");
+    XLSX.writeFile(wb, `otchet-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
 
   const objectName = objects.find((o) => o.id === applied?.objectId)?.name;
   const title = applied
@@ -320,6 +377,14 @@ function ReportDetailPage() {
             <span className="rounded-full bg-surface px-3 py-1.5 text-xs font-semibold">
               {applied.from || applied.to ? "выбранный период" : "весь период"}
             </span>
+            <button
+              onClick={exportExcel}
+              disabled={days.length === 0}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+            >
+              <Download className="size-4" />
+              Экспорт в Excel
+            </button>
           </div>
 
           <div className="mt-3 inline-flex gap-1 rounded-xl bg-surface p-1">
@@ -416,6 +481,55 @@ function ReportDetailPage() {
               );
             })}
           </div>
+
+          {summary.length > 0 && (
+            <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
+              <div className="border-b border-border p-4">
+                <h3 className="font-bold">Сводная таблица по видам работ</h3>
+                <p className="text-xs text-muted-foreground">Объёмы со всех дней объединены</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-surface/60 text-left text-xs text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-2 font-semibold">Вид работы</th>
+                      <th className="px-4 py-2 text-right font-semibold">Объём</th>
+                      <th className="px-4 py-2 text-right font-semibold">Записей</th>
+                      {isAdmin && <th className="px-4 py-2 text-right font-semibold">Сумма</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {summary.map((s) => (
+                      <tr key={`${s.name}-${s.unit}`} className="border-t border-border">
+                        <td className="px-4 py-2.5 font-medium break-words">{s.name}</td>
+                        <td className="px-4 py-2.5 text-right font-mono font-bold whitespace-nowrap">
+                          {s.qty} {s.unit}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{s.count}</td>
+                        {isAdmin && (
+                          <td className="px-4 py-2.5 text-right font-mono font-bold text-primary whitespace-nowrap">
+                            {money(s.total)}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                  {isAdmin && (
+                    <tfoot>
+                      <tr className="border-t border-border bg-surface/60">
+                        <td className="px-4 py-2.5 font-bold" colSpan={3}>
+                          Итого
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono font-bold text-primary whitespace-nowrap">
+                          {money(summary.reduce((s, r) => s + r.total, 0))}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </div>
+          )}
         </section>
       )}
     </AppShell>
