@@ -141,7 +141,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
         title={`${object.name}, ${object.address}`}
       />
 
-      <div className="mt-5 max-w-3xl space-y-5">
+      <div className="mt-5 w-full space-y-5 xl:max-w-5xl 2xl:max-w-none">
         <div>
           <FieldLabel>Дата работ</FieldLabel>
           <input
@@ -418,7 +418,7 @@ function WorkTypePicker({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 md:items-center md:p-4">
-      <div className="flex max-h-[95vh] w-full max-w-6xl flex-col rounded-t-3xl bg-card shadow-2xl md:rounded-3xl">
+      <div className="flex max-h-[95vh] w-full max-w-6xl 2xl:max-w-[1600px] flex-col rounded-t-3xl bg-card shadow-2xl md:rounded-3xl">
         <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-5 md:px-10 md:pt-10 md:pb-7">
           <div>
             <h2 className="text-2xl font-bold md:text-3xl">Выбор вида работ</h2>
