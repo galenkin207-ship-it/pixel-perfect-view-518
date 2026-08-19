@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
@@ -9,6 +9,9 @@ import { roleLabels, type WorkRequest } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/messages")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    request: typeof search['request'] === "string" ? (search['request'] as string) : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Переписка и заявки — Учёт работ" },
@@ -32,6 +35,14 @@ const statusText: Record<WorkRequest["status"], string> = {
 
 function MessagesPage() {
   const { requests, setRequests, role, currentUser, setWorkTypes } = useApp();
+  const { request: focusId } = Route.useSearch();
+
+  useEffect(() => {
+    if (!focusId) return;
+    const el = document.getElementById(`request-${focusId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusId, requests]);
+
   const isAdmin = role === "admin";
   const isForeman = role === "user";
   const [selected, setSelected] = useState<string[]>([]);
@@ -101,7 +112,14 @@ function MessagesPage() {
   };
 
   const renderCard = (r: WorkRequest) => (
-    <div key={r.id} className="rounded-2xl border border-border bg-card p-4">
+    <div
+      key={r.id}
+      id={`request-${r.id}`}
+      className={cn(
+        "rounded-2xl border border-border bg-card p-4",
+        focusId === r.id && "border-primary ring-2 ring-primary/30",
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
           {isForeman && (

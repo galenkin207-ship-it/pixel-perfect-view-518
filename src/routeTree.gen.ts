@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MessagesRouteImport } from './routes/messages'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as ObjectsIdRouteImport } from './routes/objects.$id'
 import { Route as ProfileIndexRouteImport } from './routes/profile.index'
 import { Route as RecordsIdRouteImport } from './routes/records.$id'
@@ -34,6 +35,11 @@ const LoginRoute = LoginRouteImport.update({
 const MessagesRoute = MessagesRouteImport.update({
   id: '/messages',
   path: '/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ObjectsIdRoute = ObjectsIdRouteImport.update({
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
+  '/notifications': typeof NotificationsRoute
   '/objects/$id': typeof ObjectsIdRoute
   '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
+  '/notifications': typeof NotificationsRoute
   '/objects/$id': typeof ObjectsIdRoute
   '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
+  '/notifications': typeof NotificationsRoute
   '/objects/$id': typeof ObjectsIdRoute
   '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/messages'
+    | '/notifications'
     | '/objects/$id'
     | '/records/$id'
     | '/records/new'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/messages'
+    | '/notifications'
     | '/objects/$id'
     | '/records/$id'
     | '/records/new'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/messages'
+    | '/notifications'
     | '/objects/$id'
     | '/records/$id'
     | '/records/new'
@@ -163,6 +175,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRoute
+  NotificationsRoute: typeof NotificationsRoute
   ObjectsIdRoute: typeof ObjectsIdRoute
   RecordsIdRoute: typeof RecordsIdRoute
   RecordsNewRoute: typeof RecordsNewRoute
@@ -194,6 +207,13 @@ declare module '@tanstack/react-router' {
       path: '/messages'
       fullPath: '/messages'
       preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/objects/$id': {
@@ -259,6 +279,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   MessagesRoute: MessagesRoute,
+  NotificationsRoute: NotificationsRoute,
   ObjectsIdRoute: ObjectsIdRoute,
   RecordsIdRoute: RecordsIdRoute,
   RecordsNewRoute: RecordsNewRoute,
