@@ -234,88 +234,30 @@ function ProfilePage() {
 
       {isAdmin && (
         <section className="mt-4 rounded-2xl border border-border bg-card p-4">
-          <h2 className="font-semibold">Справочники</h2>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <h2 className="font-semibold">Управление</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Справочники приложения: добавление, редактирование и пакетная загрузка.
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {(
               [
-                ["employees", "Сотрудники"],
+                ["work-types", "Виды работ — справочник"],
+                ["employees", "Сотрудники (исполнители)"],
                 ["objects", "Объекты"],
-                ["workTypes", "Виды работ"],
+                ["units", "Единицы измерения"],
                 ["users", "Пользователи"],
-              ] as [Tab, string][]
+              ] as [string, string][]
             ).map(([key, label]) => (
-              <button
+              <Link
                 key={key}
-                onClick={() => setTab(key)}
-                className={cn(
-                  "rounded-full px-3.5 py-1.5 text-sm font-semibold",
-                  tab === key ? "bg-primary text-primary-foreground" : "bg-surface",
-                )}
+                to="/profile/manage/$section"
+                params={{ section: key }}
+                className="rounded-xl bg-surface px-4 py-3 text-sm font-semibold transition-colors hover:bg-muted"
               >
                 {label}
-              </button>
+              </Link>
             ))}
           </div>
-
-          {tab !== "users" && (
-            <div className="mt-3 flex gap-2">
-              <input
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                placeholder="Новое значение..."
-                className="flex-1 rounded-xl border border-border bg-surface px-3 py-2 text-sm"
-              />
-              <button
-                onClick={add}
-                className="rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
-              >
-                Добавить
-              </button>
-            </div>
-          )}
-
-          <ul className="mt-3 divide-y divide-border rounded-xl bg-surface">
-            {tab === "employees" &&
-              employees.map((e) => (
-                <li key={e} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                  {e}
-                  <button
-                    onClick={() => setEmployees((p) => p.filter((x) => x !== e))}
-                    className="text-xs font-semibold text-status-rejected"
-                  >
-                    Удалить
-                  </button>
-                </li>
-              ))}
-            {tab === "objects" &&
-              objects.map((o) => (
-                <li key={o.id} className="px-4 py-2.5 text-sm">
-                  <span className="font-medium">{o.name}</span>
-                  <span className="block text-xs text-muted-foreground">{o.address}</span>
-                </li>
-              ))}
-            {tab === "workTypes" &&
-              workTypes.map((w) => (
-                <li key={w.id} className="flex items-start justify-between gap-3 px-4 py-2.5 text-sm">
-                  <span className="min-w-0 flex-1 break-words whitespace-normal">{w.name}</span>
-                  <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                    {isAdmin ? `${w.unit} · ${w.price} ₽` : w.unit}
-                  </span>
-                </li>
-              ))}
-            {tab === "users" &&
-              users.map((u) => (
-                <li key={u.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                  <span>
-                    {u.full_name}
-                    <span className="block text-xs text-muted-foreground">{u.login}</span>
-                  </span>
-                  <span className="text-xs font-semibold text-muted-foreground">
-                    {roleLabels[u.role as Role]}
-                  </span>
-                </li>
-              ))}
-          </ul>
         </section>
       )}
 
