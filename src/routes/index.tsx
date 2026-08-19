@@ -3,7 +3,7 @@ import { Search } from "lucide-react";
 import { useState } from "react";
 
 import { AppShell } from "@/components/app/app-shell";
-import { PageHeading, SegmentedProgress } from "@/components/app/bits";
+import { PageHeading } from "@/components/app/bits";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/")({
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Список строительных объектов прораба: записи за сегодня и прогресс выполнения по этапам.",
+          "Список строительных объектов: записи за сегодня и адреса.",
       },
       { property: "og:title", content: "Мои объекты — Учёт работ" },
       {
