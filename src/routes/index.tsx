@@ -49,7 +49,7 @@ function ObjectsPage() {
         title={isForeman ? "Мои объекты" : "Объекты"}
       />
 
-      <div className="relative mt-4 max-w-md">
+      <div className="relative mt-4 w-full max-w-xl">
         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
         <input
           value={query}
@@ -59,7 +59,7 @@ function ObjectsPage() {
         />
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {filtered.map((o) => (
           <Link
             key={o.id}

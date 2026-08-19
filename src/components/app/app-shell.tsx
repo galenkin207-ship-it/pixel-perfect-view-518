@@ -72,10 +72,10 @@ export function AppShell({
         : pathname.startsWith(to);
 
   return (
-    <div className="min-h-screen bg-shell text-foreground md:p-6">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1400px] overflow-hidden bg-panel md:min-h-[calc(100vh-3rem)] md:rounded-3xl md:shadow-2xl">
+    <div className="min-h-screen bg-shell text-foreground md:h-screen md:p-4 xl:p-6">
+      <div className="flex min-h-screen w-full overflow-hidden bg-panel md:h-full md:min-h-0 md:rounded-3xl md:shadow-2xl">
         {/* Desktop sidebar */}
-        <aside className="hidden w-[260px] shrink-0 flex-col border-r border-border bg-sidebar p-4 md:flex">
+        <aside className="hidden w-[220px] shrink-0 flex-col overflow-y-auto border-r border-border bg-sidebar p-4 md:flex lg:w-[250px] xl:w-[280px]">
           <Link to="/" className="mb-6 flex items-center gap-2 px-2">
             <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
               У
@@ -130,7 +130,7 @@ export function AppShell({
         </aside>
 
         {/* Content */}
-        <main className="relative min-w-0 flex-1 bg-background pb-24 md:pb-0">
+        <main className="relative min-w-0 flex-1 bg-background pb-24 md:overflow-y-auto md:pb-0">
           {/* Mobile role switcher */}
           <div className="flex items-center justify-between gap-2 px-4 pt-4 md:hidden">
             <span className="flex items-center gap-2 text-sm font-bold">
@@ -152,13 +152,13 @@ export function AppShell({
             </select>
           </div>
 
-          <div className="px-4 py-5 md:px-8 md:py-7">{children}</div>
+          <div className="w-full px-4 py-5 md:px-6 md:py-6 xl:px-10 xl:py-8">{children}</div>
 
           {fab && (
             <Link
               to={fab.to}
               aria-label={fab.label ?? "Новая запись"}
-              className="fixed right-5 bottom-24 z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:absolute md:right-8 md:bottom-8"
+              className="fixed right-5 bottom-24 z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:right-10 md:bottom-10"
             >
               <Plus className="size-6" />
             </Link>
