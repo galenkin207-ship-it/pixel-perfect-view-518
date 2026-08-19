@@ -83,15 +83,6 @@ function ObjectsPage() {
               </span>
             </div>
 
-            {isForeman && (
-              <div className="mt-4">
-                <SegmentedProgress percent={o.progress_percent} />
-                <div className="mt-2 flex items-baseline justify-between">
-                  <span className="text-sm text-muted-foreground">Готово по этапу</span>
-                  <span className="text-sm font-bold">{o.progress_percent}%</span>
-                </div>
-              </div>
-            )}
           </Link>
         ))}
       </div>
