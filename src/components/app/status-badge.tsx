@@ -3,7 +3,6 @@ import { statusLabels, type RecordStatus } from "@/data/mock";
 
 const map: Record<RecordStatus, string> = {
   done: "bg-status-done-soft text-status-done",
-  in_progress: "bg-status-progress-soft text-status-progress",
   draft: "bg-muted text-muted-foreground",
 };
 
