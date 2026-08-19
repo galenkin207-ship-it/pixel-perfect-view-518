@@ -6,7 +6,7 @@ import { PageHeading } from "@/components/app/bits";
 import { RecordDetail } from "@/components/app/record-detail";
 import { StatusBadge, statusBar } from "@/components/app/status-badge";
 import { allocationsFor, itemQty } from "@/lib/record-utils";
-import { useApp } from "@/state/app-context";
+import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/objects/$id")({
   head: () => ({

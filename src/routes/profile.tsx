@@ -6,7 +6,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar, PageHeading } from "@/components/app/bits";
 import { cn } from "@/lib/utils";
 import { roleLabels, type Role } from "@/data/mock";
-import { useApp } from "@/state/app-context";
+import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({

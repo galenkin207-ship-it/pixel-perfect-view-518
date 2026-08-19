@@ -1,0 +1,35 @@
+import { createContext, useContext } from "react";
+import type { AppUser, Role, WorkObject, WorkRecord, WorkRequest, WorkType } from "@/data/mock";
+
+export type AppState = {
+  role: Role;
+  setRole: (r: Role) => void;
+  currentUser: AppUser;
+  theme: "light" | "dark";
+  toggleTheme: () => void;
+  objects: WorkObject[];
+  setObjects: React.Dispatch<React.SetStateAction<WorkObject[]>>;
+  records: WorkRecord[];
+  addRecord: (r: WorkRecord) => void;
+  updateRecord: (r: WorkRecord) => void;
+  requests: WorkRequest[];
+  setRequests: React.Dispatch<React.SetStateAction<WorkRequest[]>>;
+  workTypes: WorkType[];
+  setWorkTypes: React.Dispatch<React.SetStateAction<WorkType[]>>;
+  employees: string[];
+  setEmployees: React.Dispatch<React.SetStateAction<string[]>>;
+  units: string[];
+  setUnits: React.Dispatch<React.SetStateAction<string[]>>;
+  users: AppUser[];
+  setUsers: React.Dispatch<React.SetStateAction<AppUser[]>>;
+  brigades: { name: string; members: string[] }[];
+  notifications: number;
+};
+
+export const AppContext = createContext<AppState | null>(null);
+
+export function useApp() {
+  const ctx = useContext(AppContext);
+  if (!ctx) throw new Error("useApp must be used within AppProvider");
+  return ctx;
+}

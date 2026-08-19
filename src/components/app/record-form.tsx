@@ -8,7 +8,7 @@ import { EmployeeSelect } from "@/components/app/employee-select";
 import { cn } from "@/lib/utils";
 import { itemQty, recordTotal, round2, syncItem } from "@/lib/record-utils";
 import type { ExecutionType, WorkItem, WorkRecord } from "@/data/mock";
-import { useApp } from "@/state/app-context";
+import { useApp } from "@/state/use-app";
 
 export function RecordForm({ record }: { record?: WorkRecord }) {
   const navigate = useNavigate();

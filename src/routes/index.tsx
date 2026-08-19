@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading, SegmentedProgress } from "@/components/app/bits";
-import { useApp } from "@/state/app-context";
+import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/")({
   head: () => ({

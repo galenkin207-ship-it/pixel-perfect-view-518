@@ -6,7 +6,7 @@ import { FieldLabel } from "@/components/app/bits";
 import { StatusBadge } from "@/components/app/status-badge";
 import { allocationsFor, itemQty, recordTotal } from "@/lib/record-utils";
 import type { WorkRecord } from "@/data/mock";
-import { useApp } from "@/state/app-context";
+import { useApp } from "@/state/use-app";
 
 export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose: () => void }) {
   const { objects, role } = useApp();
