@@ -13,6 +13,8 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
   const [photo, setPhoto] = useState<string | null>(null);
   const object = objects.find((o) => o.id === record.object_id);
   const isAdmin = role === "admin";
+  const canEdit =
+    role === "admin" || role === "curator" || record.created_by === currentUser.full_name;
   const crew =
     record.execution_type === "brigade" ? (record.brigade_members ?? []) : record.employees;
 
