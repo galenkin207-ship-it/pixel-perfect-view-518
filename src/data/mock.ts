@@ -302,7 +302,7 @@ export const requests: WorkRequest[] = [
     id: "q3",
     author: "Иванов К.",
     requested_text: "Уборка территории после демонтажа",
-    status: "in_progress",
+    status: "rejected",
     created_at: "15.08.2026",
     comments: [{ id: "c4", author: "Константин Г.", own: false, text: "Входит в состав демонтажных работ.", time: "12:30" }],
   },
