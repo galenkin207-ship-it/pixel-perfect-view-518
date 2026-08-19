@@ -1,10 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar } from "@/components/app/bits";
 import { RecordDetail } from "@/components/app/record-detail";
 import { StatusBadge } from "@/components/app/status-badge";
+import { cn } from "@/lib/utils";
 import { itemQty } from "@/lib/record-utils";
 import { statusLabels, type RecordStatus } from "@/data/mock";
 import { useApp } from "@/state/use-app";
@@ -33,6 +35,7 @@ function AllRecordsPage() {
   const [query, setQuery] = useState("");
   const [submitter, setSubmitter] = useState("all");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const openRecord = records.find((r) => r.id === openId) ?? null;
 
   const submitters = Array.from(new Set(records.map((r) => r.created_by))).sort();
@@ -47,7 +50,7 @@ function AllRecordsPage() {
 
 
   return (
-    <AppShell fab={{ to: "/records/new" }}>
+    <AppShell>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Все записи</h1>
@@ -59,11 +62,24 @@ function AllRecordsPage() {
           to="/records/new"
           className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
         >
-          + Новая запись
+          Новая запись
         </Link>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <button
+        onClick={() => setFiltersOpen((v) => !v)}
+        className="mt-4 flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold md:hidden"
+      >
+        <SlidersHorizontal className="size-4" />
+        {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
+      </button>
+
+      <div
+        className={cn(
+          "mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5",
+          !filtersOpen && "hidden md:grid",
+        )}
+      >
         <label className="block">
           <span className="label-caps">Объект</span>
           <select
