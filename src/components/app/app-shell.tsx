@@ -79,8 +79,8 @@ export function AppShell({
         : pathname.startsWith(to);
 
   return (
-    <div className="min-h-screen bg-shell text-foreground md:h-screen md:p-4 xl:p-6">
-      <div className="flex min-h-screen w-full overflow-hidden bg-panel md:h-full md:min-h-0 md:rounded-3xl md:shadow-2xl">
+    <div className="min-h-screen bg-panel text-foreground md:h-screen">
+      <div className="flex min-h-screen w-full overflow-hidden bg-panel md:h-full md:min-h-0">
         {/* Desktop sidebar */}
         <aside className="hidden w-[220px] shrink-0 flex-col overflow-y-auto border-r border-border bg-sidebar p-4 md:flex lg:w-[250px] xl:w-[280px]">
           <Link to="/" className="mb-6 flex items-center gap-2 px-2">
