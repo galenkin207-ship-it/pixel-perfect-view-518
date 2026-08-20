@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronDown, ChevronLeft, ChevronRight, Download, Image as ImageIcon, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
@@ -154,39 +154,237 @@ function ReportDetailPage() {
       .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
   }, [days]);
 
-  const exportExcel = () => {
-    const detail: (string | number)[][] = [
-      ["Дата", "День", "Время", "Вид работы", "Сотрудник", "Объём", "Ед.", "Кто подал", ...(isAdmin ? ["Сумма, ₽"] : [])],
+  const exportExcel = async () => {
+    const NAVY = "FF2E4A6B";
+    const ORANGE = "FFE0611C";
+    const LIGHT_BLUE = "FFEFF3F8";
+    const LIGHT_ORANGE = "FFFBE7DA";
+    const GRAY_TXT = "FF6B665E";
+    const WHITE = "FFFFFFFF";
+    const BORDER_CLR = "FFD8DDE3";
+    const border = {
+      top: { style: "thin" as const, color: { argb: BORDER_CLR } },
+      bottom: { style: "thin" as const, color: { argb: BORDER_CLR } },
+      left: { style: "thin" as const, color: { argb: BORDER_CLR } },
+      right: { style: "thin" as const, color: { argb: BORDER_CLR } },
+    };
+    const fill = (argb: string) => ({ type: "pattern" as const, pattern: "solid" as const, fgColor: { argb } });
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Учёт работ";
+    wb.created = new Date();
+
+    // ---------- Лист 1: Отчёт (иерархия день → работа → сотрудники) ----------
+    const cols = isAdmin
+      ? ["Вид работ", "Ед. изм.", "ФИО", "Кол-во людей", "Объём", "Время", "Сумма, ₽", "Кто подал"]
+      : ["Вид работ", "Ед. изм.", "ФИО", "Кол-во людей", "Объём", "Время", "Кто подал"];
+    const nCols = cols.length;
+
+    const sheet = wb.addWorksheet("Отчёт", { views: [{ state: "frozen", ySplit: 2, showGridLines: false }] });
+    sheet.columns = [
+      { width: 42 }, { width: 11 }, { width: 32 }, { width: 13 }, { width: 10 },
+      { width: 9 }, ...(isAdmin ? [{ width: 14 }] : []), { width: 22 },
     ];
+
+    const titleRow = sheet.addRow([objectName ? `ОТЧЁТ ПО ОБЪЕКТУ: ${objectName.toUpperCase()}` : title.toUpperCase()]);
+    sheet.mergeCells(titleRow.number, 1, titleRow.number, nCols);
+    titleRow.height = 30;
+    titleRow.getCell(1).font = { name: "Calibri", size: 16, bold: true, color: { argb: WHITE } };
+    titleRow.getCell(1).fill = fill(NAVY);
+    titleRow.getCell(1).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+
+    const period = applied?.from || applied?.to ? `Период: ${applied.from || "…"} — ${applied.to || "настоящее время"}` : "Период: весь период — настоящее время";
+    const subRow = sheet.addRow([period]);
+    sheet.mergeCells(subRow.number, 1, subRow.number, nCols);
+    subRow.height = 18;
+    subRow.getCell(1).font = { name: "Calibri", size: 10.5, italic: true, bold: true, color: { argb: "FF5B5650" } };
+    subRow.getCell(1).fill = fill(ORANGE);
+    subRow.getCell(1).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+
+    sheet.addRow([]);
+
+    let grandTotal = 0;
+
     for (const day of days) {
+      const dateRow = sheet.addRow([`Дата: ${day.date} (${weekday(day.date)})`]);
+      sheet.mergeCells(dateRow.number, 1, dateRow.number, isAdmin ? nCols - 2 : nCols - 1);
+      dateRow.getCell(1).font = { name: "Calibri", size: 11.5, bold: true, color: { argb: WHITE } };
+      dateRow.getCell(1).fill = fill(NAVY);
+      dateRow.getCell(1).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+      if (isAdmin) {
+        sheet.mergeCells(dateRow.number, nCols - 1, dateRow.number, nCols);
+        const totalCell = dateRow.getCell(nCols - 1);
+        totalCell.value = `Итого за день: ${Math.round(day.total).toLocaleString("ru-RU")} ₽`;
+        totalCell.font = { name: "Calibri", size: 11, bold: true, color: { argb: WHITE } };
+        totalCell.fill = fill(NAVY);
+        totalCell.alignment = { vertical: "middle", horizontal: "right", indent: 1 };
+      } else {
+        dateRow.getCell(nCols).fill = fill(NAVY);
+      }
+      dateRow.height = 22;
+      grandTotal += day.total;
+
+      const headRow = sheet.addRow(cols);
+      headRow.height = 26;
+      headRow.eachCell((cell) => {
+        cell.font = { name: "Calibri", size: 10.5, bold: true, color: { argb: WHITE } };
+        cell.fill = fill(NAVY);
+        cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+        cell.border = border;
+      });
+
+      let blockIdx = 0;
       for (const r of day.records) {
+        const crew = crewOf(r);
         for (const item of r.items) {
-          const crew = crewOf(r);
+          blockIdx += 1;
+          const blockFill = blockIdx % 2 === 0 ? LIGHT_BLUE : WHITE;
           const allocs = item.allocations?.length ? item.allocations : allocationsFor(item, crew);
+          const qty = itemQty(item);
+          const sum = Math.round(qty * item.price);
+
+          const mainVals = [
+            item.name, item.unit, allocs.map((a) => a.employee).join(", "), allocs.length, qty, r.time,
+            ...(isAdmin ? [sum] : []), r.created_by,
+          ];
+          const mainRow = sheet.addRow(mainVals);
+          mainRow.eachCell((cell, colNum) => {
+            cell.border = border;
+            cell.fill = fill(blockFill);
+            if (colNum === 1) {
+              cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: "FF1F2933" } };
+              cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+            } else if (colNum === 5 || (isAdmin && colNum === 7)) {
+              cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: "FF1F2933" } };
+              cell.alignment = { vertical: "middle", horizontal: "right" };
+              cell.numFmt = colNum === 5 ? "#,##0.###" : '#,##0" ₽"';
+            } else {
+              cell.font = { name: "Calibri", size: 11, color: { argb: "FF1F2933" } };
+              cell.alignment = { vertical: "middle", horizontal: colNum === 3 ? "left" : "center" };
+            }
+          });
+
           for (const a of allocs) {
-            detail.push([
-              day.date,
-              weekday(day.date),
-              r.time,
-              item.name,
-              a.employee,
-              a.qty,
-              item.unit,
-              r.created_by,
-              ...(isAdmin ? [Math.round(a.qty * item.price)] : []),
-            ]);
+            const subVals = isAdmin
+              ? [a.employee, item.unit, "", "", a.qty, "", Math.round(a.qty * item.price), ""]
+              : [a.employee, item.unit, "", "", a.qty, "", ""];
+            const subRow2 = sheet.addRow(subVals);
+            subRow2.eachCell((cell, colNum) => {
+              cell.border = border;
+              cell.fill = fill(blockFill);
+              cell.font = { name: "Calibri", size: 10, italic: true, color: { argb: GRAY_TXT } };
+              if (colNum === 1) cell.alignment = { vertical: "middle", horizontal: "left", indent: 3 };
+              else if (colNum === 5) { cell.alignment = { vertical: "middle", horizontal: "right" }; cell.numFmt = "#,##0.###"; }
+              else if (isAdmin && colNum === 7) { cell.alignment = { vertical: "middle", horizontal: "right" }; cell.numFmt = '#,##0" ₽"'; }
+              else cell.alignment = { vertical: "middle", horizontal: "center" };
+            });
           }
         }
       }
+
+      if (isAdmin) {
+        const subtotalRow = sheet.addRow([]);
+        sheet.mergeCells(subtotalRow.number, 1, subtotalRow.number, nCols - 2);
+        const lbl = subtotalRow.getCell(1);
+        lbl.value = "Итого за день";
+        lbl.font = { name: "Calibri", size: 10.5, bold: true, color: { argb: NAVY } };
+        lbl.fill = fill(LIGHT_ORANGE);
+        lbl.alignment = { vertical: "middle", horizontal: "right", indent: 2 };
+        sheet.mergeCells(subtotalRow.number, nCols - 1, subtotalRow.number, nCols);
+        const val = subtotalRow.getCell(nCols - 1);
+        val.value = Math.round(day.total);
+        val.numFmt = '#,##0" ₽"';
+        val.font = { name: "Calibri", size: 10.5, bold: true, color: { argb: NAVY } };
+        val.fill = fill(LIGHT_ORANGE);
+        val.alignment = { vertical: "middle", horizontal: "right", indent: 1 };
+        subtotalRow.height = 20;
+      }
+
+      sheet.addRow([]);
     }
-    const summarySheet: (string | number)[][] = [
-      ["Вид работы", "Ед.", "Всего объём", "Записей", ...(isAdmin ? ["Сумма, ₽"] : [])],
-      ...summary.map((s) => [s.name, s.unit, s.qty, s.count, ...(isAdmin ? [Math.round(s.total)] : [])]),
-    ];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detail), "Детализация");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summarySheet), "Сводная");
-    XLSX.writeFile(wb, `otchet-${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+    if (isAdmin) {
+      const grandRow = sheet.addRow([]);
+      sheet.mergeCells(grandRow.number, 1, grandRow.number, nCols - 2);
+      const lbl = grandRow.getCell(1);
+      lbl.value = "ИТОГО ЗА ВЕСЬ ПЕРИОД";
+      lbl.font = { name: "Calibri", size: 12.5, bold: true, color: { argb: WHITE } };
+      lbl.fill = fill(NAVY);
+      lbl.alignment = { vertical: "middle", horizontal: "right", indent: 2 };
+      sheet.mergeCells(grandRow.number, nCols - 1, grandRow.number, nCols);
+      const val = grandRow.getCell(nCols - 1);
+      val.value = Math.round(grandTotal);
+      val.numFmt = '#,##0" ₽"';
+      val.font = { name: "Calibri", size: 12.5, bold: true, color: { argb: WHITE } };
+      val.fill = fill(NAVY);
+      val.alignment = { vertical: "middle", horizontal: "right", indent: 1 };
+      grandRow.height = 26;
+    }
+
+    sheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+
+    // ---------- Лист 2: Сводная (по видам работ) ----------
+    const sumCols = isAdmin ? ["Вид работы", "Ед.", "Всего объём", "Записей", "Сумма, ₽"] : ["Вид работы", "Ед.", "Всего объём", "Записей"];
+    const sSheet = wb.addWorksheet("Сводная", { views: [{ state: "frozen", ySplit: 4, showGridLines: false }] });
+    sSheet.columns = [{ width: 46 }, { width: 9 }, { width: 14 }, { width: 11 }, ...(isAdmin ? [{ width: 15 }] : [])];
+
+    const sTitle = sSheet.addRow(["СВОДНАЯ ТАБЛИЦА ПО ВИДАМ РАБОТ"]);
+    sSheet.mergeCells(sTitle.number, 1, sTitle.number, sumCols.length);
+    sTitle.height = 28;
+    sTitle.getCell(1).font = { name: "Calibri", size: 16, bold: true, color: { argb: WHITE } };
+    sTitle.getCell(1).fill = fill(NAVY);
+    sTitle.getCell(1).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+
+    const sSub = sSheet.addRow([`Итого видов работ: ${summary.length}  |  Всего записей: ${summary.reduce((s, x) => s + x.count, 0)}`]);
+    sSheet.mergeCells(sSub.number, 1, sSub.number, sumCols.length);
+    sSub.height = 18;
+    sSub.getCell(1).font = { name: "Calibri", size: 10.5, italic: true, bold: true, color: { argb: "FF5B5650" } };
+    sSub.getCell(1).fill = fill(ORANGE);
+    sSub.getCell(1).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+
+    sSheet.addRow([]);
+    const sHead = sSheet.addRow(sumCols);
+    sHead.height = 24;
+    sHead.eachCell((cell) => {
+      cell.font = { name: "Calibri", size: 10.5, bold: true, color: { argb: WHITE } };
+      cell.fill = fill(NAVY);
+      cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+      cell.border = border;
+    });
+
+    const firstDataRow = sHead.number + 1;
+    summary.forEach((s, idx) => {
+      const rowFill = idx % 2 === 0 ? WHITE : LIGHT_BLUE;
+      const vals = isAdmin ? [s.name, s.unit, s.qty, s.count, Math.round(s.total)] : [s.name, s.unit, s.qty, s.count];
+      const row = sSheet.addRow(vals);
+      row.eachCell((cell, colNum) => {
+        cell.border = border;
+        cell.fill = fill(rowFill);
+        cell.font = { name: "Calibri", size: 10, color: { argb: "FF1F2933" }, bold: colNum === 1 };
+        cell.alignment = { vertical: "middle", horizontal: colNum === 1 ? "left" : colNum === 2 ? "center" : "right" };
+        if (colNum === 3) cell.numFmt = "#,##0.###";
+        if (colNum === 5) cell.numFmt = '#,##0" ₽"';
+      });
+    });
+    const lastDataRow = sHead.number + summary.length;
+
+    if (isAdmin && summary.length) {
+      sSheet.addConditionalFormatting({
+        ref: `E${firstDataRow}:E${lastDataRow}`,
+        rules: [{ type: "dataBar", gradient: false, minLength: 0, maxLength: 100, color: { argb: "FFA8C4E0" }, cfvo: [{ type: "min" }, { type: "max" }] } as any],
+      });
+    }
+
+    sSheet.pageSetup = { orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `otchet-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const objectName = objects.find((o) => o.id === applied?.objectId)?.name;
@@ -641,9 +839,9 @@ function RecordDetailBlock({
             <button
               key={p}
               onClick={() => setPreview(p)}
-              className="size-24 shrink-0 overflow-hidden rounded-xl border border-border bg-muted"
+              className="flex size-24 shrink-0 items-center justify-center rounded-xl border border-border bg-muted text-xs text-muted-foreground"
             >
-              <img src={p} alt="Фото к записи" className="size-full object-cover" />
+              {p}
             </button>
           ))}
           {record.photos.length === 0 && (
@@ -657,8 +855,8 @@ function RecordDetailBlock({
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
           onClick={() => setPreview(null)}
         >
-          <div className="relative flex aspect-video w-full max-w-3xl items-center justify-center rounded-2xl bg-muted">
-            <img src={preview} alt="Фото к записи, полный размер" className="max-h-full max-w-full object-contain" />
+          <div className="relative flex aspect-video w-full max-w-3xl items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+            {preview}
             <button
               onClick={() => setPreview(null)}
               aria-label="Закрыть"
