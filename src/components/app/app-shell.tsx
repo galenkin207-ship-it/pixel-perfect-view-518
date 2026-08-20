@@ -147,12 +147,12 @@ export function AppShell({
         <main className="relative min-w-0 flex-1 bg-background pb-24 md:overflow-y-auto md:pb-0">
           {/* Mobile role switcher */}
           <div className="flex items-center justify-between gap-2 px-4 pt-4 md:hidden">
-            <span className="flex items-center gap-2 text-sm font-bold">
+            <Link to="/" className="flex items-center gap-2 text-sm font-bold">
               <span className="flex size-6 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground">
                 У
               </span>
               Учёт работ
-            </span>
+            </Link>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as Role)}

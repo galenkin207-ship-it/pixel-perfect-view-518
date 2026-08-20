@@ -94,7 +94,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       void navigate({ to: "/login" });
     }
     if (sessionUser && pathname === "/login") {
-      void navigate({ to: sessionUser.role === "user" ? "/" : "/reports" });
+      void navigate({ to: "/" });
     }
   }, [authChecked, sessionUser, pathname, navigate]);
 
