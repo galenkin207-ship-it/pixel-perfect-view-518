@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
-import { Pencil, X } from "lucide-react";
+import { Pencil, Trash2, X } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { FieldLabel } from "@/components/app/bits";
 import { StatusBadge } from "@/components/app/status-badge";
@@ -9,11 +10,26 @@ import type { WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
 export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose: () => void }) {
-  const { objects, role, currentUser } = useApp();
+  const { objects, role, currentUser, deleteRecord } = useApp();
   const [photo, setPhoto] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const object = objects.find((o) => o.id === record.object_id);
   const isAdmin = role === "admin";
   const canEdit = canEditRecord(role, currentUser.full_name, record);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteRecord(record.id);
+      toast.success("Запись удалена");
+      onClose();
+    } catch {
+      toast.error("Не удалось удалить запись");
+      setDeleting(false);
+      setConfirmingDelete(false);
+    }
+  };
   const crew =
     record.execution_type === "brigade" ? (record.brigade_members ?? []) : record.employees;
 
@@ -128,13 +144,45 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
         )}
 
         {canEdit ? (
-          <Link
-            to="/records/$id"
-            params={{ id: record.id }}
-            className="mt-4 block rounded-xl bg-primary py-3 text-center text-sm font-semibold text-primary-foreground"
-          >
-            {record.status === "draft" ? "Продолжить заполнение" : "Редактировать запись"}
-          </Link>
+          <>
+            <Link
+              to="/records/$id"
+              params={{ id: record.id }}
+              className="mt-4 block rounded-xl bg-primary py-3 text-center text-sm font-semibold text-primary-foreground"
+            >
+              {record.status === "draft" ? "Продолжить заполнение" : "Редактировать запись"}
+            </Link>
+
+            {confirmingDelete ? (
+              <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+                <p className="text-sm font-medium text-foreground">Удалить эту запись без возможности восстановления?</p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex-1 rounded-lg bg-destructive py-2.5 text-sm font-semibold text-destructive-foreground disabled:opacity-60"
+                  >
+                    {deleting ? "Удаление..." : "Да, удалить"}
+                  </button>
+                  <button
+                    onClick={() => setConfirmingDelete(false)}
+                    disabled={deleting}
+                    className="flex-1 rounded-lg bg-surface py-2.5 text-sm font-semibold text-foreground disabled:opacity-60"
+                  >
+                    Отмена
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-sm font-semibold text-destructive"
+              >
+                <Trash2 className="size-4" />
+                Удалить запись
+              </button>
+            )}
+          </>
         ) : (
           <p className="mt-4 rounded-xl bg-surface py-3 text-center text-sm text-muted-foreground">
             Редактировать эту запись может только её автор, куратор или администратор

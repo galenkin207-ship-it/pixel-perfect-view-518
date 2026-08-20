@@ -16,6 +16,7 @@ export type AppState = {
   records: WorkRecord[];
   addRecord: (r: WorkRecord) => Promise<WorkRecord>;
   updateRecord: (r: WorkRecord) => Promise<WorkRecord>;
+  deleteRecord: (id: string) => Promise<void>;
   requests: WorkRequest[];
   setRequests: React.Dispatch<React.SetStateAction<WorkRequest[]>>;
   workTypes: WorkType[];

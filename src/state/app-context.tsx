@@ -145,6 +145,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deleteRecord = async (id: string): Promise<void> => {
+    try {
+      await api.deleteRecord(id);
+      setRecords((prev) => prev.filter((r) => r.id !== id));
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to delete record");
+    }
+  };
+
   const value: AppState = {
     role,
     setRole: setRoleOverride,
@@ -160,6 +169,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     records,
     addRecord,
     updateRecord,
+    deleteRecord,
     requests,
     setRequests,
     workTypes,

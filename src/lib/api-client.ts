@@ -222,6 +222,10 @@ export const api = {
     return apiRecordToWorkRecord(updated);
   },
 
+  async deleteRecord(recordId: string): Promise<void> {
+    await request<{ deleted: number }>(`/records/${recordId}`, { method: "DELETE" });
+  },
+
   async uploadPhotos(recordId: string, files: File[]): Promise<string[]> {
     const form = new FormData();
     for (const f of files) form.append("photos", f);
