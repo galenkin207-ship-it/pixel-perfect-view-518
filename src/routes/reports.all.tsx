@@ -36,7 +36,10 @@ function AllRecordsPage() {
   const [submitter, setSubmitter] = useState("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [page, setPage] = useState(1);
   const openRecord = records.find((r) => r.id === openId) ?? null;
+
+  const PAGE_SIZE = 20;
 
   const submitters = Array.from(new Set(records.map((r) => r.created_by))).sort();
 
@@ -47,6 +50,16 @@ function AllRecordsPage() {
       (submitter === "all" || r.created_by === submitter) &&
       r.items.some((i) => i.name.toLowerCase().includes(query.toLowerCase())),
   );
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const paginated = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+
+  const updateFilter = <T,>(setter: (v: T) => void) => (v: T) => {
+    setter(v);
+    setPage(1); // при смене любого фильтра начинаем заново с первой страницы
+  };
 
 
   return (
@@ -84,7 +97,7 @@ function AllRecordsPage() {
           <span className="label-caps">Объект</span>
           <select
             value={objectId}
-            onChange={(e) => setObjectId(e.target.value)}
+            onChange={(e) => updateFilter(setObjectId)(e.target.value)}
             className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
           >
             <option value="all">Все объекты</option>
@@ -99,7 +112,7 @@ function AllRecordsPage() {
           <span className="label-caps">Поиск по работе</span>
           <input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => updateFilter(setQuery)(e.target.value)}
             placeholder="Вид работы..."
             className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
           />
@@ -108,7 +121,7 @@ function AllRecordsPage() {
           <span className="label-caps">Кто подал</span>
           <select
             value={submitter}
-            onChange={(e) => setSubmitter(e.target.value)}
+            onChange={(e) => updateFilter(setSubmitter)(e.target.value)}
             className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
           >
             <option value="all">Все</option>
@@ -130,7 +143,7 @@ function AllRecordsPage() {
           <span className="label-caps">Статус</span>
           <select
             value={status}
-            onChange={(e) => setStatus(e.target.value as "all" | RecordStatus)}
+            onChange={(e) => updateFilter(setStatus)(e.target.value as "all" | RecordStatus)}
             className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
           >
             <option value="all">Все</option>
@@ -146,12 +159,25 @@ function AllRecordsPage() {
 
       <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
         <span>
-          Показано 1–{filtered.length} из {records.length} записей
+          Показано {filtered.length === 0 ? 0 : pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filtered.length)} из{" "}
+          {filtered.length} записей
         </span>
         <span className="flex items-center gap-2">
-          <button className="rounded-lg border border-border px-2 py-1">←</button>
-          Страница <span className="font-semibold text-foreground">1</span> из 1
-          <button className="rounded-lg border border-border px-2 py-1">→</button>
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage <= 1}
+            className="rounded-lg border border-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ←
+          </button>
+          Страница <span className="font-semibold text-foreground">{currentPage}</span> из {totalPages}
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage >= totalPages}
+            className="rounded-lg border border-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            →
+          </button>
         </span>
       </div>
 
@@ -164,7 +190,7 @@ function AllRecordsPage() {
           <span className="label-caps">Статус</span>
           <span className="label-caps">Изменено</span>
         </div>
-        {filtered.map((r) => {
+        {paginated.map((r) => {
           const object = objects.find((o) => o.id === r.object_id);
           const performer =
             r.execution_type === "brigade" ? (r.brigade_name ?? "") : r.employees.join(", ");
