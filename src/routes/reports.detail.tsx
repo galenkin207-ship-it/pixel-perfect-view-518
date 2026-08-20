@@ -641,9 +641,9 @@ function RecordDetailBlock({
             <button
               key={p}
               onClick={() => setPreview(p)}
-              className="flex size-24 shrink-0 items-center justify-center rounded-xl border border-border bg-muted text-xs text-muted-foreground"
+              className="size-24 shrink-0 overflow-hidden rounded-xl border border-border bg-muted"
             >
-              {p}
+              <img src={p} alt="Фото к записи" className="size-full object-cover" />
             </button>
           ))}
           {record.photos.length === 0 && (
@@ -657,8 +657,8 @@ function RecordDetailBlock({
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
           onClick={() => setPreview(null)}
         >
-          <div className="relative flex aspect-video w-full max-w-3xl items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-            {preview}
+          <div className="relative flex aspect-video w-full max-w-3xl items-center justify-center rounded-2xl bg-muted">
+            <img src={preview} alt="Фото к записи, полный размер" className="max-h-full max-w-full object-contain" />
             <button
               onClick={() => setPreview(null)}
               aria-label="Закрыть"

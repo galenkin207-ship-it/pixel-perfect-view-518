@@ -107,9 +107,9 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
                 <button
                   key={p}
                   onClick={() => setPhoto(p)}
-                  className="flex size-20 items-center justify-center rounded-xl bg-muted p-2 text-center text-[10px] text-muted-foreground"
+                  className="size-20 overflow-hidden rounded-xl bg-muted"
                 >
-                  {p}
+                  <img src={p} alt="Фото к записи" className="size-full object-cover" />
                 </button>
               ))}
             </div>
@@ -146,9 +146,11 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
             className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 p-6"
             onClick={() => setPhoto(null)}
           >
-            <div className="flex aspect-[4/3] w-full max-w-xl items-center justify-center rounded-2xl bg-muted text-sm text-muted-foreground">
-              {photo} — полный размер
-            </div>
+            <img
+              src={photo}
+              alt="Фото к записи, полный размер"
+              className="max-h-full max-w-xl rounded-2xl object-contain"
+            />
           </div>
         )}
       </div>

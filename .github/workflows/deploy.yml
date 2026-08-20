@@ -1,0 +1,60 @@
+name: Deploy uchet-frontend
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Backup current version on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            TS=$(date +%Y%m%d_%H%M%S)
+            mkdir -p /opt/uchet_backups/frontend
+            cp -a /opt/uchet/frontend /opt/uchet_backups/frontend/$TS
+            echo "$TS" > /opt/uchet_backups/frontend/LAST_BACKUP
+            cd /opt/uchet_backups/frontend && ls -1t -d */ 2>/dev/null | tail -n +15 | xargs -r rm -rf
+
+      - name: Sync files via rsync
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -avzr --delete --exclude=".git/" --exclude=".github/" --exclude="node_modules/" --exclude=".output/" --exclude="server/"
+          path: ./
+          remote_path: /opt/uchet/frontend/
+          remote_host: ${{ secrets.SSH_HOST }}
+          remote_user: ${{ secrets.SSH_USER }}
+          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Install, build, restart, health-check and auto-rollback
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            rollback() {
+              echo "!!! ОШИБКА — откатываюсь на предыдущую версию !!!"
+              LAST=$(cat /opt/uchet_backups/frontend/LAST_BACKUP)
+              rm -rf /opt/uchet/frontend
+              cp -a /opt/uchet_backups/frontend/$LAST /opt/uchet/frontend
+              sudo systemctl restart uchet-frontend
+              exit 1
+            }
+
+            cd /opt/uchet/frontend || rollback
+            npm install || rollback
+            npm run build || rollback
+            sudo systemctl restart uchet-frontend || rollback
+            sudo systemctl is-active uchet-frontend || rollback
+            sleep 2
+            curl -sf http://127.0.0.1:3000/ > /dev/null || rollback
+            echo "Деплой frontend успешен."

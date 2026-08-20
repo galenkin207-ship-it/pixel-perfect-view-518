@@ -14,8 +14,8 @@ export type AppState = {
   objects: WorkObject[];
   setObjects: React.Dispatch<React.SetStateAction<WorkObject[]>>;
   records: WorkRecord[];
-  addRecord: (r: WorkRecord) => void;
-  updateRecord: (r: WorkRecord) => void;
+  addRecord: (r: WorkRecord) => Promise<WorkRecord>;
+  updateRecord: (r: WorkRecord) => Promise<WorkRecord>;
   requests: WorkRequest[];
   setRequests: React.Dispatch<React.SetStateAction<WorkRequest[]>>;
   workTypes: WorkType[];
@@ -28,6 +28,9 @@ export type AppState = {
   setUsers: React.Dispatch<React.SetStateAction<AppUser[]>>;
   brigades: { name: string; members: string[] }[];
   notificationsCount: number;
+  login: (login: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  isAuthenticated: boolean;
 };
 
 export type ThemeMode = "light" | "dark" | "system";

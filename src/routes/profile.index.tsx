@@ -75,6 +75,7 @@ function ProfilePage() {
     setThemeMode,
     notifications,
     setNotifications,
+    logout,
   } = useApp();
   const isAdmin = role === "admin";
 
@@ -87,12 +88,19 @@ function ProfilePage() {
 
       <div className="mt-4 flex items-center gap-4 rounded-2xl border border-border bg-card p-4">
         <InitialsAvatar name={currentUser.full_name} className="size-14 text-base" />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-lg font-bold">{currentUser.full_name}</p>
           <p className="text-sm text-muted-foreground">
             {roleLabels[currentUser.role as Role]} · {currentUser.login}
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => void logout()}
+          className="shrink-0 rounded-xl border border-border bg-surface px-3 py-2 text-sm font-semibold"
+        >
+          Выйти
+        </button>
       </div>
 
       <section className="mt-4 rounded-2xl border border-border bg-card p-4">

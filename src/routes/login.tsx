@@ -1,9 +1,9 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { roleLabels } from "@/data/mock";
 import { useApp } from "@/state/use-app";
+import { ApiError } from "@/lib/api-client";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -21,21 +21,27 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { users, setRole } = useApp();
-  const navigate = useNavigate();
-  const [login, setLogin] = useState("");
+  const { login } = useApp();
+  const [loginValue, setLoginValue] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const user = users.find((u) => u.login === login.trim() && u.password === password);
-    if (!user) {
-      toast.error("Неверный логин или пароль");
-      return;
+    if (!loginValue.trim() || !password) return;
+    setSubmitting(true);
+    try {
+      await login(loginValue.trim(), password);
+      // Редирект после успешного входа делает AppProvider (следит за сессией).
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        toast.error("Неверный логин или пароль");
+      } else {
+        toast.error("Не удалось войти, попробуйте ещё раз");
+      }
+    } finally {
+      setSubmitting(false);
     }
-    setRole(user.role);
-    toast.success(`Здравствуйте, ${user.full_name}`);
-    void navigate({ to: user.role === "user" ? "/" : "/reports" });
   };
 
   return (
@@ -48,8 +54,9 @@ function LoginPage() {
           <label className="block">
             <span className="label-caps">Логин</span>
             <input
-              value={login}
-              onChange={(e) => setLogin(e.target.value)}
+              value={loginValue}
+              onChange={(e) => setLoginValue(e.target.value)}
+              autoComplete="username"
               className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
               placeholder="prorab"
             />
@@ -60,38 +67,19 @@ function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
               className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
               placeholder="••••••"
             />
           </label>
           <button
             type="submit"
-            className="mt-5 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground"
+            disabled={submitting}
+            className="mt-5 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
-            Войти
+            {submitting ? "Входим..." : "Войти"}
           </button>
         </form>
-
-        <div className="mt-4 rounded-2xl border border-white/10 p-4">
-          <p className="label-caps text-white/50">Демо-доступы</p>
-          <ul className="mt-2 space-y-1 text-sm text-white/70">
-            {users.map((u) => (
-              <li key={u.id} className="flex justify-between gap-3">
-                <span>{roleLabels[u.role]}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLogin(u.login);
-                    setPassword(u.password);
-                  }}
-                  className="font-mono text-white"
-                >
-                  {u.login} / {u.password}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
       </div>
     </main>
   );

@@ -7,6 +7,7 @@ import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { EmployeeSelect } from "@/components/app/employee-select";
 import { cn } from "@/lib/utils";
 import { itemQty, recordTotal, round2, syncItem } from "@/lib/record-utils";
+import { api } from "@/lib/api-client";
 import type { ExecutionType, WorkItem, WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
@@ -51,7 +52,10 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
   );
   const [brigadeName, setBrigadeName] = useState(record?.brigade_name ?? brigades[0]!.name);
   const [comment, setComment] = useState(record?.comment ?? "");
-  const [photos, setPhotos] = useState<string[]>(record?.photos ?? []);
+  const [photos, setPhotos] = useState<string[]>(record?.photos ?? []); // уже загруженные (URL с сервера)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]); // выбраны, но ещё не отправлены
+  const [pendingPreviews, setPendingPreviews] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
   const [dateIso, setDateIso] = useState(() => toIso(record?.date));
 
   const object = objects.find((o) => o.id === objectId)!;
@@ -94,7 +98,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
       }),
     );
 
-  const save = (status: "draft" | "done") => {
+  const save = async (status: "draft" | "done") => {
     if (status === "done" && items.length === 0) {
       toast.error("Добавьте хотя бы один вид работы");
       return;
@@ -128,10 +132,39 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
           }
         : {}),
     };
-    if (record) updateRecord(payload);
-    else addRecord(payload);
-    toast.success(status === "draft" ? "Черновик сохранён" : "Запись сохранена");
-    navigate({ to: "/objects/$id", params: { id: objectId } });
+
+    setSaving(true);
+    try {
+      const saved = record ? await updateRecord(payload) : await addRecord(payload);
+      if (pendingFiles.length > 0) {
+        try {
+          await api.uploadPhotos(saved.id, pendingFiles);
+        } catch {
+          toast.error("Запись сохранена, но фото загрузить не удалось — попробуйте добавить их ещё раз");
+        }
+      }
+      toast.success(status === "draft" ? "Черновик сохранён" : "Запись сохранена");
+      navigate({ to: "/objects/$id", params: { id: objectId } });
+    } catch {
+      toast.error("Не удалось сохранить запись, попробуйте ещё раз");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addFiles = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const arr = Array.from(files);
+    setPendingFiles((prev) => [...prev, ...arr]);
+    setPendingPreviews((prev) => [...prev, ...arr.map((f) => URL.createObjectURL(f))]);
+  };
+
+  const removePendingFile = (idx: number) => {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
+    setPendingPreviews((prev) => {
+      URL.revokeObjectURL(prev[idx]!);
+      return prev.filter((_, i) => i !== idx);
+    });
   };
 
   return (
@@ -318,28 +351,51 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
         <div>
           <FieldLabel>Фото</FieldLabel>
           <div className="mt-1 flex gap-2">
-            <button
-              onClick={() => setPhotos((p) => [...p, `Фото ${p.length + 1}`])}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-surface py-3 text-sm font-semibold"
-            >
+            <label className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-surface py-3 text-sm font-semibold">
               <Camera className="size-4" /> Снять фото
-            </button>
-            <button
-              onClick={() => setPhotos((p) => [...p, `Галерея ${p.length + 1}`])}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-surface py-3 text-sm font-semibold"
-            >
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  addFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            <label className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-surface py-3 text-sm font-semibold">
               <ImageIcon className="size-4" /> Из галереи
-            </button>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  addFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </label>
           </div>
-          {photos.length > 0 && (
+          {(photos.length > 0 || pendingPreviews.length > 0) && (
             <div className="mt-2 flex flex-wrap gap-2">
               {photos.map((p) => (
-                <span
-                  key={p}
-                  className="flex size-16 items-center justify-center rounded-lg bg-muted text-center text-[10px] text-muted-foreground"
-                >
-                  {p}
-                </span>
+                <img key={p} src={p} alt="Фото к записи" className="size-16 rounded-lg object-cover" />
+              ))}
+              {pendingPreviews.map((p, idx) => (
+                <div key={p} className="relative size-16">
+                  <img src={p} alt="Новое фото" className="size-16 rounded-lg object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removePendingFile(idx)}
+                    aria-label="Убрать фото"
+                    className="absolute -top-1.5 -right-1.5 rounded-full bg-black/70 p-0.5"
+                  >
+                    <X className="size-3 text-white" />
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -355,15 +411,17 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
             onClick={() => save("draft")}
-            className="w-full rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold"
+            disabled={saving}
+            className="w-full rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold disabled:opacity-60"
           >
             Сохранить черновик
           </button>
           <button
             onClick={() => save("done")}
-            className="w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground"
+            disabled={saving}
+            className="w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
-            Сохранить запись
+            {saving ? "Сохранение..." : "Сохранить запись"}
           </button>
         </div>
       </div>

@@ -1,0 +1,16 @@
+[Unit]
+Description=Uchet backend API (Node/Express)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/uchet/server
+EnvironmentFile=/opt/uchet/server/.env
+ExecStart=/usr/bin/node src/index.js
+Restart=on-failure
+RestartSec=3
+# Логи идут в journald (journalctl -u uchet-backend)
+
+[Install]
+WantedBy=multi-user.target

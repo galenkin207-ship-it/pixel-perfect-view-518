@@ -12,4 +12,9 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Деплоим на собственный VPS (не Cloudflare/Vercel), поэтому явно фиксируем
+  // Node.js-пресет Nitro — иначе по умолчанию соберётся под cloudflare-module.
+  nitro: {
+    preset: "node-server",
+  },
 });
