@@ -541,7 +541,7 @@ function ReportsPage() {
                 type="button"
                 disabled={svodBusy}
                 onClick={() => void exportMonthlySummary()}
-                className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:cursor-default disabled:opacity-60 cursor-pointer"
               >
                 {svodBusy ? "Формирование..." : "Скачать Excel"}
               </button>
