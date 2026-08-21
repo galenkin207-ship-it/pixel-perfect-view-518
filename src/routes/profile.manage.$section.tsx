@@ -7,6 +7,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api-client";
+import { smartFilter } from "@/lib/smart-search";
 import { roleLabels, type Role } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
@@ -127,7 +128,7 @@ function Autocomplete({
   placeholder: string;
 }) {
   const [q, setQ] = useState("");
-  const found = items.filter((i) => i.label.toLowerCase().includes(q.trim().toLowerCase()));
+  const found = smartFilter(items, q, (i) => i.label);
   return (
     <div>
       <input
@@ -460,10 +461,7 @@ function WorkTypesList() {
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
 
-  const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    return s ? workTypes.filter((w) => w.name.toLowerCase().includes(s)) : workTypes;
-  }, [workTypes, q]);
+  const filtered = useMemo(() => smartFilter(workTypes, q, (w) => w.name), [workTypes, q]);
 
   const perPage = 50;
   const pages = Math.max(1, Math.ceil(filtered.length / perPage));

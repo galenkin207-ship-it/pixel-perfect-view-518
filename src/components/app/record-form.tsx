@@ -7,6 +7,7 @@ import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { EmployeeSelect } from "@/components/app/employee-select";
 import { cn } from "@/lib/utils";
 import { itemQty, recordTotal, round2, syncItem } from "@/lib/record-utils";
+import { smartFilter } from "@/lib/smart-search";
 import { api } from "@/lib/api-client";
 import type { ExecutionType, WorkItem, WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
@@ -66,9 +67,10 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
     setItems((prev) => prev.map((it) => syncItem(it, next)));
   };
 
-  const crew = executionType === "brigade"
-    ? (brigades.find((b) => b.name === brigadeName)?.members ?? [])
-    : selectedEmployees;
+  const crew =
+    executionType === "brigade"
+      ? (brigades.find((b) => b.name === brigadeName)?.members ?? [])
+      : selectedEmployees;
 
   const setItemCrew = (idx: number, next: string[]) =>
     setItems((prev) => prev.map((it, i) => (i === idx ? syncItem(it, next) : it)));
@@ -78,7 +80,10 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
       prev.map((it, i) => {
         if (i !== idx) return it;
         const base = { ...it, qty, manual: false };
-        return syncItem(base, (it.allocations ?? []).map((a) => a.employee));
+        return syncItem(
+          base,
+          (it.allocations ?? []).map((a) => a.employee),
+        );
       }),
     );
 
@@ -140,7 +145,9 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
         try {
           await api.uploadPhotos(saved.id, pendingFiles);
         } catch {
-          toast.error("Запись сохранена, но фото загрузить не удалось — попробуйте добавить их ещё раз");
+          toast.error(
+            "Запись сохранена, но фото загрузить не удалось — попробуйте добавить их ещё раз",
+          );
         }
       }
       toast.success(status === "draft" ? "Черновик сохранён" : "Запись сохранена");
@@ -170,7 +177,13 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
   return (
     <>
       <PageHeading
-        context={record ? (record.status === "draft" ? "Черновик записи" : "Редактирование записи") : "Новая запись"}
+        context={
+          record
+            ? record.status === "draft"
+              ? "Черновик записи"
+              : "Редактирование записи"
+            : "Новая запись"
+        }
         title={`${object.name}, ${object.address}`}
       />
 
@@ -382,7 +395,12 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
           {(photos.length > 0 || pendingPreviews.length > 0) && (
             <div className="mt-2 flex flex-wrap gap-2">
               {photos.map((p) => (
-                <img key={p} src={p} alt="Фото к записи" className="size-16 rounded-lg object-cover" />
+                <img
+                  key={p}
+                  src={p}
+                  alt="Фото к записи"
+                  className="size-16 rounded-lg object-cover"
+                />
               ))}
               {pendingPreviews.map((p, idx) => (
                 <div key={p} className="relative size-16">
@@ -472,7 +490,7 @@ function WorkTypePicker({
   const [query, setQuery] = useState("");
   const [customOpen, setCustomOpen] = useState(false);
   const [custom, setCustom] = useState("");
-  const filtered = types.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()));
+  const filtered = smartFilter(types, query, (t) => t.name);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 md:items-center md:p-4">
@@ -484,7 +502,11 @@ function WorkTypePicker({
               Найдите позицию в справочнике или укажите свой вариант
             </p>
           </div>
-          <button onClick={onClose} aria-label="Закрыть" className="rounded-full p-2.5 hover:bg-muted">
+          <button
+            onClick={onClose}
+            aria-label="Закрыть"
+            className="rounded-full p-2.5 hover:bg-muted"
+          >
             <X className="size-6 text-muted-foreground" />
           </button>
         </div>
@@ -503,7 +525,8 @@ function WorkTypePicker({
           <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
             <span className="label-caps">Справочник</span>
             <span>
-              {filtered.length} {filtered.length === 1 ? "позиция" : filtered.length < 5 ? "позиции" : "позиций"}
+              {filtered.length}{" "}
+              {filtered.length === 1 ? "позиция" : filtered.length < 5 ? "позиции" : "позиций"}
             </span>
           </div>
         </div>
@@ -561,7 +584,10 @@ function WorkTypePicker({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-base font-semibold">Свой вариант</span>
-                <button onClick={() => setCustomOpen(false)} className="text-sm text-muted-foreground">
+                <button
+                  onClick={() => setCustomOpen(false)}
+                  className="text-sm text-muted-foreground"
+                >
                   Скрыть
                 </button>
               </div>
@@ -593,4 +619,3 @@ function WorkTypePicker({
     </div>
   );
 }
-
