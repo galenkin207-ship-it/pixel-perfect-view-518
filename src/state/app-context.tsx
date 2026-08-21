@@ -7,7 +7,7 @@ import {
   type NotificationSettings,
   type ThemeMode,
 } from "./use-app";
-import { brigades as mockBrigades, type AppUser, type WorkRecord } from "@/data/mock";
+import { brigades as mockBrigades, type AppUser, type Role, type WorkRecord } from "@/data/mock";
 import { api, ApiError } from "@/lib/api-client";
 
 const EMPTY_USER: AppUser = { id: "", login: "", password: "", full_name: "", role: "user" };
@@ -153,6 +153,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addUser = async (input: {
+    login: string;
+    password: string;
+    full_name: string;
+    role: Role;
+  }): Promise<AppUser> => {
+    try {
+      const created = await api.createUser(input);
+      setUsers((prev) => [...prev, created]);
+      return created;
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to create user");
+    }
+  };
+
+  const updateUser = async (
+    id: string,
+    input: { full_name?: string; role?: Role; active?: boolean; password?: string },
+  ): Promise<AppUser> => {
+    try {
+      const saved = await api.updateUser(id, input);
+      setUsers((prev) => prev.map((u) => (u.id === saved.id ? { ...u, ...saved } : u)));
+      return saved;
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to update user");
+    }
+  };
+
   const value: AppState = {
     role,
     currentUser,
@@ -178,6 +206,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUnits,
     users,
     setUsers,
+    addUser,
+    updateUser,
     brigades: mockBrigades,
     notificationsCount: 0,
     login,

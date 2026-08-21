@@ -63,7 +63,7 @@ export type WorkRequest = {
   comments: RequestComment[];
 };
 
-export type AppUser = { id: string; login: string; password: string; full_name: string; role: Role };
+export type AppUser = { id: string; login: string; password: string; full_name: string; role: Role; active?: boolean };
 
 export type WorkType = { id: string; name: string; unit: string; price: number };
 

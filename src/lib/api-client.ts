@@ -184,8 +184,43 @@ export const api = {
   },
 
   async listUsers(): Promise<AppUser[]> {
-    const rows = await request<{ id: number; login: string; full_name: string; role: Role }[]>("/users");
-    return rows.map((u) => ({ id: String(u.id), login: u.login, password: "", full_name: u.full_name, role: u.role }));
+    const rows = await request<
+      { id: number; login: string; full_name: string; role: Role; active: boolean }[]
+    >("/users");
+    return rows.map((u) => ({
+      id: String(u.id),
+      login: u.login,
+      password: "",
+      full_name: u.full_name,
+      role: u.role,
+      active: u.active,
+    }));
+  },
+
+  // Пароль хранится на backend только в виде bcrypt-хэша и никогда не возвращается —
+  // "подтянуть" старый пароль в принципе невозможно, только задать новый.
+  async createUser(input: {
+    login: string;
+    password: string;
+    full_name: string;
+    role: Role;
+  }): Promise<AppUser> {
+    const row = await request<{ id: number; login: string; full_name: string; role: Role }>("/users", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return { id: String(row.id), login: row.login, password: "", full_name: row.full_name, role: row.role, active: true };
+  },
+
+  async updateUser(
+    id: string,
+    input: { full_name?: string; role?: Role; active?: boolean; password?: string },
+  ): Promise<AppUser> {
+    const row = await request<{ id: number; login: string; full_name: string; role: Role; active: boolean }>(
+      `/users/${id}`,
+      { method: "PUT", body: JSON.stringify(input) },
+    );
+    return { id: String(row.id), login: row.login, password: "", full_name: row.full_name, role: row.role, active: row.active };
   },
 
   async listRequests(): Promise<WorkRequest[]> {

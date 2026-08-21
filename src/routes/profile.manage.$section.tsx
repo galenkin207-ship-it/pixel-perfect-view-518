@@ -904,17 +904,30 @@ function UnitsSection() {
 }
 
 /* 5. Пользователи */
+
+// Пароли на backend хранятся только как bcrypt-хэш (одностороннее шифрование) —
+// показать "старый" пароль в принципе невозможно ни при каких правах доступа,
+// это не баг, а требование безопасности. Единственная рабочая операция — задать
+// новый пароль (вручную или сгенерировать), после чего он сразу необратимо хэшируется.
+function generatePassword() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  let out = "";
+  for (let i = 0; i < 10; i++) out += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return out;
+}
+
 function UsersSection() {
-  const { users, setUsers } = useApp();
+  const { users, addUser, updateUser } = useApp();
   const [form, setForm] = useState({ login: "", password: "", full_name: "", role: "user" as Role });
-  const [shown, setShown] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [editId, setEditId] = useState("");
-  const [draft, setDraft] = useState({ login: "", password: "", full_name: "", role: "user" as Role });
+  const [draft, setDraft] = useState({ full_name: "", role: "user" as Role, newPassword: "" });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   return (
     <div className="space-y-4">
       <Card title="Добавить пользователя">
-        <div className="grid gap-3 md:grid-cols-[1fr_1fr_1.4fr_1fr_auto] md:items-end">
+        <div className="grid gap-3 md:grid-cols-[1fr_1.2fr_1.4fr_1fr_auto] md:items-end">
           <label className="block">
             <span className="label-caps">Логин</span>
             <input
@@ -925,11 +938,20 @@ function UsersSection() {
           </label>
           <label className="block">
             <span className="label-caps">Пароль</span>
-            <input
-              value={form.password}
-              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              className={cn(input, "mt-1")}
-            />
+            <div className="mt-1 flex gap-1.5">
+              <input
+                value={form.password}
+                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                className={cn(input, "font-mono")}
+              />
+              <button
+                type="button"
+                className={cn(ghostBtn, "shrink-0 px-2.5")}
+                onClick={() => setForm((f) => ({ ...f, password: generatePassword() }))}
+              >
+                Сгенерировать
+              </button>
+            </div>
           </label>
           <label className="block">
             <span className="label-caps">ФИО</span>
@@ -953,16 +975,31 @@ function UsersSection() {
           </label>
           <button
             type="button"
-            className={primaryBtn}
-            onClick={() => {
-              if (!form.login.trim() || !form.full_name.trim())
-                { toast.error("Заполните логин и ФИО"); return; }
-              setUsers((p) => [...p, { id: `u${Date.now()}`, ...form, login: form.login.trim(), full_name: form.full_name.trim() }]);
-              setForm({ login: "", password: "", full_name: "", role: "user" });
-              toast.success("Пользователь добавлен");
+            disabled={saving}
+            className={cn(primaryBtn, "disabled:opacity-60")}
+            onClick={async () => {
+              if (!form.login.trim() || !form.full_name.trim() || !form.password.trim()) {
+                toast.error("Заполните логин, пароль и ФИО");
+                return;
+              }
+              setSaving(true);
+              try {
+                await addUser({
+                  login: form.login.trim(),
+                  password: form.password,
+                  full_name: form.full_name.trim(),
+                  role: form.role,
+                });
+                setForm({ login: "", password: "", full_name: "", role: "user" });
+                toast.success("Пользователь добавлен");
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Не удалось добавить пользователя");
+              } finally {
+                setSaving(false);
+              }
             }}
           >
-            Добавить пользователя
+            {saving ? "Сохранение..." : "Добавить пользователя"}
           </button>
         </div>
       </Card>
@@ -978,79 +1015,111 @@ function UsersSection() {
                     <span className="rounded-md bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-primary">
                       {u.login}
                     </span>
+                    {u.active === false && (
+                      <span className="rounded-md bg-status-rejected/10 px-2 py-0.5 text-[11px] font-semibold text-status-rejected">
+                        Отключён
+                      </span>
+                    )}
                   </p>
                   <p className="text-xs text-muted-foreground">{roleLabels[u.role]}</p>
-                  {shown === u.id && (
-                    <p className="mt-1 font-mono text-xs">Пароль: {u.password}</p>
-                  )}
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <button
                     type="button"
                     className={ghostBtn}
-                    onClick={() => setShown((s) => (s === u.id ? null : u.id))}
-                  >
-                    Пароль
-                  </button>
-                  <button
-                    type="button"
-                    className={ghostBtn}
                     onClick={() => {
                       setEditId((e) => (e === u.id ? "" : u.id));
-                      setDraft({ login: u.login, password: u.password, full_name: u.full_name, role: u.role });
+                      setDraft({ full_name: u.full_name, role: u.role, newPassword: "" });
                     }}
                   >
                     Изменить
                   </button>
                   <button
                     type="button"
-                    className={cn(ghostBtn, "text-status-rejected")}
-                    onClick={() => {
-                      setUsers((p) => p.filter((x) => x.id !== u.id));
-                      toast.success("Удалено");
+                    className={cn(ghostBtn, u.active === false ? "" : "text-status-rejected")}
+                    onClick={async () => {
+                      try {
+                        await updateUser(u.id, { active: u.active === false });
+                        toast.success(u.active === false ? "Пользователь включён" : "Пользователь отключён");
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Не удалось изменить статус");
+                      }
                     }}
                   >
-                    Удалить
+                    {u.active === false ? "Включить" : "Отключить"}
                   </button>
                 </div>
               </div>
 
               {editId === u.id && (
-                <div className="mt-3 grid gap-3 rounded-xl bg-card p-3 md:grid-cols-[1fr_1fr_1.4fr_1fr_auto] md:items-end">
-                  <input
-                    value={draft.login}
-                    onChange={(e) => setDraft((d) => ({ ...d, login: e.target.value }))}
-                    className={input}
-                  />
-                  <input
-                    value={draft.password}
-                    onChange={(e) => setDraft((d) => ({ ...d, password: e.target.value }))}
-                    className={input}
-                  />
-                  <input
-                    value={draft.full_name}
-                    onChange={(e) => setDraft((d) => ({ ...d, full_name: e.target.value }))}
-                    className={input}
-                  />
-                  <select
-                    value={draft.role}
-                    onChange={(e) => setDraft((d) => ({ ...d, role: e.target.value as Role }))}
-                    className={input}
-                  >
-                    <option value="user">Обычный пользователь</option>
-                    <option value="curator">Куратор</option>
-                    <option value="admin">Администратор</option>
-                  </select>
+                <div className="mt-3 space-y-3 rounded-xl bg-card p-3">
+                  <div className="grid gap-3 md:grid-cols-[1.4fr_1fr_auto]">
+                    <label className="block">
+                      <span className="label-caps">ФИО</span>
+                      <input
+                        value={draft.full_name}
+                        onChange={(e) => setDraft((d) => ({ ...d, full_name: e.target.value }))}
+                        className={cn(input, "mt-1")}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="label-caps">Роль</span>
+                      <select
+                        value={draft.role}
+                        onChange={(e) => setDraft((d) => ({ ...d, role: e.target.value as Role }))}
+                        className={cn(input, "mt-1")}
+                      >
+                        <option value="user">Обычный пользователь</option>
+                        <option value="curator">Куратор</option>
+                        <option value="admin">Администратор</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label className="block">
+                    <span className="label-caps">Новый пароль (оставьте пустым, чтобы не менять)</span>
+                    <div className="mt-1 flex gap-1.5">
+                      <input
+                        value={draft.newPassword}
+                        onChange={(e) => setDraft((d) => ({ ...d, newPassword: e.target.value }))}
+                        placeholder="Не менять"
+                        className={cn(input, "font-mono")}
+                      />
+                      <button
+                        type="button"
+                        className={cn(ghostBtn, "shrink-0 px-2.5")}
+                        onClick={() => setDraft((d) => ({ ...d, newPassword: generatePassword() }))}
+                      >
+                        Сгенерировать
+                      </button>
+                    </div>
+                  </label>
                   <button
                     type="button"
-                    className={primaryBtn}
-                    onClick={() => {
-                      setUsers((p) => p.map((x) => (x.id === editId ? { ...x, ...draft } : x)));
-                      setEditId("");
-                      toast.success("Сохранено");
+                    disabled={savingEdit}
+                    className={cn(primaryBtn, "disabled:opacity-60")}
+                    onClick={async () => {
+                      setSavingEdit(true);
+                      try {
+                        const newPassword = draft.newPassword.trim();
+                        await updateUser(editId, {
+                          full_name: draft.full_name.trim(),
+                          role: draft.role,
+                          ...(newPassword ? { password: newPassword } : {}),
+                        });
+                        toast.success(
+                          newPassword
+                            ? `Сохранено. Новый пароль: ${newPassword} — сообщите его пользователю, повторно он нигде не отобразится.`
+                            : "Сохранено",
+                        );
+                        setEditId("");
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Не удалось сохранить");
+                      } finally {
+                        setSavingEdit(false);
+                      }
                     }}
                   >
-                    Сохранить
+                    {savingEdit ? "Сохранение..." : "Сохранить"}
                   </button>
                 </div>
               )}

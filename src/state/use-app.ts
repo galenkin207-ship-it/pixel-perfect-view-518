@@ -26,6 +26,11 @@ export type AppState = {
   setUnits: React.Dispatch<React.SetStateAction<string[]>>;
   users: AppUser[];
   setUsers: React.Dispatch<React.SetStateAction<AppUser[]>>;
+  addUser: (input: { login: string; password: string; full_name: string; role: Role }) => Promise<AppUser>;
+  updateUser: (
+    id: string,
+    input: { full_name?: string; role?: Role; active?: boolean; password?: string },
+  ) => Promise<AppUser>;
   brigades: { name: string; members: string[] }[];
   notificationsCount: number;
   login: (login: string, password: string) => Promise<void>;
