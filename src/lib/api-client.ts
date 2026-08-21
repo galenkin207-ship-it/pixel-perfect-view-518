@@ -326,6 +326,19 @@ export const api = {
     await request<{ deleted: number }>(`/work-types/${id}`, { method: "DELETE" });
   },
 
+  async listPinnedObjects(): Promise<string[]> {
+    const rows = await request<(number | string)[]>("/pinned-objects");
+    return rows.map(String);
+  },
+
+  async pinObject(id: string): Promise<void> {
+    await request<{ ok: true }>(`/pinned-objects/${id}`, { method: "POST" });
+  },
+
+  async unpinObject(id: string): Promise<void> {
+    await request<{ ok: true }>(`/pinned-objects/${id}`, { method: "DELETE" });
+  },
+
   async listUsers(): Promise<AppUser[]> {
     const rows =
       await request<

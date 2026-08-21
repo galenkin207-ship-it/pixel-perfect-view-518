@@ -22,6 +22,9 @@ export type AppState = {
     input: { name: string; address: string; progress_percent: number },
   ) => Promise<WorkObject>;
   deleteObject: (id: string) => Promise<void>;
+  pinnedObjectIds: string[];
+  pinObject: (id: string) => Promise<void>;
+  unpinObject: (id: string) => Promise<void>;
   records: WorkRecord[];
   addRecord: (r: WorkRecord) => Promise<WorkRecord>;
   updateRecord: (r: WorkRecord) => Promise<WorkRecord>;

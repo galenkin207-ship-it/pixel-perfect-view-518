@@ -44,6 +44,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [employees, setEmployees] = useState<string[]>([]);
   const [units, setUnits] = useState<string[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [pinnedObjectIds, setPinnedObjectIds] = useState<string[]>([]);
 
   // Проверяем сессию один раз при загрузке приложения.
   useEffect(() => {
@@ -74,8 +75,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       api.listRecords(),
       api.listRequests(),
       sessionUser.role === "admin" ? api.listUsers() : Promise.resolve([]),
+      api.listPinnedObjects(),
     ])
-      .then(([objs, emps, uns, types, recs, reqs, usrs]) => {
+      .then(([objs, emps, uns, types, recs, reqs, usrs, pinned]) => {
         if (cancelled) return;
         setObjects(objs);
         setEmployees(emps);
@@ -84,6 +86,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setRecords(recs);
         setRequests(reqs);
         if (usrs.length) setUsers(usrs);
+        setPinnedObjectIds(pinned);
         setDataLoaded(true);
       })
       .catch(() => {
@@ -238,6 +241,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const pinObject = async (id: string): Promise<void> => {
+    setPinnedObjectIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    try {
+      await api.pinObject(id);
+    } catch (err) {
+      setPinnedObjectIds((prev) => prev.filter((x) => x !== id)); // откатываем оптимистичное обновление
+      throw err instanceof ApiError ? err : new Error("failed to pin object");
+    }
+  };
+
+  const unpinObject = async (id: string): Promise<void> => {
+    const had = pinnedObjectIds.includes(id);
+    setPinnedObjectIds((prev) => prev.filter((x) => x !== id));
+    try {
+      await api.unpinObject(id);
+    } catch (err) {
+      if (had) setPinnedObjectIds((prev) => (prev.includes(id) ? prev : [...prev, id])); // откат
+      throw err instanceof ApiError ? err : new Error("failed to unpin object");
+    }
+  };
+
   const addWorkType = async (input: {
     name: string;
     unit: string;
@@ -346,6 +370,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addObject,
     updateObject,
     deleteObject,
+    pinnedObjectIds,
+    pinObject,
+    unpinObject,
     records,
     addRecord,
     updateRecord,
