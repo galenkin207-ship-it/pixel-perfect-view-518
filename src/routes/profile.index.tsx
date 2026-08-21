@@ -239,13 +239,6 @@ function ProfilePage() {
           </div>
         </section>
       )}
-
-      <Link
-        to="/login"
-        className="mt-4 block rounded-2xl border border-border bg-card px-4 py-3 text-center text-sm font-semibold text-status-rejected"
-      >
-        Выйти из аккаунта
-      </Link>
     </AppShell>
   );
 }
