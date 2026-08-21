@@ -107,7 +107,15 @@ export function AppShell({
           </Link>
 
           {isAdminLike && <NavGroup title="Главная" items={home} isActive={isActive} />}
-          <NavGroup title="Аналитика" items={tabs.slice(1, 2)} isActive={isActive} />
+          <NavGroup
+            title="Аналитика"
+            items={
+              isAdminLike
+                ? tabs.slice(1, 2)
+                : [tabs[1]!, { to: "/reports/all", label: "Все записи", icon: ListChecks }]
+            }
+            isActive={isActive}
+          />
           {isAdminLike && <NavGroup title="Управление" items={manage} isActive={isActive} />}
           <NavGroup
             title={isAdminLike ? "Администрирование" : "Разделы"}
@@ -122,7 +130,9 @@ export function AppShell({
             >
               <InitialsAvatar name={currentUser.full_name} className="size-9 text-xs" />
               <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold">{currentUser.full_name}</span>
+                <span className="block truncate text-sm font-semibold">
+                  {currentUser.full_name}
+                </span>
                 <span className="block text-xs text-muted-foreground">{roleLabels[role]}</span>
               </span>
             </Link>
