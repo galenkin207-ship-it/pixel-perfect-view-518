@@ -1,4 +1,12 @@
-import type { AppUser, Role, WorkItem, WorkObject, WorkRecord, WorkRequest, WorkType } from "@/data/mock";
+import type {
+  AppUser,
+  Role,
+  WorkItem,
+  WorkObject,
+  WorkRecord,
+  WorkRequest,
+  WorkType,
+} from "@/data/mock";
 
 // В браузере запросы идут на тот же домен (относительный /api/...) — nginx
 // проксирует /api на backend-сервис, отдельного CORS не требуется.
@@ -17,7 +25,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     credentials: "include",
     ...init,
-    headers: isFormData ? (init?.headers ?? {}) : { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: isFormData
+      ? (init?.headers ?? {})
+      : { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
@@ -150,13 +160,16 @@ export const api = {
     return request<{ ok: true }>("/logout", { method: "POST" });
   },
   async me() {
-    return request<{ id: number; login: string; full_name: string; role: Role; active: boolean }>("/me");
+    return request<{ id: number; login: string; full_name: string; role: Role; active: boolean }>(
+      "/me",
+    );
   },
 
   async listObjects(): Promise<WorkObject[]> {
-    const rows = await request<{ id: number; name: string; address: string; progress_percent: number }[]>(
-      "/objects",
-    );
+    const rows =
+      await request<{ id: number; name: string; address: string; progress_percent: number }[]>(
+        "/objects",
+      );
     return rows.map((o) => ({
       id: String(o.id),
       name: o.name,
@@ -166,9 +179,82 @@ export const api = {
     }));
   },
 
+  async createObject(input: {
+    name: string;
+    address: string;
+    progress_percent: number;
+  }): Promise<WorkObject> {
+    const row = await request<{
+      id: number;
+      name: string;
+      address: string;
+      progress_percent: number;
+    }>("/objects", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return {
+      id: String(row.id),
+      name: row.name,
+      address: row.address ?? "",
+      records_today: 0,
+      progress_percent: row.progress_percent ?? 0,
+    };
+  },
+
+  async updateObject(
+    id: string,
+    input: { name: string; address: string; progress_percent: number },
+  ): Promise<WorkObject> {
+    const row = await request<{
+      id: number;
+      name: string;
+      address: string;
+      progress_percent: number;
+    }>(`/objects/${id}`, { method: "PUT", body: JSON.stringify(input) });
+    return {
+      id: String(row.id),
+      name: row.name,
+      address: row.address ?? "",
+      records_today: 0,
+      progress_percent: row.progress_percent ?? 0,
+    };
+  },
+
+  async deleteObject(id: string): Promise<void> {
+    await request<{ deleted: number }>(`/objects/${id}`, { method: "DELETE" });
+  },
+
   async listEmployees(): Promise<string[]> {
     const rows = await request<{ id: number; name: string }[]>("/employees");
     return rows.map((e) => e.name);
+  },
+
+  // Возвращает id вместе с именем — нужен только разделу администрирования
+  // (переименовать/удалить конкретную запись справочника можно только по id).
+  async listEmployeesFull(): Promise<{ id: string; name: string }[]> {
+    const rows = await request<{ id: number; name: string }[]>("/employees");
+    return rows.map((e) => ({ id: String(e.id), name: e.name }));
+  },
+
+  async createEmployee(name: string): Promise<{ id: string; name: string }> {
+    const row = await request<{ id: number; name: string }>("/employees", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+    return { id: String(row.id), name: row.name };
+  },
+
+  async renameEmployee(id: string, name: string): Promise<{ id: string; name: string }> {
+    const row = await request<{ id: number; name: string }>(`/employees/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ name }),
+    });
+    return { id: String(row.id), name: row.name };
+  },
+
+  async deleteEmployee(id: string): Promise<void> {
+    await request<{ deleted: number }>(`/employees/${id}`, { method: "DELETE" });
   },
 
   async listUnits(): Promise<string[]> {
@@ -176,17 +262,75 @@ export const api = {
     return rows.map((u) => u.name);
   },
 
+  async listUnitsFull(): Promise<{ id: string; name: string }[]> {
+    const rows = await request<{ id: number; name: string }[]>("/units");
+    return rows.map((u) => ({ id: String(u.id), name: u.name }));
+  },
+
+  async createUnit(name: string): Promise<{ id: string; name: string }> {
+    const row = await request<{ id: number; name: string }>("/units", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+    return { id: String(row.id), name: row.name };
+  },
+
+  async renameUnit(id: string, name: string): Promise<{ id: string; name: string }> {
+    const row = await request<{ id: number; name: string }>(`/units/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ name }),
+    });
+    return { id: String(row.id), name: row.name };
+  },
+
+  async deleteUnit(id: string): Promise<void> {
+    await request<{ deleted: number }>(`/units/${id}`, { method: "DELETE" });
+  },
+
   async listWorkTypes(): Promise<WorkType[]> {
-    const rows = await request<{ id: number; name: string; unit: string; price: string | number }[]>(
+    const rows =
+      await request<{ id: number; name: string; unit: string; price: string | number }[]>(
+        "/work-types",
+      );
+    return rows.map((w) => ({
+      id: String(w.id),
+      name: w.name,
+      unit: w.unit,
+      price: Number(w.price),
+    }));
+  },
+
+  async createWorkType(input: { name: string; unit: string; price: number }): Promise<WorkType> {
+    const row = await request<{ id: number; name: string; unit: string; price: string | number }>(
       "/work-types",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
     );
-    return rows.map((w) => ({ id: String(w.id), name: w.name, unit: w.unit, price: Number(w.price) }));
+    return { id: String(row.id), name: row.name, unit: row.unit, price: Number(row.price) };
+  },
+
+  async updateWorkType(
+    id: string,
+    input: { name: string; unit: string; price: number },
+  ): Promise<WorkType> {
+    const row = await request<{ id: number; name: string; unit: string; price: string | number }>(
+      `/work-types/${id}`,
+      { method: "PUT", body: JSON.stringify(input) },
+    );
+    return { id: String(row.id), name: row.name, unit: row.unit, price: Number(row.price) };
+  },
+
+  async deleteWorkType(id: string): Promise<void> {
+    await request<{ deleted: number }>(`/work-types/${id}`, { method: "DELETE" });
   },
 
   async listUsers(): Promise<AppUser[]> {
-    const rows = await request<
-      { id: number; login: string; full_name: string; role: Role; active: boolean }[]
-    >("/users");
+    const rows =
+      await request<
+        { id: number; login: string; full_name: string; role: Role; active: boolean }[]
+      >("/users");
     return rows.map((u) => ({
       id: String(u.id),
       login: u.login,
@@ -205,28 +349,49 @@ export const api = {
     full_name: string;
     role: Role;
   }): Promise<AppUser> {
-    const row = await request<{ id: number; login: string; full_name: string; role: Role }>("/users", {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
-    return { id: String(row.id), login: row.login, password: "", full_name: row.full_name, role: row.role, active: true };
+    const row = await request<{ id: number; login: string; full_name: string; role: Role }>(
+      "/users",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+    );
+    return {
+      id: String(row.id),
+      login: row.login,
+      password: "",
+      full_name: row.full_name,
+      role: row.role,
+      active: true,
+    };
   },
 
   async updateUser(
     id: string,
     input: { full_name?: string; role?: Role; active?: boolean; password?: string },
   ): Promise<AppUser> {
-    const row = await request<{ id: number; login: string; full_name: string; role: Role; active: boolean }>(
-      `/users/${id}`,
-      { method: "PUT", body: JSON.stringify(input) },
-    );
-    return { id: String(row.id), login: row.login, password: "", full_name: row.full_name, role: row.role, active: row.active };
+    const row = await request<{
+      id: number;
+      login: string;
+      full_name: string;
+      role: Role;
+      active: boolean;
+    }>(`/users/${id}`, { method: "PUT", body: JSON.stringify(input) });
+    return {
+      id: String(row.id),
+      login: row.login,
+      password: "",
+      full_name: row.full_name,
+      role: row.role,
+      active: row.active,
+    };
   },
 
   async listRequests(): Promise<WorkRequest[]> {
-    const rows = await request<
-      { id: number; text: string; submitted_by: string; status: string; created_at: string }[]
-    >("/requests");
+    const rows =
+      await request<
+        { id: number; text: string; submitted_by: string; status: string; created_at: string }[]
+      >("/requests");
     return rows.map((r) => ({
       id: String(r.id),
       author: r.submitted_by,
@@ -244,7 +409,10 @@ export const api = {
 
   async createRecord(record: WorkRecord, objectName: string): Promise<WorkRecord> {
     const payload = { ...workRecordToApiPayload(record), object_name: objectName };
-    const created = await request<ApiRecord>("/records", { method: "POST", body: JSON.stringify(payload) });
+    const created = await request<ApiRecord>("/records", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
     return apiRecordToWorkRecord(created);
   },
 

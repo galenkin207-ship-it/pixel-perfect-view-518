@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { AppContext, type AppState, type NotificationSettings, type ThemeMode } from "./use-app";
 import {
-  AppContext,
-  type AppState,
-  type NotificationSettings,
-  type ThemeMode,
-} from "./use-app";
-import { brigades as mockBrigades, type AppUser, type Role, type WorkRecord } from "@/data/mock";
+  brigades as mockBrigades,
+  type AppUser,
+  type Role,
+  type WorkObject,
+  type WorkRecord,
+  type WorkType,
+} from "@/data/mock";
 import { api, ApiError } from "@/lib/api-client";
 
 const EMPTY_USER: AppUser = { id: "", login: "", password: "", full_name: "", role: "user" };
@@ -48,7 +50,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     api
       .me()
       .then((me) =>
-        setSessionUser({ id: String(me.id), login: me.login, password: "", full_name: me.full_name, role: me.role }),
+        setSessionUser({
+          id: String(me.id),
+          login: me.login,
+          password: "",
+          full_name: me.full_name,
+          role: me.role,
+        }),
       )
       .catch(() => setSessionUser(null))
       .finally(() => setAuthChecked(true));
@@ -113,7 +121,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const login = async (loginValue: string, password: string) => {
     const me = await api.login(loginValue, password);
-    setSessionUser({ id: String(me.id), login: me.login, password: "", full_name: me.full_name, role: me.role });
+    setSessionUser({
+      id: String(me.id),
+      login: me.login,
+      password: "",
+      full_name: me.full_name,
+      role: me.role,
+    });
   };
 
   const logout = async () => {
@@ -181,6 +195,136 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addObject = async (input: {
+    name: string;
+    address: string;
+    progress_percent: number;
+  }): Promise<WorkObject> => {
+    try {
+      const created = await api.createObject(input);
+      setObjects((prev) => [...prev, created]);
+      return created;
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to create object");
+    }
+  };
+
+  const updateObject = async (
+    id: string,
+    input: { name: string; address: string; progress_percent: number },
+  ): Promise<WorkObject> => {
+    try {
+      const saved = await api.updateObject(id, input);
+      setObjects((prev) => prev.map((o) => (o.id === saved.id ? { ...o, ...saved } : o)));
+      return saved;
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to update object");
+    }
+  };
+
+  const deleteObject = async (id: string): Promise<void> => {
+    try {
+      await api.deleteObject(id);
+      setObjects((prev) => prev.filter((o) => o.id !== id));
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to delete object");
+    }
+  };
+
+  const addWorkType = async (input: {
+    name: string;
+    unit: string;
+    price: number;
+  }): Promise<WorkType> => {
+    try {
+      const created = await api.createWorkType(input);
+      setWorkTypes((prev) => [...prev, created]);
+      return created;
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to create work type");
+    }
+  };
+
+  const updateWorkType = async (
+    id: string,
+    input: { name: string; unit: string; price: number },
+  ): Promise<WorkType> => {
+    try {
+      const saved = await api.updateWorkType(id, input);
+      setWorkTypes((prev) => prev.map((w) => (w.id === saved.id ? { ...w, ...saved } : w)));
+      return saved;
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to update work type");
+    }
+  };
+
+  const deleteWorkType = async (id: string): Promise<void> => {
+    try {
+      await api.deleteWorkType(id);
+      setWorkTypes((prev) => prev.filter((w) => w.id !== id));
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to delete work type");
+    }
+  };
+
+  // Сотрудники/единицы измерения везде в приложении используются как простые
+  // списки имён (WorkRecord.employees и т.п. ссылаются на сотрудника по имени,
+  // не по id), поэтому глобальный список остаётся string[] — после любой
+  // мутации просто перечитываем его с backend, чтобы не рассинхронизироваться.
+  const addEmployee = async (name: string): Promise<void> => {
+    try {
+      await api.createEmployee(name);
+      setEmployees(await api.listEmployees());
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to create employee");
+    }
+  };
+
+  const renameEmployee = async (id: string, name: string): Promise<void> => {
+    try {
+      await api.renameEmployee(id, name);
+      setEmployees(await api.listEmployees());
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to rename employee");
+    }
+  };
+
+  const deleteEmployee = async (id: string): Promise<void> => {
+    try {
+      await api.deleteEmployee(id);
+      setEmployees(await api.listEmployees());
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to delete employee");
+    }
+  };
+
+  const addUnit = async (name: string): Promise<void> => {
+    try {
+      await api.createUnit(name);
+      setUnits(await api.listUnits());
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to create unit");
+    }
+  };
+
+  const renameUnit = async (id: string, name: string): Promise<void> => {
+    try {
+      await api.renameUnit(id, name);
+      setUnits(await api.listUnits());
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to rename unit");
+    }
+  };
+
+  const deleteUnit = async (id: string): Promise<void> => {
+    try {
+      await api.deleteUnit(id);
+      setUnits(await api.listUnits());
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to delete unit");
+    }
+  };
+
   const value: AppState = {
     role,
     currentUser,
@@ -192,6 +336,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setNotifications,
     objects,
     setObjects,
+    addObject,
+    updateObject,
+    deleteObject,
     records,
     addRecord,
     updateRecord,
@@ -200,10 +347,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRequests,
     workTypes,
     setWorkTypes,
+    addWorkType,
+    updateWorkType,
+    deleteWorkType,
     employees,
     setEmployees,
+    addEmployee,
+    renameEmployee,
+    deleteEmployee,
     units,
     setUnits,
+    addUnit,
+    renameUnit,
+    deleteUnit,
     users,
     setUsers,
     addUser,

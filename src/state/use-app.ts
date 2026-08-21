@@ -12,6 +12,16 @@ export type AppState = {
   setNotifications: React.Dispatch<React.SetStateAction<NotificationSettings>>;
   objects: WorkObject[];
   setObjects: React.Dispatch<React.SetStateAction<WorkObject[]>>;
+  addObject: (input: {
+    name: string;
+    address: string;
+    progress_percent: number;
+  }) => Promise<WorkObject>;
+  updateObject: (
+    id: string,
+    input: { name: string; address: string; progress_percent: number },
+  ) => Promise<WorkObject>;
+  deleteObject: (id: string) => Promise<void>;
   records: WorkRecord[];
   addRecord: (r: WorkRecord) => Promise<WorkRecord>;
   updateRecord: (r: WorkRecord) => Promise<WorkRecord>;
@@ -20,13 +30,30 @@ export type AppState = {
   setRequests: React.Dispatch<React.SetStateAction<WorkRequest[]>>;
   workTypes: WorkType[];
   setWorkTypes: React.Dispatch<React.SetStateAction<WorkType[]>>;
+  addWorkType: (input: { name: string; unit: string; price: number }) => Promise<WorkType>;
+  updateWorkType: (
+    id: string,
+    input: { name: string; unit: string; price: number },
+  ) => Promise<WorkType>;
+  deleteWorkType: (id: string) => Promise<void>;
   employees: string[];
   setEmployees: React.Dispatch<React.SetStateAction<string[]>>;
+  addEmployee: (name: string) => Promise<void>;
+  renameEmployee: (id: string, name: string) => Promise<void>;
+  deleteEmployee: (id: string) => Promise<void>;
   units: string[];
   setUnits: React.Dispatch<React.SetStateAction<string[]>>;
+  addUnit: (name: string) => Promise<void>;
+  renameUnit: (id: string, name: string) => Promise<void>;
+  deleteUnit: (id: string) => Promise<void>;
   users: AppUser[];
   setUsers: React.Dispatch<React.SetStateAction<AppUser[]>>;
-  addUser: (input: { login: string; password: string; full_name: string; role: Role }) => Promise<AppUser>;
+  addUser: (input: {
+    login: string;
+    password: string;
+    full_name: string;
+    role: Role;
+  }) => Promise<AppUser>;
   updateUser: (
     id: string,
     input: { full_name?: string; role?: Role; active?: boolean; password?: string },
