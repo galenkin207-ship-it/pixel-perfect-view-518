@@ -131,9 +131,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await api.logout();
-    setSessionUser(null);
-    setDataLoaded(false);
+    try {
+      await api.logout();
+    } catch (err) {
+      // Даже если запрос к серверу не удался (сеть, таймаут и т.п.), всё равно
+      // выходим локально — иначе кнопка "Выйти" выглядит как нерабочая.
+      console.error("logout request failed", err);
+    } finally {
+      setSessionUser(null);
+      setDataLoaded(false);
+    }
   };
 
   const addRecord = async (r: WorkRecord): Promise<WorkRecord> => {
