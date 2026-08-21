@@ -3,7 +3,6 @@ import type { AppUser, Role, WorkObject, WorkRecord, WorkRequest, WorkType } fro
 
 export type AppState = {
   role: Role;
-  setRole: (r: Role) => void;
   currentUser: AppUser;
   theme: "light" | "dark";
   themeMode: ThemeMode;

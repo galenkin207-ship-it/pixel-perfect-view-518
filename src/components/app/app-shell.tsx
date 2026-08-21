@@ -47,7 +47,7 @@ export function AppShell({
   children: ReactNode;
   fab?: { to: string; label?: string };
 }) {
-  const { role, setRole, currentUser, notificationsCount, requests } = useApp();
+  const { role, currentUser, notificationsCount, requests } = useApp();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isAdminLike = role === "admin" || role === "curator";
   const pending = requests.filter((r) => r.status === "pending").length;
@@ -116,20 +116,6 @@ export function AppShell({
           />
 
           <div className="mt-auto space-y-3 pt-4">
-            <div>
-              <span className="label-caps px-3">Смотреть как</span>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value as Role)}
-                className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-              >
-                {(Object.keys(roleLabels) as Role[]).map((r) => (
-                  <option key={r} value={r}>
-                    {roleLabels[r]}
-                  </option>
-                ))}
-              </select>
-            </div>
             <Link
               to="/profile"
               className="flex items-center gap-3 rounded-xl bg-surface p-3 transition-colors hover:bg-muted"
@@ -145,7 +131,7 @@ export function AppShell({
 
         {/* Content */}
         <main className="relative min-w-0 flex-1 bg-background pb-24 md:overflow-y-auto md:pb-0">
-          {/* Mobile role switcher */}
+          {/* Mobile top bar */}
           <div className="flex items-center justify-between gap-2 px-4 pt-4 md:hidden">
             <Link to="/" className="flex items-center gap-2 text-sm font-bold">
               <span className="flex size-6 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground">
@@ -153,17 +139,7 @@ export function AppShell({
               </span>
               Учёт работ
             </Link>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
-              className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs"
-            >
-              {(Object.keys(roleLabels) as Role[]).map((r) => (
-                <option key={r} value={r}>
-                  {roleLabels[r]}
-                </option>
-              ))}
-            </select>
+            <span className="label-caps text-muted-foreground">{roleLabels[role]}</span>
             <Link
               to="/notifications"
               aria-label="Уведомления"

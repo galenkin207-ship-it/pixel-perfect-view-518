@@ -7,7 +7,7 @@ import {
   type NotificationSettings,
   type ThemeMode,
 } from "./use-app";
-import { brigades as mockBrigades, type AppUser, type Role, type WorkRecord } from "@/data/mock";
+import { brigades as mockBrigades, type AppUser, type WorkRecord } from "@/data/mock";
 import { api, ApiError } from "@/lib/api-client";
 
 const EMPTY_USER: AppUser = { id: "", login: "", password: "", full_name: "", role: "user" };
@@ -16,7 +16,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const [roleOverride, setRoleOverride] = useState<Role | null>(null); // локальный переключатель роли для предпросмотра UI (реальные права проверяет backend)
   const [themeMode, setThemeMode] = useState<ThemeMode>("system");
   const [systemTheme, setSystemTheme] = useState<"light" | "dark">("light");
   const [notifications, setNotifications] = useState<NotificationSettings>({
@@ -108,7 +107,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const theme = themeMode === "system" ? systemTheme : themeMode;
   const currentUser = sessionUser ?? EMPTY_USER;
-  const role = roleOverride ?? currentUser.role;
+  const role = currentUser.role;
 
   const objectNameById = useMemo(() => new Map(objects.map((o) => [o.id, o.name])), [objects]);
 
@@ -156,7 +155,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value: AppState = {
     role,
-    setRole: setRoleOverride,
     currentUser,
     theme,
     themeMode,
