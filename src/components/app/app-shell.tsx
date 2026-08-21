@@ -107,19 +107,15 @@ export function AppShell({
           </Link>
 
           {isAdminLike && <NavGroup title="Главная" items={home} isActive={isActive} />}
-          <NavGroup
-            title="Аналитика"
-            items={
-              isAdminLike
-                ? tabs.slice(1, 2)
-                : [tabs[1]!, { to: "/reports/all", label: "Все записи", icon: ListChecks }]
-            }
-            isActive={isActive}
-          />
+          <NavGroup title="Аналитика" items={tabs.slice(1, 2)} isActive={isActive} />
           {isAdminLike && <NavGroup title="Управление" items={manage} isActive={isActive} />}
           <NavGroup
             title={isAdminLike ? "Администрирование" : "Разделы"}
-            items={isAdminLike ? admin : [tabs[0]!, tabs[2]!, tabs[3]!]}
+            items={
+              isAdminLike
+                ? admin
+                : [tabs[0]!, { to: "/reports/all", label: "Все записи", icon: ListChecks }, tabs[2]!, tabs[3]!]
+            }
             isActive={isActive}
           />
 
