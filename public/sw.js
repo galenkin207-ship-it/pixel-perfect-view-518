@@ -34,7 +34,20 @@ self.addEventListener("push", (event) => {
     data: { url: data.url || "/" },
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  const tasks = [self.registration.showNotification(title, options)];
+
+  // Бейдж на иконке приложения — обновляем прямо здесь, в service worker,
+  // потому что это единственное место, которое реально выполняется, даже
+  // когда само приложение полностью закрыто (не открыта ни одна вкладка).
+  if (typeof data.badgeCount === "number" && "setAppBadge" in self.navigator) {
+    tasks.push(
+      data.badgeCount > 0
+        ? self.navigator.setAppBadge(data.badgeCount).catch(() => {})
+        : self.navigator.clearAppBadge().catch(() => {}),
+    );
+  }
+
+  event.waitUntil(Promise.all(tasks));
 });
 
 self.addEventListener("notificationclick", (event) => {
