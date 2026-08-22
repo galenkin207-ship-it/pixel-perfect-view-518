@@ -106,7 +106,9 @@ export function AppShell({
               <Bell className="size-4 text-muted-foreground" />
               Уведомления
             </span>
-            <span className="text-xs font-semibold text-primary">{notificationsCount}</span>
+            {notificationsCount > 0 && (
+              <span className="text-xs font-semibold text-primary">{notificationsCount}</span>
+            )}
           </Link>
 
           {isAdminLike && <NavGroup title="Главная" items={home} isActive={isActive} />}

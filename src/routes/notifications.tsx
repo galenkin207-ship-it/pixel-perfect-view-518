@@ -85,8 +85,9 @@ function NotificationsPage() {
     <AppShell>
       <PageHeading context={roleLabels[role]} title="Уведомления" />
       <p className="mt-1 text-sm text-muted-foreground">
-        Всего событий: {items.length} · новых от других участников: {unread}. Нажмите на
-        уведомление, чтобы открыть обсуждение заявки.
+        {unread > 0
+          ? `Непрочитанных: ${unread}. Нажмите на уведомление, чтобы открыть обсуждение заявки.`
+          : "Новых уведомлений нет."}
       </p>
 
       <ul className="mt-5 space-y-2">

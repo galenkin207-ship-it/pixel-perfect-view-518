@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { Inbox, MessageSquare, Trash2 } from "lucide-react";
 import { AppContext, type AppState, type NotificationSettings, type ThemeMode } from "./use-app";
 import {
   brigades as mockBrigades,
@@ -13,6 +14,7 @@ import {
   type RequestComment,
 } from "@/data/mock";
 import { api, ApiError } from "@/lib/api-client";
+import { playNotificationChime } from "@/lib/notification-sound";
 
 const EMPTY_USER: AppUser = { id: "", login: "", password: "", full_name: "", role: "user" };
 
@@ -32,7 +34,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     inAppNewRecords: true,
     inAppRequests: true,
     inAppMessages: true,
-    inAppSound: false,
+    inAppSound: true,
   });
 
   const [authChecked, setAuthChecked] = useState(false);
@@ -64,6 +66,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch(() => setSessionUser(null))
       .finally(() => setAuthChecked(true));
   }, []);
+
+  const currentUser = sessionUser ?? EMPTY_USER;
+  const role = currentUser.role;
 
   // Переиспользуемая загрузка всех данных приложения — используется и при первом
   // входе, и фоновым автообновлением, и pull-to-refresh на телефоне.
@@ -158,6 +163,117 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [dataLoaded]);
 
+  // Глобальные уведомления (баннер + звук) о новых заявках, сообщениях в
+  // переписке и удалённых заявках — работает на любой странице приложения,
+  // не только на /messages и /notifications.
+  const seenNotificationIdsRef = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!dataLoaded) return;
+    if (!notifications.inAppEnabled) return;
+
+    const isForeman = role === "user";
+    const visibleRequests = isForeman
+      ? requests.filter((r) => r.author === currentUser.full_name)
+      : requests;
+
+    type NotifyItem = {
+      id: string;
+      requestId: string;
+      kind: "request" | "comment" | "deleted";
+      author: string;
+      title: string;
+      text: string;
+    };
+    const items: NotifyItem[] = [];
+    for (const r of visibleRequests) {
+      if (notifications.inAppRequests) {
+        items.push({
+          id: `${r.id}-new`,
+          requestId: r.id,
+          kind: "request",
+          author: r.author,
+          title: "Новая заявка на вид работ",
+          text: r.requested_text,
+        });
+        if (r.status === "deleted") {
+          items.push({
+            id: `${r.id}-deleted`,
+            requestId: r.id,
+            kind: "deleted",
+            author: r.author,
+            title: "Заявка удалена автором",
+            text: r.requested_text,
+          });
+        }
+      }
+      if (notifications.inAppMessages) {
+        for (const c of r.comments) {
+          items.push({
+            id: c.id,
+            requestId: r.id,
+            kind: "comment",
+            author: c.author,
+            title: `Сообщение по заявке: ${r.requested_text}`,
+            text: c.text,
+          });
+        }
+      }
+    }
+
+    if (!seenNotificationIdsRef.current) {
+      // Первая загрузка после входа — просто запоминаем уже существующее,
+      // не показываем баннеры пачкой по всей истории.
+      seenNotificationIdsRef.current = new Set(items.map((i) => i.id));
+      return;
+    }
+
+    const seen = seenNotificationIdsRef.current;
+    const kindIcon = { request: Inbox, comment: MessageSquare, deleted: Trash2 } as const;
+    const kindLabel = {
+      request: "Новая заявка",
+      comment: "Новое сообщение",
+      deleted: "Заявка удалена",
+    } as const;
+
+    for (const item of items) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      if (item.author === currentUser.full_name) continue; // свои действия не уведомляем
+
+      const Icon = kindIcon[item.kind];
+      toast(
+        <div className="flex items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Icon className="size-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">{item.author}</p>
+            <p className="text-xs text-muted-foreground">{kindLabel[item.kind]}</p>
+            <p className="mt-0.5 line-clamp-2 text-sm break-words">{item.text}</p>
+          </div>
+        </div>,
+        {
+          duration: 6000,
+          action: {
+            label: "Открыть",
+            onClick: () => void navigate({ to: "/messages", search: { request: item.requestId } }),
+          },
+        },
+      );
+      if (notifications.inAppSound) playNotificationChime();
+    }
+  }, [
+    requests,
+    dataLoaded,
+    notifications.inAppEnabled,
+    notifications.inAppRequests,
+    notifications.inAppMessages,
+    notifications.inAppSound,
+    role,
+    currentUser.full_name,
+    navigate,
+  ]);
+
   // Редирект неавторизованных на /login (кроме самой страницы логина).
   useEffect(() => {
     if (!authChecked) return;
@@ -178,8 +294,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const theme = themeMode === "system" ? systemTheme : themeMode;
-  const currentUser = sessionUser ?? EMPTY_USER;
-  const role = currentUser.role;
 
   const objectNameById = useMemo(() => new Map(objects.map((o) => [o.id, o.name])), [objects]);
 
@@ -221,6 +335,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       setSessionUser(null);
       setDataLoaded(false);
+      seenNotificationIdsRef.current = null;
     }
   };
 
