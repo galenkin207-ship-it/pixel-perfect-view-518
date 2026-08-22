@@ -144,214 +144,219 @@ function MessagesPage() {
     }
   };
 
-  const renderCard = (r: WorkRequest) => (
-    <div
-      key={r.id}
-      id={`request-${r.id}`}
-      className={cn(
-        "rounded-2xl border border-border bg-card p-4 md:p-6",
-        focusId === r.id && "border-primary ring-2 ring-primary/30",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-2">
-          {isForeman && (
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={selected.includes(r.id)}
-              onChange={(e) =>
-                setSelected((prev) =>
-                  e.target.checked ? [...prev, r.id] : prev.filter((s) => s !== r.id),
-                )
-              }
-            />
-          )}
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-              Запрошено автором
-            </p>
-            <p className="font-semibold md:text-lg">{r.requested_text}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground md:text-sm">
-              {r.author} · {r.created_at}
+  const renderCard = (r: WorkRequest, section: "pending" | "history") => {
+    const canSelect = isForeman || (isAdmin && section === "history");
+    return (
+      <div
+        key={r.id}
+        id={`request-${r.id}`}
+        className={cn(
+          "rounded-2xl border border-border bg-card p-4 md:p-6",
+          focusId === r.id && "border-primary ring-2 ring-primary/30",
+        )}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-2">
+            {canSelect && (
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={selected.includes(r.id)}
+                onChange={(e) =>
+                  setSelected((prev) =>
+                    e.target.checked ? [...prev, r.id] : prev.filter((s) => s !== r.id),
+                  )
+                }
+              />
+            )}
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+                Запрошено автором
+              </p>
+              <p className="font-semibold md:text-lg">{r.requested_text}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground md:text-sm">
+                {r.author} · {r.created_at}
+              </p>
+            </div>
+          </div>
+          <span
+            className={cn(
+              "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-[0.08em] uppercase",
+              r.status === "approved" && "bg-status-done-soft text-status-done",
+              r.status === "pending" && "bg-status-review-soft text-status-review",
+              r.status === "rejected" && "bg-status-rejected-soft text-status-rejected",
+              r.status === "deleted" && "bg-muted text-muted-foreground",
+            )}
+          >
+            {statusText[r.status]}
+          </span>
+        </div>
+
+        {r.status === "deleted" && (
+          <div className="mt-2 rounded-xl bg-muted px-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Автор ({r.author}) удалил(а) эту заявку.
             </p>
           </div>
-        </div>
-        <span
-          className={cn(
-            "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-[0.08em] uppercase",
-            r.status === "approved" && "bg-status-done-soft text-status-done",
-            r.status === "pending" && "bg-status-review-soft text-status-review",
-            r.status === "rejected" && "bg-status-rejected-soft text-status-rejected",
-            r.status === "deleted" && "bg-muted text-muted-foreground",
-          )}
-        >
-          {statusText[r.status]}
-        </span>
-      </div>
+        )}
 
-      {r.status === "deleted" && (
-        <div className="mt-2 rounded-xl bg-muted px-3 py-2">
-          <p className="text-sm text-muted-foreground">Автор ({r.author}) удалил(а) эту заявку.</p>
-        </div>
-      )}
+        {r.status === "approved" && (
+          <div className="mt-2 rounded-xl bg-status-done-soft px-3 py-2 md:px-4 md:py-3">
+            <p className="text-[10px] font-semibold tracking-[0.08em] text-status-done uppercase">
+              Одобрено как
+            </p>
+            <p className="mt-0.5 text-sm font-semibold md:text-base">{r.resolved_name}</p>
+            <p className="text-xs text-muted-foreground md:text-sm">
+              {r.resolved_unit}
+              {isAdmin && r.resolved_price != null
+                ? ` · ${r.resolved_price.toLocaleString("ru-RU")} ₽`
+                : ""}
+            </p>
+          </div>
+        )}
 
-      {r.status === "approved" && (
-        <div className="mt-2 rounded-xl bg-status-done-soft px-3 py-2 md:px-4 md:py-3">
-          <p className="text-[10px] font-semibold tracking-[0.08em] text-status-done uppercase">
-            Одобрено как
-          </p>
-          <p className="mt-0.5 text-sm font-semibold md:text-base">{r.resolved_name}</p>
-          <p className="text-xs text-muted-foreground md:text-sm">
-            {r.resolved_unit}
-            {isAdmin && r.resolved_price != null
-              ? ` · ${r.resolved_price.toLocaleString("ru-RU")} ₽`
-              : ""}
-          </p>
-        </div>
-      )}
-
-      <div className="mt-3 space-y-2">
-        {r.comments.map((c) => {
-          const own = c.author === currentUser.full_name;
-          return (
-            <div key={c.id} className={cn("flex", own ? "justify-end" : "justify-start")}>
-              <span
-                className={cn(
-                  "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
-                  own ? "bg-primary text-primary-foreground" : "bg-surface",
-                )}
-              >
-                {c.text}
+        <div className="mt-3 space-y-2">
+          {r.comments.map((c) => {
+            const own = c.author === currentUser.full_name;
+            return (
+              <div key={c.id} className={cn("flex", own ? "justify-end" : "justify-start")}>
                 <span
                   className={cn(
-                    "mt-1 block text-[10px]",
-                    own ? "text-primary-foreground/70" : "text-muted-foreground",
+                    "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
+                    own ? "bg-primary text-primary-foreground" : "bg-surface",
                   )}
                 >
-                  {c.author} · {c.time}
+                  {c.text}
+                  <span
+                    className={cn(
+                      "mt-1 block text-[10px]",
+                      own ? "text-primary-foreground/70" : "text-muted-foreground",
+                    )}
+                  >
+                    {c.author} · {c.time}
+                  </span>
                 </span>
-              </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {role !== "curator" && r.status !== "deleted" && (
+          <div className="mt-3 flex items-end gap-2">
+            <textarea
+              ref={(el) => {
+                commentRefs.current[r.id] = el;
+                autoResizeTextarea(el);
+              }}
+              value={draft[r.id] ?? ""}
+              onChange={(e) => {
+                setDraft((d) => ({ ...d, [r.id]: e.target.value }));
+                autoResizeTextarea(e.target);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void sendComment(r.id);
+                }
+              }}
+              disabled={sendingComment === r.id}
+              placeholder="Сообщение..."
+              rows={1}
+              className="max-h-40 min-h-10 flex-1 resize-none overflow-y-auto rounded-xl border border-border bg-surface px-3 py-2 text-sm leading-normal disabled:opacity-60"
+            />
+            <button
+              onClick={() => void sendComment(r.id)}
+              disabled={sendingComment === r.id || !(draft[r.id] ?? "").trim()}
+              className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            >
+              Отправить
+            </button>
+          </div>
+        )}
+
+        {isAdmin && r.status === "pending" && (
+          <div className="mt-3 space-y-2 rounded-xl bg-surface p-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[2fr_1fr_1fr]">
+              <label className="block">
+                <span className="flex min-h-8 items-end">
+                  <FieldLabel>Итоговое название</FieldLabel>
+                </span>
+                <textarea
+                  ref={autoResizeTextarea}
+                  value={resolve[r.id]?.name ?? ""}
+                  onChange={(e) => {
+                    setResolve((s) => ({
+                      ...s,
+                      [r.id]: { unit: "", price: "", ...s[r.id], name: e.target.value },
+                    }));
+                    autoResizeTextarea(e.target);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.preventDefault();
+                  }}
+                  rows={2}
+                  className="mt-1 max-h-32 min-h-16 w-full resize-none overflow-y-auto rounded-lg border border-border bg-background px-3 py-2 text-sm leading-normal"
+                />
+              </label>
+              <label className="block">
+                <span className="flex min-h-8 items-end">
+                  <FieldLabel>Единица</FieldLabel>
+                </span>
+                <select
+                  value={resolve[r.id]?.unit ?? ""}
+                  onChange={(e) =>
+                    setResolve((s) => ({
+                      ...s,
+                      [r.id]: { name: "", price: "", ...s[r.id], unit: e.target.value },
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Выбрать...</option>
+                  {units.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="flex min-h-8 items-end">
+                  <FieldLabel>Цена</FieldLabel>
+                </span>
+                <input
+                  value={resolve[r.id]?.price ?? ""}
+                  onChange={(e) =>
+                    setResolve((s) => ({
+                      ...s,
+                      [r.id]: { name: "", unit: "", ...s[r.id], price: e.target.value },
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                />
+              </label>
             </div>
-          );
-        })}
-      </div>
-
-      {role !== "curator" && r.status !== "deleted" && (
-        <div className="mt-3 flex items-end gap-2">
-          <textarea
-            ref={(el) => {
-              commentRefs.current[r.id] = el;
-              autoResizeTextarea(el);
-            }}
-            value={draft[r.id] ?? ""}
-            onChange={(e) => {
-              setDraft((d) => ({ ...d, [r.id]: e.target.value }));
-              autoResizeTextarea(e.target);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void sendComment(r.id);
-              }
-            }}
-            disabled={sendingComment === r.id}
-            placeholder="Сообщение..."
-            rows={1}
-            className="max-h-40 min-h-10 flex-1 resize-none overflow-y-auto rounded-xl border border-border bg-surface px-3 py-2 text-sm leading-normal disabled:opacity-60"
-          />
-          <button
-            onClick={() => void sendComment(r.id)}
-            disabled={sendingComment === r.id || !(draft[r.id] ?? "").trim()}
-            className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-          >
-            Отправить
-          </button>
-        </div>
-      )}
-
-      {isAdmin && r.status === "pending" && (
-        <div className="mt-3 space-y-2 rounded-xl bg-surface p-3">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[2fr_1fr_1fr]">
-            <label className="block">
-              <span className="flex min-h-8 items-end">
-                <FieldLabel>Итоговое название</FieldLabel>
-              </span>
-              <textarea
-                ref={autoResizeTextarea}
-                value={resolve[r.id]?.name ?? ""}
-                onChange={(e) => {
-                  setResolve((s) => ({
-                    ...s,
-                    [r.id]: { unit: "", price: "", ...s[r.id], name: e.target.value },
-                  }));
-                  autoResizeTextarea(e.target);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") e.preventDefault();
-                }}
-                rows={2}
-                className="mt-1 max-h-32 min-h-16 w-full resize-none overflow-y-auto rounded-lg border border-border bg-background px-3 py-2 text-sm leading-normal"
-              />
-            </label>
-            <label className="block">
-              <span className="flex min-h-8 items-end">
-                <FieldLabel>Единица</FieldLabel>
-              </span>
-              <select
-                value={resolve[r.id]?.unit ?? ""}
-                onChange={(e) =>
-                  setResolve((s) => ({
-                    ...s,
-                    [r.id]: { name: "", price: "", ...s[r.id], unit: e.target.value },
-                  }))
-                }
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            <div className="flex gap-2">
+              <button
+                onClick={() => void decide(r.id, "approved")}
+                disabled={deciding === r.id}
+                className="flex-1 rounded-lg bg-status-done py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
-                <option value="">Выбрать...</option>
-                {units.map((u) => (
-                  <option key={u} value={u}>
-                    {u}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="flex min-h-8 items-end">
-                <FieldLabel>Цена</FieldLabel>
-              </span>
-              <input
-                value={resolve[r.id]?.price ?? ""}
-                onChange={(e) =>
-                  setResolve((s) => ({
-                    ...s,
-                    [r.id]: { name: "", unit: "", ...s[r.id], price: e.target.value },
-                  }))
-                }
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              />
-            </label>
+                {deciding === r.id ? "Сохранение..." : "Одобрить"}
+              </button>
+              <button
+                onClick={() => void decide(r.id, "rejected")}
+                disabled={deciding === r.id}
+                className="flex-1 rounded-lg bg-status-rejected py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                Отклонить
+              </button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => void decide(r.id, "approved")}
-              disabled={deciding === r.id}
-              className="flex-1 rounded-lg bg-status-done py-2 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              {deciding === r.id ? "Сохранение..." : "Одобрить"}
-            </button>
-            <button
-              onClick={() => void decide(r.id, "rejected")}
-              disabled={deciding === r.id}
-              className="flex-1 rounded-lg bg-status-rejected py-2 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              Отклонить
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  };
 
   return (
     <AppShell>
@@ -360,7 +365,7 @@ function MessagesPage() {
         title={isForeman ? "Моя переписка" : "Заявки на согласование"}
       />
 
-      {isForeman && selected.length > 0 && (
+      {(isForeman || isAdmin) && selected.length > 0 && (
         <div className="mt-3 flex items-center justify-between rounded-xl bg-surface px-4 py-2 text-sm">
           Выбрано: {selected.length}
           <button
@@ -375,7 +380,9 @@ function MessagesPage() {
 
       <section className="mt-5">
         <h2 className="label-caps">На рассмотрении</h2>
-        <div className="mt-3 grid gap-4 xl:grid-cols-2">{pending.map(renderCard)}</div>
+        <div className="mt-3 grid gap-4 xl:grid-cols-2">
+          {pending.map((r) => renderCard(r, "pending"))}
+        </div>
         {pending.length === 0 && (
           <p className="mt-2 text-sm text-muted-foreground">Нет заявок на рассмотрении.</p>
         )}
@@ -388,7 +395,9 @@ function MessagesPage() {
             <button className="text-sm font-semibold text-primary">Экспорт в Excel</button>
           )}
         </div>
-        <div className="mt-3 grid gap-4 xl:grid-cols-2">{history.map(renderCard)}</div>
+        <div className="mt-3 grid gap-4 xl:grid-cols-2">
+          {history.map((r) => renderCard(r, "history"))}
+        </div>
       </section>
     </AppShell>
   );
