@@ -54,16 +54,19 @@ function WorkTypesPage() {
       <div className="mt-5 overflow-hidden rounded-2xl border border-border bg-card">
         <ul className="divide-y divide-border">
           {pageItems.map((w) => (
-            <li key={w.id} className="flex items-center justify-between gap-3 px-4 py-3">
-              <span className="min-w-0 flex-1 truncate text-sm font-medium">{w.name}</span>
-              <span className="w-16 shrink-0 text-right text-xs text-muted-foreground">
-                {w.unit}
+            <li
+              key={w.id}
+              className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+            >
+              <span className="min-w-0 flex-1 text-sm font-medium break-words">{w.name}</span>
+              <span className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground sm:gap-0">
+                <span className="sm:w-16 sm:text-right">{w.unit}</span>
+                {isAdminLike && (
+                  <span className="font-semibold text-foreground sm:w-24 sm:text-right">
+                    {w.price.toLocaleString("ru-RU")} ₽
+                  </span>
+                )}
               </span>
-              {isAdminLike && (
-                <span className="w-24 shrink-0 text-right text-xs font-semibold">
-                  {w.price.toLocaleString("ru-RU")} ₽
-                </span>
-              )}
             </li>
           ))}
           {!pageItems.length && (
