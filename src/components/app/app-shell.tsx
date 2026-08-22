@@ -20,6 +20,7 @@ import { roleLabels, type Role } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 import { useSwipeNav } from "@/hooks/use-swipe-nav";
 import { InitialsAvatar } from "./bits";
+import { PullToRefresh } from "./pull-to-refresh";
 
 type NavItem = { to: string; label: string; icon: typeof Building2; badge?: number };
 
@@ -49,7 +50,7 @@ export function AppShell({
   children: ReactNode;
   fab?: { to: string; label?: string };
 }) {
-  const { role, currentUser, notificationsCount, requests } = useApp();
+  const { role, currentUser, notificationsCount, requests, refreshData } = useApp();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isAdminLike = role === "admin" || role === "curator";
   const pending = requests.filter((r) => r.status === "pending").length;
@@ -145,43 +146,45 @@ export function AppShell({
 
         {/* Content */}
         <main className="relative min-w-0 flex-1 bg-background pb-28 md:overflow-y-auto md:pb-0">
-          {/* Mobile top bar */}
-          <div className="flex items-center justify-between gap-2 px-4 pt-4 md:hidden">
-            <Link to="/" className="flex items-center gap-2 text-sm font-bold">
-              <span className="flex size-6 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground">
-                У
-              </span>
-              Учёт работ
-            </Link>
-            <div className="flex items-center gap-2">
-              {role === "user" && (
-                <Link
-                  to="/profile"
-                  aria-label="Профиль"
-                  className={cn(
-                    "flex size-8 items-center justify-center rounded-full border border-border bg-surface",
-                    isActive("/profile") && "border-primary text-primary",
-                  )}
-                >
-                  <Settings className="size-4" />
-                </Link>
-              )}
-              <Link
-                to="/notifications"
-                aria-label="Уведомления"
-                className="relative flex size-8 items-center justify-center rounded-full border border-border bg-surface"
-              >
-                <Bell className="size-4" />
-                {notificationsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
-                    {notificationsCount}
-                  </span>
-                )}
+          <PullToRefresh onRefresh={refreshData}>
+            {/* Mobile top bar */}
+            <div className="flex items-center justify-between gap-2 px-4 pt-4 md:hidden">
+              <Link to="/" className="flex items-center gap-2 text-sm font-bold">
+                <span className="flex size-6 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground">
+                  У
+                </span>
+                Учёт работ
               </Link>
+              <div className="flex items-center gap-2">
+                {role === "user" && (
+                  <Link
+                    to="/profile"
+                    aria-label="Профиль"
+                    className={cn(
+                      "flex size-8 items-center justify-center rounded-full border border-border bg-surface",
+                      isActive("/profile") && "border-primary text-primary",
+                    )}
+                  >
+                    <Settings className="size-4" />
+                  </Link>
+                )}
+                <Link
+                  to="/notifications"
+                  aria-label="Уведомления"
+                  className="relative flex size-8 items-center justify-center rounded-full border border-border bg-surface"
+                >
+                  <Bell className="size-4" />
+                  {notificationsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                      {notificationsCount}
+                    </span>
+                  )}
+                </Link>
+              </div>
             </div>
-          </div>
 
-          <div className="w-full px-4 py-5 md:px-6 md:py-6 xl:px-10 xl:py-8">{children}</div>
+            <div className="w-full px-4 py-5 md:px-6 md:py-6 xl:px-10 xl:py-8">{children}</div>
+          </PullToRefresh>
 
           {fab && (
             <Link

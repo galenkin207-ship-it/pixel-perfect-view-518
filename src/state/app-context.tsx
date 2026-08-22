@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { AppContext, type AppState, type NotificationSettings, type ThemeMode } from "./use-app";
@@ -63,11 +63,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .finally(() => setAuthChecked(true));
   }, []);
 
-  // Как только знаем, что пользователь авторизован — подгружаем справочники и записи.
-  useEffect(() => {
-    if (!authChecked || !sessionUser) return;
-    let cancelled = false;
-    Promise.all([
+  // Переиспользуемая загрузка всех данных приложения — используется и при первом
+  // входе, и фоновым автообновлением, и pull-to-refresh на телефоне.
+  const loadAppData = useCallback(async () => {
+    if (!sessionUser) return;
+    const [objs, emps, uns, types, recs, reqs, usrs, pinned] = await Promise.all([
       api.listObjects(),
       api.listEmployees(),
       api.listUnits(),
@@ -76,18 +76,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
       api.listRequests(),
       sessionUser.role === "admin" ? api.listUsers() : Promise.resolve([]),
       api.listPinnedObjects(),
-    ])
-      .then(([objs, emps, uns, types, recs, reqs, usrs, pinned]) => {
-        if (cancelled) return;
-        setObjects(objs);
-        setEmployees(emps);
-        setUnits(uns);
-        setWorkTypes(types);
-        setRecords(recs);
-        setRequests(reqs);
-        if (usrs.length) setUsers(usrs);
-        setPinnedObjectIds(pinned);
-        setDataLoaded(true);
+    ]);
+    setObjects(objs);
+    setEmployees(emps);
+    setUnits(uns);
+    setWorkTypes(types);
+    setRecords(recs);
+    setRequests(reqs);
+    if (usrs.length) setUsers(usrs);
+    setPinnedObjectIds(pinned);
+  }, [sessionUser]);
+
+  // Как только знаем, что пользователь авторизован — подгружаем справочники и записи.
+  useEffect(() => {
+    if (!authChecked || !sessionUser) return;
+    let cancelled = false;
+    loadAppData()
+      .then(() => {
+        if (!cancelled) setDataLoaded(true);
       })
       .catch(() => {
         if (!cancelled) toast.error("Не удалось загрузить данные приложения");
@@ -95,7 +101,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [authChecked, sessionUser]);
+  }, [authChecked, sessionUser, loadAppData]);
+
+  // Фоновое автообновление данных, чтобы изменения, внесённые с других устройств
+  // (или другим пользователем), появлялись без перезагрузки страницы. Опрашиваем
+  // сервер, пока вкладка активна; на фоне/свёрнутой вкладке — не дёргаем сервер
+  // впустую, а сразу подтягиваем свежие данные при возврате.
+  const loadAppDataRef = useRef(loadAppData);
+  useEffect(() => {
+    loadAppDataRef.current = loadAppData;
+  }, [loadAppData]);
+
+  useEffect(() => {
+    if (!dataLoaded) return;
+
+    const POLL_INTERVAL_MS = 8000;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const silentRefresh = () => {
+      void loadAppDataRef.current().catch(() => {
+        // фоновое обновление не должно мешать пользователю всплывающими ошибками
+      });
+    };
+
+    const startPolling = () => {
+      if (timer) return;
+      timer = setInterval(silentRefresh, POLL_INTERVAL_MS);
+    };
+    const stopPolling = () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        silentRefresh();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+    const onFocus = () => silentRefresh();
+
+    if (document.visibilityState === "visible") startPolling();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [dataLoaded]);
 
   // Редирект неавторизованных на /login (кроме самой страницы логина).
   useEffect(() => {
@@ -403,6 +462,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     isAuthenticated: !!sessionUser,
+    refreshData: loadAppData,
   };
 
   // Пока не выяснили статус сессии — показываем пустой экран вместо мигания

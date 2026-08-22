@@ -66,6 +66,9 @@ export type AppState = {
   login: (login: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
+  /** Перечитывает объекты/записи/справочники с сервера (используется фоновым
+   * автообновлением и pull-to-refresh на телефоне). */
+  refreshData: () => Promise<void>;
 };
 
 export type ThemeMode = "light" | "dark" | "system";
