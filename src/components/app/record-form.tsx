@@ -65,10 +65,11 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
   const object = objects.find((o) => o.id === objectId) ?? null;
   const total = recordTotal(items);
 
-  // --- Автосохранение черновика (только для создания новой записи) ---
-  // Черновик сохраняется практически сразу, как только в форме появились данные и выбран
-  // объект — короткая пауза нужна только чтобы не слать запрос на каждое нажатие клавиши,
-  // а не «ждать N секунд с начала заполнения».
+  // --- Автосохранение черновика ---
+  // Черновик сохраняется практически сразу, как только в форме появились/изменились
+  // данные — и при первом создании записи, и при продолжении заполнения уже
+  // сохранённого ранее черновика. Короткая пауза нужна только чтобы не слать запрос
+  // на каждое нажатие клавиши.
   const AUTO_SAVE_DEBOUNCE_MS = 1200;
   const [autoSaving, setAutoSaving] = useState(false);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -85,12 +86,22 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
     pendingFiles.length > 0 ||
     selectedEmployees.length > 0;
 
-  // Действует только при создании новой записи, а не при редактировании уже существующей.
-  // Черновик уходит на сервер, как только в форме появились какие-то данные — объект
-  // можно выбрать и позже (обязателен только для завершения записи).
+  // Автосохранение работает и для новой записи, и для уже сохранённого черновика —
+  // но не для завершённой записи (status === "done"), её тихо перезаписывать не нужно.
+  const isDraftEditable = !record || record.status === "draft";
+  // Не автосохраняем на самом первом рендере (в том числе при открытии уже
+  // существующего черновика) — только когда пользователь реально что-то изменил.
+  const mountedOnceRef = useRef(false);
+
   useEffect(() => {
-    if (record) return;
+    if (!isDraftEditable) return;
     if (cancelledRef.current) return;
+
+    if (!mountedOnceRef.current) {
+      mountedOnceRef.current = true;
+      return;
+    }
+
     if (!hasEnteredData()) return;
 
     const timer = setTimeout(() => {
@@ -104,7 +115,18 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
       autoSaveTimerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [objectId, items, comment, photos, pendingFiles, selectedEmployees, record]);
+  }, [
+    objectId,
+    dateIso,
+    executionType,
+    brigadeName,
+    items,
+    comment,
+    photos,
+    pendingFiles,
+    selectedEmployees,
+    isDraftEditable,
+  ]);
 
   const buildPayload = (status: "draft" | "done"): WorkRecord => {
     const now = new Date();
@@ -139,7 +161,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
   };
 
   const autoSaveDraft = async () => {
-    if (cancelledRef.current || record) return;
+    if (cancelledRef.current || !isDraftEditable) return;
     if (!hasEnteredData()) return;
 
     setAutoSaving(true);
