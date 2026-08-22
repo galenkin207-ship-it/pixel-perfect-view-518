@@ -773,7 +773,14 @@ function ReportsPage() {
     return d >= start && d < end;
   });
 
+  const recentCutoff = new Date(now);
+  recentCutoff.setDate(recentCutoff.getDate() - 31);
+  const recentlyActiveObjectIds = new Set(
+    records.filter((r) => parseDate(r.date) >= recentCutoff).map((r) => r.object_id),
+  );
+
   const perObject = objects
+    .filter((o) => recentlyActiveObjectIds.has(o.id))
     .map((o) => ({ ...o, count: periodRecords.filter((r) => r.object_id === o.id).length }))
     .sort((a, b) => b.count - a.count);
   const maxCount = Math.max(1, ...perObject.map((p) => p.count));
@@ -832,6 +839,11 @@ function ReportsPage() {
               <span className="w-8 text-right font-mono text-sm font-bold">{o.count}</span>
             </div>
           ))}
+          {perObject.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Нет объектов с записями за последние 31 день.
+            </p>
+          )}
         </div>
       </section>
 
