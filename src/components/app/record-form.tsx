@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { Camera, Image as ImageIcon, Plus, Search, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { FieldLabel, PageHeading } from "@/components/app/bits";
@@ -34,6 +34,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
     role,
     addRecord,
     updateRecord,
+    deleteRecord,
     setRequests,
     currentUser,
   } = useApp();
@@ -61,6 +62,117 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
 
   const object = objects.find((o) => o.id === objectId)!;
   const total = recordTotal(items);
+
+  // --- Автосохранение черновика (только для создания новой записи) ---
+  const AUTO_SAVE_DELAY_MS = 15000;
+  const [autoSaving, setAutoSaving] = useState(false);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelledRef = useRef(false);
+  // id черновика, автоматически созданного/обновляемого в этой сессии
+  const draftRecordIdRef = useRef<string | undefined>(record?.id);
+  // true, если именно мы создали новую запись автосохранением (а не открыли существующую)
+  const createdDraftInSessionRef = useRef(false);
+
+  const hasEnteredData = () =>
+    items.length > 0 ||
+    comment.trim().length > 0 ||
+    photos.length > 0 ||
+    pendingFiles.length > 0 ||
+    selectedEmployees.length > 0;
+
+  // Запускаем таймер один раз, как только в форме появились какие-то данные.
+  // Действует только при создании новой записи, а не при редактировании уже существующей.
+  useEffect(() => {
+    if (record) return;
+    if (autoSaveTimerRef.current) return;
+    if (!hasEnteredData()) return;
+
+    autoSaveTimerRef.current = setTimeout(() => {
+      autoSaveTimerRef.current = null;
+      void autoSaveDraft();
+    }, AUTO_SAVE_DELAY_MS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, comment, photos, pendingFiles, selectedEmployees, record]);
+
+  // Снимаем таймер при размонтировании формы
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, []);
+
+  const buildPayload = (status: "draft" | "done"): WorkRecord => {
+    const now = new Date();
+    return {
+      id: draftRecordIdRef.current ?? record?.id ?? `r${Date.now()}`,
+      object_id: objectId,
+      execution_type: executionType,
+      employees: executionType === "employee" ? selectedEmployees : [],
+      ...(executionType === "brigade"
+        ? {
+            brigade_name: brigadeName,
+            brigade_members: brigades.find((b) => b.name === brigadeName)?.members ?? [],
+          }
+        : {}),
+      date: fromIso(dateIso) || new Intl.DateTimeFormat("ru-RU").format(now),
+      time:
+        record?.time ??
+        new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(now),
+      items,
+      total,
+      comment,
+      photos,
+      status,
+      created_by: record?.created_by ?? currentUser.full_name,
+      ...(record
+        ? {
+            updated_by: currentUser.full_name,
+            updated_at: `${new Intl.DateTimeFormat("ru-RU").format(now)}, ${new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(now)}`,
+          }
+        : {}),
+    };
+  };
+
+  const autoSaveDraft = async () => {
+    if (cancelledRef.current || record) return;
+    if (!hasEnteredData()) return;
+
+    setAutoSaving(true);
+    const existingId = draftRecordIdRef.current;
+    const payload = buildPayload("draft");
+    try {
+      const saved = existingId ? await updateRecord(payload) : await addRecord(payload);
+
+      if (cancelledRef.current) {
+        // Пользователь успел нажать «Отменить», пока шло сохранение — убираем черновик
+        if (!existingId) {
+          try {
+            await deleteRecord(saved.id);
+          } catch {
+            // не критично, просто не удалось подчистить черновик
+          }
+        }
+        return;
+      }
+
+      draftRecordIdRef.current = saved.id;
+      if (!existingId) createdDraftInSessionRef.current = true;
+
+      if (pendingFiles.length > 0) {
+        try {
+          await api.uploadPhotos(saved.id, pendingFiles);
+        } catch {
+          // тихая ошибка — фото можно будет добавить при следующем сохранении
+        }
+      }
+
+      toast.success("Черновик сохранён автоматически");
+    } catch {
+      // тихая ошибка автосохранения — не мешаем пользователю продолжать заполнение
+    } finally {
+      setAutoSaving(false);
+    }
+  };
 
   const applyCrew = (next: string[]) => {
     setSelectedEmployees(next);
@@ -108,39 +220,19 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
       toast.error("Добавьте хотя бы один вид работы");
       return;
     }
-    const now = new Date();
-    const payload: WorkRecord = {
-      id: record?.id ?? `r${Date.now()}`,
-      object_id: objectId,
-      execution_type: executionType,
-      employees: executionType === "employee" ? selectedEmployees : [],
-      ...(executionType === "brigade"
-        ? {
-            brigade_name: brigadeName,
-            brigade_members: brigades.find((b) => b.name === brigadeName)?.members ?? [],
-          }
-        : {}),
-      date: fromIso(dateIso) || new Intl.DateTimeFormat("ru-RU").format(now),
-      time:
-        record?.time ??
-        new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(now),
-      items,
-      total,
-      comment,
-      photos,
-      status,
-      created_by: record?.created_by ?? currentUser.full_name,
-      ...(record
-        ? {
-            updated_by: currentUser.full_name,
-            updated_at: `${new Intl.DateTimeFormat("ru-RU").format(now)}, ${new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(now)}`,
-          }
-        : {}),
-    };
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+
+    const existingId = draftRecordIdRef.current ?? record?.id;
+    const payload = buildPayload(status);
 
     setSaving(true);
     try {
-      const saved = record ? await updateRecord(payload) : await addRecord(payload);
+      const saved = existingId ? await updateRecord(payload) : await addRecord(payload);
+      draftRecordIdRef.current = saved.id;
       if (pendingFiles.length > 0) {
         try {
           await api.uploadPhotos(saved.id, pendingFiles);
@@ -157,6 +249,27 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCancel = async () => {
+    cancelledRef.current = true;
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+
+    // Если черновик уже был создан автосохранением в этой сессии — удаляем его,
+    // чтобы не оставлять "осиротевшую" запись
+    if (!record && createdDraftInSessionRef.current && draftRecordIdRef.current) {
+      try {
+        await deleteRecord(draftRecordIdRef.current);
+      } catch {
+        // не удалось удалить — не блокируем отмену для пользователя
+      }
+    }
+
+    toast("Запись отменена");
+    navigate({ to: "/objects/$id", params: { id: objectId } });
   };
 
   const addFiles = (files: FileList | null) => {
@@ -428,7 +541,16 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
           </div>
         )}
 
+        {autoSaving && <p className="text-xs text-muted-foreground">Автосохранение черновика...</p>}
+
         <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            onClick={handleCancel}
+            disabled={saving}
+            className="w-full rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold text-muted-foreground disabled:opacity-60 sm:w-auto sm:px-6"
+          >
+            Отменить
+          </button>
           <button
             onClick={() => save("draft")}
             disabled={saving}
