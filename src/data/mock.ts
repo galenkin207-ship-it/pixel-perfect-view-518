@@ -59,20 +59,58 @@ export type WorkRequest = {
   resolved_name?: string;
   resolved_unit?: string;
   resolved_price?: number;
+  reject_reason?: string;
   created_at: string;
   comments: RequestComment[];
 };
 
-export type AppUser = { id: string; login: string; password: string; full_name: string; role: Role; active?: boolean };
+export type AppUser = {
+  id: string;
+  login: string;
+  password: string;
+  full_name: string;
+  role: Role;
+  active?: boolean;
+};
 
 export type WorkType = { id: string; name: string; unit: string; price: number };
 
 export const objects: WorkObject[] = [
-  { id: "14", name: "Объект №14", address: "ул. Строителей, уч. 3", records_today: 3, progress_percent: 56 },
-  { id: "9", name: "Объект №9", address: "Заречная, стр. 2", records_today: 1, progress_percent: 28 },
-  { id: "21", name: "Объект №21", address: "пр. Мира, 118", records_today: 0, progress_percent: 84 },
-  { id: "5", name: "Объект №5", address: "Южный проезд, 7", records_today: 5, progress_percent: 41 },
-  { id: "31", name: "Объект №31", address: "ул. Кузнечная, 12к2", records_today: 2, progress_percent: 67 },
+  {
+    id: "14",
+    name: "Объект №14",
+    address: "ул. Строителей, уч. 3",
+    records_today: 3,
+    progress_percent: 56,
+  },
+  {
+    id: "9",
+    name: "Объект №9",
+    address: "Заречная, стр. 2",
+    records_today: 1,
+    progress_percent: 28,
+  },
+  {
+    id: "21",
+    name: "Объект №21",
+    address: "пр. Мира, 118",
+    records_today: 0,
+    progress_percent: 84,
+  },
+  {
+    id: "5",
+    name: "Объект №5",
+    address: "Южный проезд, 7",
+    records_today: 5,
+    progress_percent: 41,
+  },
+  {
+    id: "31",
+    name: "Объект №31",
+    address: "ул. Кузнечная, 12к2",
+    records_today: 2,
+    progress_percent: 67,
+  },
 ];
 
 export const employees: string[] = [
@@ -287,8 +325,20 @@ export const requests: WorkRequest[] = [
     status: "pending",
     created_at: "18.08.2026",
     comments: [
-      { id: "c1", author: "Иванов К.", own: true, text: "На объекте №14 работа есть, в справочнике нет позиции.", time: "10:12" },
-      { id: "c2", author: "Константин Г.", own: false, text: "Уточните, включён ли фартук из оцинковки.", time: "10:40" },
+      {
+        id: "c1",
+        author: "Иванов К.",
+        own: true,
+        text: "На объекте №14 работа есть, в справочнике нет позиции.",
+        time: "10:12",
+      },
+      {
+        id: "c2",
+        author: "Константин Г.",
+        own: false,
+        text: "Уточните, включён ли фартук из оцинковки.",
+        time: "10:40",
+      },
     ],
   },
   {
@@ -300,7 +350,15 @@ export const requests: WorkRequest[] = [
     resolved_unit: "шт",
     resolved_price: 340,
     created_at: "16.08.2026",
-    comments: [{ id: "c3", author: "Константин Г.", own: false, text: "Добавил в справочник, 340 ₽/шт.", time: "09:05" }],
+    comments: [
+      {
+        id: "c3",
+        author: "Константин Г.",
+        own: false,
+        text: "Добавил в справочник, 340 ₽/шт.",
+        time: "09:05",
+      },
+    ],
   },
   {
     id: "q3",
@@ -308,7 +366,15 @@ export const requests: WorkRequest[] = [
     requested_text: "Уборка территории после демонтажа",
     status: "rejected",
     created_at: "15.08.2026",
-    comments: [{ id: "c4", author: "Константин Г.", own: false, text: "Входит в состав демонтажных работ.", time: "12:30" }],
+    comments: [
+      {
+        id: "c4",
+        author: "Константин Г.",
+        own: false,
+        text: "Входит в состав демонтажных работ.",
+        time: "12:30",
+      },
+    ],
   },
 ];
 

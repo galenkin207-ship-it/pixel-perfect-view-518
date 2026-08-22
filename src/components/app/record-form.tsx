@@ -38,7 +38,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
     addRecord,
     updateRecord,
     deleteRecord,
-    setRequests,
+    createRequest,
     currentUser,
   } = useApp();
 
@@ -614,19 +614,15 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
             setPickerOpen(false);
           }}
           onRequest={(text) => {
-            setRequests((prev) => [
-              {
-                id: `q${Date.now()}`,
-                author: currentUser.full_name,
-                requested_text: text,
-                status: "pending",
-                created_at: new Intl.DateTimeFormat("ru-RU").format(new Date()),
-                comments: [],
-              },
-              ...prev,
-            ]);
-            toast.success("Заявка отправлена администратору");
-            setPickerOpen(false);
+            void (async () => {
+              try {
+                await createRequest(text);
+                toast.success("Заявка отправлена администратору");
+                setPickerOpen(false);
+              } catch {
+                toast.error("Не удалось отправить заявку, попробуйте ещё раз");
+              }
+            })();
           }}
           types={workTypes}
         />

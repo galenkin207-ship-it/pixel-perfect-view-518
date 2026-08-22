@@ -8,6 +8,7 @@ import {
   type Role,
   type WorkObject,
   type WorkRecord,
+  type WorkRequest,
   type WorkType,
 } from "@/data/mock";
 import { api, ApiError } from "@/lib/api-client";
@@ -236,6 +237,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const createRequest = async (text: string): Promise<WorkRequest> => {
+    try {
+      const created = await api.createRequest(text);
+      setRequests((prev) => [created, ...prev]);
+      return created;
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to create request");
+    }
+  };
+
+  const decideRequest = async (
+    id: string,
+    input: {
+      status: "approved" | "rejected";
+      resolved_name?: string;
+      resolved_unit?: string;
+      resolved_price?: number;
+      reject_reason?: string;
+    },
+  ): Promise<WorkRequest> => {
+    try {
+      const saved = await api.decideRequest(id, input);
+      setRequests((prev) =>
+        prev.map((r) => (r.id === saved.id ? { ...saved, comments: r.comments } : r)),
+      );
+      // Одобренная заявка бэкенд сам добавляет в справочник видов работ —
+      // перечитываем список, чтобы он сразу появился в приложении.
+      if (input.status === "approved") {
+        try {
+          setWorkTypes(await api.listWorkTypes());
+        } catch {
+          // не критично — подтянется следующим фоновым обновлением
+        }
+      }
+      return saved;
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to decide request");
+    }
+  };
+
   const addUser = async (input: {
     login: string;
     password: string;
@@ -438,6 +479,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     deleteRecord,
     requests,
     setRequests,
+    createRequest,
+    decideRequest,
     workTypes,
     setWorkTypes,
     addWorkType,

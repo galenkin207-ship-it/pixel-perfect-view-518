@@ -401,18 +401,84 @@ export const api = {
   },
 
   async listRequests(): Promise<WorkRequest[]> {
-    const rows =
-      await request<
-        { id: number; text: string; submitted_by: string; status: string; created_at: string }[]
-      >("/requests");
+    const rows = await request<
+      {
+        id: number;
+        text: string;
+        submitted_by: string;
+        status: string;
+        resolved_name: string | null;
+        resolved_unit: string | null;
+        resolved_price: number | string | null;
+        reject_reason: string | null;
+        created_at: string;
+      }[]
+    >("/requests");
     return rows.map((r) => ({
+      id: String(r.id),
+      author: r.submitted_by,
+      requested_text: r.text,
+      status: r.status as WorkRequest["status"],
+      ...(r.resolved_name != null ? { resolved_name: r.resolved_name } : {}),
+      ...(r.resolved_unit != null ? { resolved_unit: r.resolved_unit } : {}),
+      ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
+      ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
+      created_at: r.created_at,
+      comments: [],
+    }));
+  },
+
+  async createRequest(text: string): Promise<WorkRequest> {
+    const r = await request<{
+      id: number;
+      text: string;
+      submitted_by: string;
+      status: string;
+      created_at: string;
+    }>("/requests", { method: "POST", body: JSON.stringify({ text }) });
+    return {
       id: String(r.id),
       author: r.submitted_by,
       requested_text: r.text,
       status: r.status as WorkRequest["status"],
       created_at: r.created_at,
       comments: [],
-    }));
+    };
+  },
+
+  async decideRequest(
+    id: string,
+    input: {
+      status: "approved" | "rejected";
+      resolved_name?: string;
+      resolved_unit?: string;
+      resolved_price?: number;
+      reject_reason?: string;
+    },
+  ): Promise<WorkRequest> {
+    const r = await request<{
+      id: number;
+      text: string;
+      submitted_by: string;
+      status: string;
+      resolved_name: string | null;
+      resolved_unit: string | null;
+      resolved_price: number | string | null;
+      reject_reason: string | null;
+      created_at: string;
+    }>(`/requests/${id}`, { method: "PUT", body: JSON.stringify(input) });
+    return {
+      id: String(r.id),
+      author: r.submitted_by,
+      requested_text: r.text,
+      status: r.status as WorkRequest["status"],
+      ...(r.resolved_name != null ? { resolved_name: r.resolved_name } : {}),
+      ...(r.resolved_unit != null ? { resolved_unit: r.resolved_unit } : {}),
+      ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
+      ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
+      created_at: r.created_at,
+      comments: [],
+    };
   },
 
   async listRecords(): Promise<WorkRecord[]> {

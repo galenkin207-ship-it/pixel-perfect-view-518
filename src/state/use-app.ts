@@ -31,6 +31,17 @@ export type AppState = {
   deleteRecord: (id: string) => Promise<void>;
   requests: WorkRequest[];
   setRequests: React.Dispatch<React.SetStateAction<WorkRequest[]>>;
+  createRequest: (text: string) => Promise<WorkRequest>;
+  decideRequest: (
+    id: string,
+    input: {
+      status: "approved" | "rejected";
+      resolved_name?: string;
+      resolved_unit?: string;
+      resolved_price?: number;
+      reject_reason?: string;
+    },
+  ) => Promise<WorkRequest>;
   workTypes: WorkType[];
   setWorkTypes: React.Dispatch<React.SetStateAction<WorkType[]>>;
   addWorkType: (input: { name: string; unit: string; price: number }) => Promise<WorkType>;

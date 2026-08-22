@@ -10,7 +10,7 @@ import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/messages")({
   validateSearch: (search: Record<string, unknown>) => ({
-    request: typeof search['request'] === "string" ? (search['request'] as string) : undefined,
+    request: typeof search["request"] === "string" ? (search["request"] as string) : undefined,
   }),
   head: () => ({
     meta: [
@@ -34,7 +34,7 @@ const statusText: Record<WorkRequest["status"], string> = {
 };
 
 function MessagesPage() {
-  const { requests, setRequests, role, currentUser, setWorkTypes } = useApp();
+  const { requests, setRequests, role, currentUser, decideRequest } = useApp();
   const { request: focusId } = Route.useSearch();
 
   useEffect(() => {
@@ -83,32 +83,32 @@ function MessagesPage() {
     setDraft((d) => ({ ...d, [id]: "" }));
   };
 
-  const decide = (id: string, status: "approved" | "rejected") => {
+  const [deciding, setDeciding] = useState<string | null>(null);
+
+  const decide = async (id: string, status: "approved" | "rejected") => {
     const data = resolve[id];
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              status,
-              ...(status === "approved" && data
-                ? {
-                    resolved_name: data.name,
-                    resolved_unit: data.unit,
-                    resolved_price: Number(data.price),
-                  }
-                : {}),
-            }
-          : r,
-      ),
-    );
-    if (status === "approved" && data?.name) {
-      setWorkTypes((prev) => [
-        ...prev,
-        { id: `w${Date.now()}`, name: data.name, unit: data.unit, price: Number(data.price) || 0 },
-      ]);
+    if (status === "approved" && (!data?.name || !data.unit || !data.price)) {
+      toast.error("Заполните название, единицу и цену перед одобрением");
+      return;
     }
-    toast.success(status === "approved" ? "Заявка одобрена" : "Заявка отклонена");
+    setDeciding(id);
+    try {
+      await decideRequest(id, {
+        status,
+        ...(status === "approved" && data
+          ? {
+              resolved_name: data.name,
+              resolved_unit: data.unit,
+              resolved_price: Number(data.price) || 0,
+            }
+          : {}),
+      });
+      toast.success(status === "approved" ? "Заявка одобрена" : "Заявка отклонена");
+    } catch {
+      toast.error("Не удалось сохранить решение, попробуйте ещё раз");
+    } finally {
+      setDeciding(null);
+    }
   };
 
   const renderCard = (r: WorkRequest) => (
@@ -256,14 +256,16 @@ function MessagesPage() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => decide(r.id, "approved")}
-              className="flex-1 rounded-lg bg-status-done py-2 text-sm font-semibold text-white"
+              onClick={() => void decide(r.id, "approved")}
+              disabled={deciding === r.id}
+              className="flex-1 rounded-lg bg-status-done py-2 text-sm font-semibold text-white disabled:opacity-60"
             >
-              Одобрить
+              {deciding === r.id ? "Сохранение..." : "Одобрить"}
             </button>
             <button
-              onClick={() => decide(r.id, "rejected")}
-              className="flex-1 rounded-lg bg-status-rejected py-2 text-sm font-semibold text-white"
+              onClick={() => void decide(r.id, "rejected")}
+              disabled={deciding === r.id}
+              className="flex-1 rounded-lg bg-status-rejected py-2 text-sm font-semibold text-white disabled:opacity-60"
             >
               Отклонить
             </button>
@@ -298,7 +300,9 @@ function MessagesPage() {
 
       <section className="mt-5">
         <h2 className="label-caps">На рассмотрении</h2>
-        <div className="mt-3 grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">{pending.map(renderCard)}</div>
+        <div className="mt-3 grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
+          {pending.map(renderCard)}
+        </div>
         {pending.length === 0 && (
           <p className="mt-2 text-sm text-muted-foreground">Нет заявок на рассмотрении.</p>
         )}
@@ -311,7 +315,9 @@ function MessagesPage() {
             <button className="text-sm font-semibold text-primary">Экспорт в Excel</button>
           )}
         </div>
-        <div className="mt-3 grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">{history.map(renderCard)}</div>
+        <div className="mt-3 grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
+          {history.map(renderCard)}
+        </div>
       </section>
     </AppShell>
   );
