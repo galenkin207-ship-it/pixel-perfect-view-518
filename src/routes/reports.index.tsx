@@ -2,12 +2,13 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import ExcelJS from "exceljs";
 import { toast } from "sonner";
+import { ChevronRight } from "lucide-react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { cn } from "@/lib/utils";
 import { allocationsFor, itemQty } from "@/lib/record-utils";
-import { roleLabels, type WorkRecord } from "@/data/mock";
+import { roleLabels, type WorkObject, type WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/reports/")({
@@ -55,10 +56,107 @@ function crewOf(r: WorkRecord) {
   return r.execution_type === "brigade" ? (r.brigade_members ?? []) : r.employees;
 }
 
+function formatQty(n: number) {
+  const rounded = Math.round(n * 1000) / 1000;
+  return rounded.toLocaleString("ru-RU", { maximumFractionDigits: 3 });
+}
+
+type StatsRow = {
+  key: string;
+  label: string;
+  positions: number;
+  totalValue: number;
+  items: { name: string; unit: string; qty: number }[];
+};
+
+function finalizeStatsRows(
+  map: Map<
+    string,
+    { positions: number; totalValue: number; items: Map<string, { qty: number; unit: string }> }
+  >,
+  labelFor: (key: string) => string,
+): StatsRow[] {
+  return Array.from(map.entries())
+    .map(([key, v]) => ({
+      key,
+      label: labelFor(key),
+      positions: v.positions,
+      totalValue: v.totalValue,
+      items: Array.from(v.items.entries())
+        .map(([nameUnit, d]) => ({
+          name: nameUnit.split("||")[0] ?? nameUnit,
+          unit: d.unit,
+          qty: d.qty,
+        }))
+        .sort((a, b) => b.qty - a.qty),
+    }))
+    .sort((a, b) => b.positions - a.positions);
+}
+
+/** Статистика по сотрудникам: "позиция" — это участие сотрудника в одной строке
+ * вида работ (запись может делить один вид работ между несколькими людьми). */
+function buildEmployeeStats(records: WorkRecord[]): StatsRow[] {
+  const map = new Map<
+    string,
+    { positions: number; totalValue: number; items: Map<string, { qty: number; unit: string }> }
+  >();
+  for (const r of records) {
+    const crew = crewOf(r);
+    for (const item of r.items) {
+      const allocs = item.allocations?.length ? item.allocations : allocationsFor(item, crew);
+      for (const a of allocs) {
+        if (!a.qty) continue;
+        let entry = map.get(a.employee);
+        if (!entry) {
+          entry = { positions: 0, totalValue: 0, items: new Map() };
+          map.set(a.employee, entry);
+        }
+        entry.positions += 1;
+        entry.totalValue += a.qty * item.price;
+        const key = `${item.name}||${item.unit}`;
+        const existing = entry.items.get(key);
+        if (existing) existing.qty += a.qty;
+        else entry.items.set(key, { qty: a.qty, unit: item.unit });
+      }
+    }
+  }
+  return finalizeStatsRows(map, (k) => k);
+}
+
+/** Статистика по объектам: "позиция" — одна строка вида работ в записи на этом объекте. */
+function buildObjectStats(records: WorkRecord[], objects: WorkObject[]): StatsRow[] {
+  const nameById = new Map(objects.map((o) => [o.id, o.name]));
+  const map = new Map<
+    string,
+    { positions: number; totalValue: number; items: Map<string, { qty: number; unit: string }> }
+  >();
+  for (const r of records) {
+    for (const item of r.items) {
+      let entry = map.get(r.object_id);
+      if (!entry) {
+        entry = { positions: 0, totalValue: 0, items: new Map() };
+        map.set(r.object_id, entry);
+      }
+      const qty = itemQty(item);
+      entry.positions += 1;
+      entry.totalValue += qty * item.price;
+      const key = `${item.name}||${item.unit}`;
+      const existing = entry.items.get(key);
+      if (existing) existing.qty += qty;
+      else entry.items.set(key, { qty, unit: item.unit });
+    }
+  }
+  return finalizeStatsRows(map, (id) => nameById.get(id) ?? id);
+}
+
 function ReportsPage() {
   const { records, objects, role, employees, workTypes } = useApp();
   const [period, setPeriod] = useState<(typeof periods)[number]>("Эта неделя");
   const [grouping, setGrouping] = useState<"employees" | "objects">("employees");
+  const [statsFrom, setStatsFrom] = useState("");
+  const [statsTo, setStatsTo] = useState("");
+  const [statsOpen, setStatsOpen] = useState(true);
+  const [expandedStatsKey, setExpandedStatsKey] = useState<string | null>(null);
   const [rObject, setRObject] = useState("");
   const [rEmployee, setREmployee] = useState("");
   const [rSubmitter, setRSubmitter] = useState("");
@@ -791,6 +889,33 @@ function ReportsPage() {
     ),
   ).size;
 
+  const statsInRange = useMemo(() => {
+    return records.filter((r) => {
+      const d = parseDate(r.date);
+      if (statsFrom) {
+        const from = new Date(statsFrom);
+        from.setHours(0, 0, 0, 0);
+        if (d < from) return false;
+      }
+      if (statsTo) {
+        const to = new Date(statsTo);
+        to.setHours(23, 59, 59, 999);
+        if (d > to) return false;
+      }
+      return true;
+    });
+  }, [records, statsFrom, statsTo]);
+
+  const statsRows = useMemo(
+    () =>
+      grouping === "employees"
+        ? buildEmployeeStats(statsInRange)
+        : buildObjectStats(statsInRange, objects),
+    [statsInRange, grouping, objects],
+  );
+  const statsMaxPositions = Math.max(1, ...statsRows.map((r) => r.positions));
+  const statsTotalPositions = statsRows.reduce((s, r) => s + r.positions, 0);
+
   return (
     <AppShell>
       <PageHeading context={roleLabels[role]} title="Отчёты" />
@@ -850,35 +975,142 @@ function ReportsPage() {
       <section className="mt-8">
         <h2 className="text-lg font-bold">Подробные отчёты</h2>
 
-        <div className="mt-3 grid gap-3 lg:grid-cols-3">
-          <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="mt-3 rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between gap-3">
             <h3 className="font-semibold">Статистика за период</h3>
-            <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-surface p-1">
-              {(["employees", "objects"] as const).map((g) => (
-                <button
-                  key={g}
-                  onClick={() => setGrouping(g)}
-                  className={cn(
-                    "rounded-lg py-2 text-xs font-semibold",
-                    grouping === g ? "bg-primary text-primary-foreground" : "text-foreground",
-                  )}
-                >
-                  {g === "employees" ? "По сотрудникам" : "По объектам"}
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <input
-                type="date"
-                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-              />
-              <input
-                type="date"
-                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-              />
-            </div>
+            <button
+              type="button"
+              onClick={() => setStatsOpen((v) => !v)}
+              className="shrink-0 text-sm font-semibold text-primary"
+            >
+              {statsOpen ? "Свернуть статистику" : "Показать статистику"}
+            </button>
           </div>
 
+          {statsOpen && (
+            <>
+              <div className="mt-3 flex flex-wrap items-end gap-3">
+                <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface p-1 sm:w-64">
+                  {(["employees", "objects"] as const).map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setGrouping(g)}
+                      className={cn(
+                        "rounded-lg py-2 text-xs font-semibold",
+                        grouping === g ? "bg-primary text-primary-foreground" : "text-foreground",
+                      )}
+                    >
+                      {g === "employees" ? "Сотрудники" : "Объекты"}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <FieldLabel>С даты</FieldLabel>
+                  <input
+                    type="date"
+                    value={statsFrom}
+                    onChange={(e) => setStatsFrom(e.target.value)}
+                    className="mt-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <FieldLabel>По дату</FieldLabel>
+                  <input
+                    type="date"
+                    value={statsTo}
+                    onChange={(e) => setStatsTo(e.target.value)}
+                    className="mt-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="rounded-xl bg-surface p-3">
+                  <p className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+                    Записей за период
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">{statsInRange.length}</p>
+                </div>
+                <div className="rounded-xl bg-surface p-3">
+                  <p className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+                    Позиций всего
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">{statsTotalPositions}</p>
+                </div>
+                <div className="rounded-xl bg-surface p-3">
+                  <p className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+                    Больше всех сделал
+                  </p>
+                  <p className="mt-1 truncate text-lg font-bold">{statsRows[0]?.label ?? "—"}</p>
+                </div>
+              </div>
+
+              <p className="mt-4 label-caps">
+                {grouping === "employees" ? "По сотрудникам" : "По объектам"} — позиций за период
+              </p>
+              <div className="mt-2 divide-y divide-border">
+                {statsRows.map((row, i) => {
+                  const expanded = expandedStatsKey === row.key;
+                  return (
+                    <div key={row.key} className="py-2">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedStatsKey(expanded ? null : row.key)}
+                        className="flex w-full items-center gap-3 text-left"
+                      >
+                        <span className="w-5 shrink-0 text-xs text-muted-foreground">{i + 1}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm">{row.label}</span>
+                        <span className="hidden h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-muted sm:block sm:w-40">
+                          <span
+                            className="block h-full rounded-full bg-primary"
+                            style={{ width: `${(row.positions / statsMaxPositions) * 100}%` }}
+                          />
+                        </span>
+                        <span className="w-16 shrink-0 text-right text-xs font-bold">
+                          {row.positions} поз.
+                        </span>
+                        <ChevronRight
+                          className={cn(
+                            "size-4 shrink-0 text-muted-foreground transition-transform",
+                            expanded && "rotate-90",
+                          )}
+                        />
+                      </button>
+                      {expanded && (
+                        <div className="mt-2 ml-8 space-y-1.5">
+                          {row.items.map((it) => (
+                            <div
+                              key={`${it.name}-${it.unit}`}
+                              className="flex items-center justify-between gap-3 text-sm"
+                            >
+                              <span className="text-muted-foreground">{it.name}</span>
+                              <span className="shrink-0 font-semibold text-primary">
+                                {formatQty(it.qty)} {it.unit}
+                              </span>
+                            </div>
+                          ))}
+                          {isAdmin && (
+                            <p className="pt-1 text-xs text-muted-foreground">
+                              Сумма: {Math.round(row.totalValue).toLocaleString("ru-RU")} ₽
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {statsRows.length === 0 && (
+                  <p className="py-4 text-sm text-muted-foreground">
+                    Нет данных за выбранный период.
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
           <div className="rounded-2xl border border-border bg-card p-4">
             <h3 className="font-semibold">Отчёт по объекту / сотруднику / подавшему</h3>
             <div className="mt-3 space-y-2">
