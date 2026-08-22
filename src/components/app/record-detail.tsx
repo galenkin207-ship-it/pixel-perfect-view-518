@@ -77,7 +77,7 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
                   <p className="min-w-0 flex-1 font-semibold break-words whitespace-normal">
                     {item.name}
                   </p>
-                  <p className="shrink-0 font-mono text-sm font-bold">
+                  <p className="shrink-0 font-mono text-sm font-bold tabular-nums">
                     {itemQty(item)} {item.unit}
                   </p>
                 </div>

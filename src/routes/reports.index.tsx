@@ -155,7 +155,7 @@ function ReportsPage() {
   const [grouping, setGrouping] = useState<"employees" | "objects">("employees");
   const [statsFrom, setStatsFrom] = useState("");
   const [statsTo, setStatsTo] = useState("");
-  const [statsOpen, setStatsOpen] = useState(true);
+  const [statsOpen, setStatsOpen] = useState(false);
   const [expandedStatsKey, setExpandedStatsKey] = useState<string | null>(null);
   const [rObject, setRObject] = useState("");
   const [rEmployee, setREmployee] = useState("");
@@ -1082,10 +1082,12 @@ function ReportsPage() {
                           {row.items.map((it) => (
                             <div
                               key={`${it.name}-${it.unit}`}
-                              className="flex items-center justify-between gap-3 text-sm"
+                              className="flex items-baseline justify-between gap-3 text-sm"
                             >
-                              <span className="text-muted-foreground">{it.name}</span>
-                              <span className="shrink-0 font-semibold text-primary">
+                              <span className="min-w-0 flex-1 text-muted-foreground break-words">
+                                {it.name}
+                              </span>
+                              <span className="shrink-0 font-mono font-semibold tabular-nums text-primary">
                                 {formatQty(it.qty)} {it.unit}
                               </span>
                             </div>

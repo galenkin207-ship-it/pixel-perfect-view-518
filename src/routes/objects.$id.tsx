@@ -52,8 +52,7 @@ function ObjectRecordsPage() {
 
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {list.map((r) => {
-          const crew =
-            r.execution_type === "brigade" ? (r.brigade_members ?? []) : r.employees;
+          const crew = r.execution_type === "brigade" ? (r.brigade_members ?? []) : r.employees;
           return (
             <button
               key={r.id}
@@ -74,7 +73,7 @@ function ObjectRecordsPage() {
                   <div key={i}>
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="min-w-0 flex-1 text-sm break-words">{item.name}</span>
-                      <span className="font-mono text-sm font-bold">
+                      <span className="shrink-0 font-mono text-sm font-bold tabular-nums">
                         {itemQty(item)} {item.unit}
                       </span>
                     </div>

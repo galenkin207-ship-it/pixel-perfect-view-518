@@ -844,21 +844,23 @@ function RecordSummary({ record, isAdmin }: { record: WorkRecord; isAdmin: boole
   return (
     <div className="space-y-1.5">
       {record.items.map((item, i) => (
-        <div key={i} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <div key={i} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <span className="flex min-w-0 flex-1 items-start gap-1.5 font-semibold break-words whitespace-normal">
             {item.name}
             {record.photos.length > 0 && (
               <ImageIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
             )}
           </span>
-          <span className="font-mono text-sm font-bold">
-            {itemQty(item)} {item.unit}
-          </span>
-          {isAdmin && (
-            <span className="font-mono text-sm font-bold text-primary">
-              {money(itemQty(item) * item.price)}
+          <span className="flex shrink-0 items-baseline gap-3">
+            <span className="font-mono text-sm font-bold tabular-nums">
+              {itemQty(item)} {item.unit}
             </span>
-          )}
+            {isAdmin && (
+              <span className="font-mono text-sm font-bold tabular-nums text-primary">
+                {money(itemQty(item) * item.price)}
+              </span>
+            )}
+          </span>
         </div>
       ))}
       <p className="text-sm break-words text-muted-foreground">
