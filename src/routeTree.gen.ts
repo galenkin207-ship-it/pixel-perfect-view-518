@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as WorkTypesRouteImport } from './routes/work-types'
 import { Route as ObjectsIdRouteImport } from './routes/objects.$id'
 import { Route as ProfileIndexRouteImport } from './routes/profile.index'
 import { Route as RecordsIdRouteImport } from './routes/records.$id'
@@ -40,6 +41,11 @@ const MessagesRoute = MessagesRouteImport.update({
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkTypesRoute = WorkTypesRouteImport.update({
+  id: '/work-types',
+  path: '/work-types',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ObjectsIdRoute = ObjectsIdRouteImport.update({
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/notifications': typeof NotificationsRoute
+  '/work-types': typeof WorkTypesRoute
   '/objects/$id': typeof ObjectsIdRoute
   '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/notifications': typeof NotificationsRoute
+  '/work-types': typeof WorkTypesRoute
   '/objects/$id': typeof ObjectsIdRoute
   '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
@@ -117,6 +125,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/notifications': typeof NotificationsRoute
+  '/work-types': typeof WorkTypesRoute
   '/objects/$id': typeof ObjectsIdRoute
   '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/messages'
     | '/notifications'
+    | '/work-types'
     | '/objects/$id'
     | '/records/$id'
     | '/records/new'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/messages'
     | '/notifications'
+    | '/work-types'
     | '/objects/$id'
     | '/records/$id'
     | '/records/new'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/messages'
     | '/notifications'
+    | '/work-types'
     | '/objects/$id'
     | '/records/$id'
     | '/records/new'
@@ -176,6 +188,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRoute
   NotificationsRoute: typeof NotificationsRoute
+  WorkTypesRoute: typeof WorkTypesRoute
   ObjectsIdRoute: typeof ObjectsIdRoute
   RecordsIdRoute: typeof RecordsIdRoute
   RecordsNewRoute: typeof RecordsNewRoute
@@ -214,6 +227,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/work-types': {
+      id: '/work-types'
+      path: '/work-types'
+      fullPath: '/work-types'
+      preLoaderRoute: typeof WorkTypesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/objects/$id': {
@@ -280,6 +300,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MessagesRoute: MessagesRoute,
   NotificationsRoute: NotificationsRoute,
+  WorkTypesRoute: WorkTypesRoute,
   ObjectsIdRoute: ObjectsIdRoute,
   RecordsIdRoute: RecordsIdRoute,
   RecordsNewRoute: RecordsNewRoute,

@@ -37,7 +37,9 @@ const mobileTabs = (role: Role): NavItem[] => [
   role === "admin"
     ? { to: "/messages", label: "Заявки", icon: Inbox }
     : { to: "/messages", label: "Переписка", icon: MessageSquare },
-  { to: "/profile", label: "Профиль", icon: User },
+  role === "user"
+    ? { to: "/work-types", label: "Все виды работ", icon: ClipboardList }
+    : { to: "/profile", label: "Профиль", icon: User },
 ];
 
 export function AppShell({
@@ -114,7 +116,13 @@ export function AppShell({
             items={
               isAdminLike
                 ? admin
-                : [tabs[0]!, { to: "/reports/all", label: "Все записи", icon: ListChecks }, tabs[2]!, tabs[3]!]
+                : [
+                    tabs[0]!,
+                    { to: "/reports/all", label: "Все записи", icon: ListChecks },
+                    { to: "/work-types", label: "Все виды работ", icon: ClipboardList },
+                    tabs[2]!,
+                    tabs[3]!,
+                  ]
             }
             isActive={isActive}
           />
@@ -145,19 +153,32 @@ export function AppShell({
               </span>
               Учёт работ
             </Link>
-            <span className="label-caps text-muted-foreground">{roleLabels[role]}</span>
-            <Link
-              to="/notifications"
-              aria-label="Уведомления"
-              className="relative flex size-8 items-center justify-center rounded-full border border-border bg-surface"
-            >
-              <Bell className="size-4" />
-              {notificationsCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
-                  {notificationsCount}
-                </span>
+            <div className="flex items-center gap-2">
+              {role === "user" && (
+                <Link
+                  to="/profile"
+                  aria-label="Профиль"
+                  className={cn(
+                    "flex size-8 items-center justify-center rounded-full border border-border bg-surface",
+                    isActive("/profile") && "border-primary text-primary",
+                  )}
+                >
+                  <Settings className="size-4" />
+                </Link>
               )}
-            </Link>
+              <Link
+                to="/notifications"
+                aria-label="Уведомления"
+                className="relative flex size-8 items-center justify-center rounded-full border border-border bg-surface"
+              >
+                <Bell className="size-4" />
+                {notificationsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                    {notificationsCount}
+                  </span>
+                )}
+              </Link>
+            </div>
           </div>
 
           <div className="w-full px-4 py-5 md:px-6 md:py-6 xl:px-10 xl:py-8">{children}</div>
