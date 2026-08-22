@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { EmployeeSelect } from "@/components/app/employee-select";
+import { NumberField } from "@/components/app/number-field";
 import { ObjectSelect } from "@/components/app/object-select";
 import { cn } from "@/lib/utils";
 import { itemQty, recordTotal, round2, syncItem } from "@/lib/record-utils";
@@ -424,12 +425,10 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     <label className="flex items-center gap-2 text-sm">
                       <span className="text-muted-foreground">Общий объём</span>
-                      <input
-                        type="number"
+                      <NumberField
                         value={itemQty(item)}
                         readOnly={item.manual}
-                        onChange={(e) => setItemTotal(idx, Number(e.target.value))}
-                        onFocus={(e) => e.currentTarget.select()}
+                        onChange={(v) => setItemTotal(idx, v)}
                         className={cn(
                           "w-24 rounded-lg border border-border bg-background px-2 py-1.5 text-right font-mono text-sm",
                           item.manual && "text-muted-foreground",
@@ -464,11 +463,9 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
                       {(item.allocations ?? []).map((a) => (
                         <div key={a.employee} className="flex items-center gap-3">
                           <span className="min-w-0 flex-1 text-sm break-words">{a.employee}</span>
-                          <input
-                            type="number"
+                          <NumberField
                             value={a.qty}
-                            onChange={(e) => setAllocation(idx, a.employee, Number(e.target.value))}
-                            onFocus={(e) => e.currentTarget.select()}
+                            onChange={(v) => setAllocation(idx, a.employee, v)}
                             className="w-24 rounded-lg border border-border bg-background px-2 py-1.5 text-right font-mono text-sm"
                           />
                           <span className="w-12 text-sm text-muted-foreground">{item.unit}</span>
