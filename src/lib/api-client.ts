@@ -6,6 +6,7 @@ import type {
   WorkRecord,
   WorkRequest,
   WorkType,
+  RequestComment,
 } from "@/data/mock";
 
 // В браузере запросы идут на тот же домен (относительный /api/...) — nginx
@@ -412,6 +413,7 @@ export const api = {
         resolved_price: number | string | null;
         reject_reason: string | null;
         created_at: string;
+        comments: { id: number; author: string; text: string; created_at: string }[];
       }[]
     >("/requests");
     return rows.map((r) => ({
@@ -423,9 +425,29 @@ export const api = {
       ...(r.resolved_unit != null ? { resolved_unit: r.resolved_unit } : {}),
       ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
       ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
-      created_at: r.created_at,
-      comments: [],
+      created_at: isoToRu(r.created_at),
+      comments: r.comments.map((c) => ({
+        id: String(c.id),
+        author: c.author,
+        own: false,
+        text: c.text,
+        time: formatTime(c.created_at),
+      })),
     }));
+  },
+
+  async addRequestComment(requestId: string, text: string): Promise<RequestComment> {
+    const c = await request<{ id: number; author: string; text: string; created_at: string }>(
+      `/requests/${requestId}/comments`,
+      { method: "POST", body: JSON.stringify({ text }) },
+    );
+    return {
+      id: String(c.id),
+      author: c.author,
+      own: false,
+      text: c.text,
+      time: formatTime(c.created_at),
+    };
   },
 
   async createRequest(text: string): Promise<WorkRequest> {
@@ -441,7 +463,7 @@ export const api = {
       author: r.submitted_by,
       requested_text: r.text,
       status: r.status as WorkRequest["status"],
-      created_at: r.created_at,
+      created_at: isoToRu(r.created_at),
       comments: [],
     };
   },
@@ -476,7 +498,7 @@ export const api = {
       ...(r.resolved_unit != null ? { resolved_unit: r.resolved_unit } : {}),
       ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
       ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
-      created_at: r.created_at,
+      created_at: isoToRu(r.created_at),
       comments: [],
     };
   },

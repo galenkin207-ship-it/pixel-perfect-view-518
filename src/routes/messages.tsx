@@ -34,7 +34,7 @@ const statusText: Record<WorkRequest["status"], string> = {
 };
 
 function MessagesPage() {
-  const { requests, setRequests, role, currentUser, decideRequest } = useApp();
+  const { requests, setRequests, role, currentUser, decideRequest, addRequestComment } = useApp();
   const { request: focusId } = Route.useSearch();
 
   useEffect(() => {
@@ -55,32 +55,21 @@ function MessagesPage() {
   const pending = visible.filter((r) => r.status === "pending");
   const history = visible.filter((r) => r.status !== "pending");
 
-  const sendComment = (id: string) => {
+  const [sendingComment, setSendingComment] = useState<string | null>(null);
+
+  const sendComment = async (id: string) => {
     const text = (draft[id] ?? "").trim();
     if (!text) return;
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              comments: [
-                ...r.comments,
-                {
-                  id: `c${Date.now()}`,
-                  author: currentUser.full_name,
-                  own: true,
-                  text,
-                  time: new Intl.DateTimeFormat("ru-RU", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }).format(new Date()),
-                },
-              ],
-            }
-          : r,
-      ),
-    );
     setDraft((d) => ({ ...d, [id]: "" }));
+    setSendingComment(id);
+    try {
+      await addRequestComment(id, text);
+    } catch {
+      setDraft((d) => ({ ...d, [id]: text })); // возвращаем текст в поле, если отправка не удалась
+      toast.error("Не удалось отправить сообщение, попробуйте ещё раз");
+    } finally {
+      setSendingComment(null);
+    }
   };
 
   const [deciding, setDeciding] = useState<string | null>(null);
@@ -172,26 +161,29 @@ function MessagesPage() {
       )}
 
       <div className="mt-3 space-y-2">
-        {r.comments.map((c) => (
-          <div key={c.id} className={cn("flex", c.own ? "justify-end" : "justify-start")}>
-            <span
-              className={cn(
-                "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
-                c.own ? "bg-primary text-primary-foreground" : "bg-surface",
-              )}
-            >
-              {c.text}
+        {r.comments.map((c) => {
+          const own = c.author === currentUser.full_name;
+          return (
+            <div key={c.id} className={cn("flex", own ? "justify-end" : "justify-start")}>
               <span
                 className={cn(
-                  "mt-1 block text-[10px]",
-                  c.own ? "text-primary-foreground/70" : "text-muted-foreground",
+                  "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
+                  own ? "bg-primary text-primary-foreground" : "bg-surface",
                 )}
               >
-                {c.author} · {c.time}
+                {c.text}
+                <span
+                  className={cn(
+                    "mt-1 block text-[10px]",
+                    own ? "text-primary-foreground/70" : "text-muted-foreground",
+                  )}
+                >
+                  {c.author} · {c.time}
+                </span>
               </span>
-            </span>
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
 
       {role !== "curator" && (
@@ -199,12 +191,17 @@ function MessagesPage() {
           <input
             value={draft[r.id] ?? ""}
             onChange={(e) => setDraft((d) => ({ ...d, [r.id]: e.target.value }))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void sendComment(r.id);
+            }}
+            disabled={sendingComment === r.id}
             placeholder="Сообщение..."
-            className="flex-1 rounded-xl border border-border bg-surface px-3 py-2 text-sm"
+            className="flex-1 rounded-xl border border-border bg-surface px-3 py-2 text-sm disabled:opacity-60"
           />
           <button
-            onClick={() => sendComment(r.id)}
-            className="rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+            onClick={() => void sendComment(r.id)}
+            disabled={sendingComment === r.id || !(draft[r.id] ?? "").trim()}
+            className="rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
             Отправить
           </button>

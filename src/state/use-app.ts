@@ -1,5 +1,13 @@
 import { createContext, useContext } from "react";
-import type { AppUser, Role, WorkObject, WorkRecord, WorkRequest, WorkType } from "@/data/mock";
+import type {
+  AppUser,
+  Role,
+  WorkObject,
+  WorkRecord,
+  WorkRequest,
+  WorkType,
+  RequestComment,
+} from "@/data/mock";
 
 export type AppState = {
   role: Role;
@@ -42,6 +50,7 @@ export type AppState = {
       reject_reason?: string;
     },
   ) => Promise<WorkRequest>;
+  addRequestComment: (requestId: string, text: string) => Promise<RequestComment>;
   workTypes: WorkType[];
   setWorkTypes: React.Dispatch<React.SetStateAction<WorkType[]>>;
   addWorkType: (input: { name: string; unit: string; price: number }) => Promise<WorkType>;

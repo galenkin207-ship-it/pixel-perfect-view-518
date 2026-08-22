@@ -10,6 +10,7 @@ import {
   type WorkRecord,
   type WorkRequest,
   type WorkType,
+  type RequestComment,
 } from "@/data/mock";
 import { api, ApiError } from "@/lib/api-client";
 
@@ -182,6 +183,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const objectNameById = useMemo(() => new Map(objects.map((o) => [o.id, o.name])), [objects]);
 
+  // Считаем так же, как страница "Уведомления": новые заявки и комментарии от
+  // других участников (прораб видит только свои заявки, admin/curator — все).
+  const notificationsCount = useMemo(() => {
+    const isForeman = role === "user";
+    const visible = isForeman
+      ? requests.filter((r) => r.author === currentUser.full_name)
+      : requests;
+    let count = 0;
+    for (const r of visible) {
+      if (r.author !== currentUser.full_name) count += 1;
+      for (const c of r.comments) {
+        if (c.author !== currentUser.full_name) count += 1;
+      }
+    }
+    return count;
+  }, [requests, role, currentUser.full_name]);
+
   const login = async (loginValue: string, password: string) => {
     const me = await api.login(loginValue, password);
     setSessionUser({
@@ -274,6 +292,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return saved;
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to decide request");
+    }
+  };
+
+  const addRequestComment = async (requestId: string, text: string): Promise<RequestComment> => {
+    try {
+      const comment = await api.addRequestComment(requestId, text);
+      setRequests((prev) =>
+        prev.map((r) => (r.id === requestId ? { ...r, comments: [...r.comments, comment] } : r)),
+      );
+      return comment;
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to add comment");
     }
   };
 
@@ -481,6 +511,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRequests,
     createRequest,
     decideRequest,
+    addRequestComment,
     workTypes,
     setWorkTypes,
     addWorkType,
@@ -501,7 +532,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addUser,
     updateUser,
     brigades: mockBrigades,
-    notificationsCount: 0,
+    notificationsCount,
     login,
     logout,
     isAuthenticated: !!sessionUser,
