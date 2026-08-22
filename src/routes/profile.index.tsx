@@ -1,10 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar, PageHeading } from "@/components/app/bits";
 import { cn } from "@/lib/utils";
 import { roleLabels, type Role } from "@/data/mock";
 import { useApp } from "@/state/use-app";
+import { disablePush, enablePush, getPushStatus, isPushSupported } from "@/lib/push";
 
 export const Route = createFileRoute("/profile/")({
   head: () => ({
@@ -81,6 +84,39 @@ function ProfilePage() {
 
   const setNotif = <K extends keyof typeof notifications>(key: K, v: (typeof notifications)[K]) =>
     setNotifications((p) => ({ ...p, [key]: v }));
+
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    if (!isPushSupported()) return;
+    getPushStatus()
+      .then((s) => setPushSubscribed(s.subscribed))
+      .catch(() => {});
+  }, []);
+
+  const togglePush = async (v: boolean) => {
+    setPushBusy(true);
+    try {
+      if (v) {
+        const result = await enablePush();
+        if (!result.ok) {
+          toast.error(result.error ?? "Не удалось включить push-уведомления");
+          return;
+        }
+        setPushSubscribed(true);
+        toast.success("Push-уведомления включены на этом устройстве");
+      } else {
+        await disablePush();
+        setPushSubscribed(false);
+        toast.success("Push-уведомления отключены на этом устройстве");
+      }
+    } catch {
+      toast.error("Не удалось изменить push-уведомления");
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   return (
     <AppShell>
@@ -208,6 +244,19 @@ function ProfilePage() {
             onChange={(v) => setNotif("inAppSound", v)}
             label="Звук уведомления"
           />
+          {isPushSupported() ? (
+            <Switch
+              disabled={!notifications.inAppEnabled || pushBusy}
+              checked={pushSubscribed}
+              onChange={(v) => void togglePush(v)}
+              label="Push-уведомления на этом устройстве"
+              hint="Приходят, даже если приложение свёрнуто или закрыто"
+            />
+          ) : (
+            <p className="px-1 text-xs text-muted-foreground">
+              Этот браузер не поддерживает push-уведомления.
+            </p>
+          )}
         </div>
       </section>
 

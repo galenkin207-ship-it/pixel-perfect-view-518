@@ -571,6 +571,21 @@ export const api = {
     });
     return result.photos.map(photoUrl);
   },
+
+  async getPushVapidPublicKey(): Promise<{ enabled: boolean; publicKey: string | null }> {
+    return request<{ enabled: boolean; publicKey: string | null }>("/push/vapid-public-key");
+  },
+
+  async subscribePush(sub: {
+    endpoint: string;
+    keys: { p256dh: string; auth: string };
+  }): Promise<void> {
+    await request("/push/subscribe", { method: "POST", body: JSON.stringify(sub) });
+  },
+
+  async unsubscribePush(endpoint: string): Promise<void> {
+    await request("/push/unsubscribe", { method: "POST", body: JSON.stringify({ endpoint }) });
+  },
 };
 
 export { ApiError };
