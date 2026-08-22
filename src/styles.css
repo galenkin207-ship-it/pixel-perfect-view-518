@@ -180,6 +180,18 @@
     font-family: var(--font-sans);
     overscroll-behavior-x: contain;
   }
+
+  /* iOS Safari автоматически увеличивает масштаб всей страницы при фокусе на
+     поле ввода, если у него размер шрифта меньше 16px — из-за этого экран
+     "разъезжается" за края. Гарантируем минимум 16px на мобильных экранах,
+     не трогая размер шрифта на десктопе. */
+  @media (max-width: 767px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
 }
 
 @utility label-caps {

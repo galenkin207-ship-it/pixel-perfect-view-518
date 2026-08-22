@@ -81,8 +81,8 @@ export function AppShell({
         : pathname.startsWith(to);
 
   return (
-    <div className="min-h-screen bg-panel text-foreground md:h-screen">
-      <div className="flex min-h-screen w-full overflow-hidden bg-panel md:h-full md:min-h-0">
+    <div className="min-h-dvh bg-panel text-foreground md:h-screen">
+      <div className="flex min-h-dvh w-full overflow-hidden bg-panel md:h-full md:min-h-0">
         {/* Desktop sidebar */}
         <aside className="hidden w-[220px] shrink-0 flex-col overflow-y-auto border-r border-border bg-sidebar p-4 md:flex lg:w-[250px] xl:w-[280px]">
           <Link to="/" className="mb-6 flex items-center gap-2 px-2">
@@ -144,7 +144,7 @@ export function AppShell({
         </aside>
 
         {/* Content */}
-        <main className="relative min-w-0 flex-1 bg-background pb-24 md:overflow-y-auto md:pb-0">
+        <main className="relative min-w-0 flex-1 bg-background pb-28 md:overflow-y-auto md:pb-0">
           {/* Mobile top bar */}
           <div className="flex items-center justify-between gap-2 px-4 pt-4 md:hidden">
             <Link to="/" className="flex items-center gap-2 text-sm font-bold">
@@ -187,7 +187,7 @@ export function AppShell({
             <Link
               to={fab.to}
               aria-label={fab.label ?? "Новая запись"}
-              className="fixed right-5 bottom-24 z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:right-10 md:bottom-10"
+              className="fixed right-5 bottom-28 z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:right-10 md:bottom-10"
             >
               <Plus className="size-6" />
             </Link>
@@ -196,7 +196,7 @@ export function AppShell({
       </div>
 
       {/* Mobile bottom tabs */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-panel pt-2 pb-3 md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-panel pt-3 pb-[calc(1.1rem+env(safe-area-inset-bottom))] [transform:translateZ(0)] md:hidden">
         {mobileTabs(role).map((t) => {
           const active = isActive(t.to);
           return (
@@ -204,11 +204,11 @@ export function AppShell({
               key={t.to}
               to={t.to}
               className={cn(
-                "flex flex-col items-center gap-1 text-center text-[9px] leading-tight font-semibold tracking-[0.04em] uppercase",
+                "flex flex-col items-center gap-1.5 text-center text-[9px] leading-tight font-semibold tracking-[0.04em] uppercase",
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
-              <t.icon className="size-5" />
+              <t.icon className="size-[22px]" />
               {t.label}
             </Link>
           );
