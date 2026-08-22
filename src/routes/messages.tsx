@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
@@ -37,10 +37,18 @@ function MessagesPage() {
   const { requests, setRequests, role, currentUser, decideRequest, addRequestComment } = useApp();
   const { request: focusId } = Route.useSearch();
 
+  // Прокручиваем к выделенной заявке один раз, а не при каждом фоновом
+  // обновлении данных (иначе экран каждые несколько секунд "прыгал" обратно).
+  const scrolledForRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!focusId) return;
+    if (scrolledForRef.current === focusId) return;
+    if (requests.length === 0) return;
     const el = document.getElementById(`request-${focusId}`);
-    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      scrolledForRef.current = focusId;
+    }
   }, [focusId, requests]);
 
   const isAdmin = role === "admin";
@@ -187,21 +195,25 @@ function MessagesPage() {
       </div>
 
       {role !== "curator" && (
-        <div className="mt-3 flex gap-2">
-          <input
+        <div className="mt-3 flex items-end gap-2">
+          <textarea
             value={draft[r.id] ?? ""}
             onChange={(e) => setDraft((d) => ({ ...d, [r.id]: e.target.value }))}
             onKeyDown={(e) => {
-              if (e.key === "Enter") void sendComment(r.id);
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void sendComment(r.id);
+              }
             }}
             disabled={sendingComment === r.id}
             placeholder="Сообщение..."
-            className="flex-1 rounded-xl border border-border bg-surface px-3 py-2 text-sm disabled:opacity-60"
+            rows={Math.min(5, Math.max(1, (draft[r.id] ?? "").split("\n").length))}
+            className="flex-1 resize-none rounded-xl border border-border bg-surface px-3 py-2 text-sm leading-normal disabled:opacity-60"
           />
           <button
             onClick={() => void sendComment(r.id)}
             disabled={sendingComment === r.id || !(draft[r.id] ?? "").trim()}
-            className="rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
             Отправить
           </button>
@@ -210,9 +222,11 @@ function MessagesPage() {
 
       {isAdmin && r.status === "pending" && (
         <div className="mt-3 space-y-2 rounded-xl bg-surface p-3">
-          <div className="grid gap-2 sm:grid-cols-3">
-            <label>
-              <FieldLabel>Итоговое название</FieldLabel>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[2fr_1fr_1fr]">
+            <label className="block">
+              <span className="flex min-h-8 items-end">
+                <FieldLabel>Итоговое название</FieldLabel>
+              </span>
               <input
                 value={resolve[r.id]?.name ?? ""}
                 onChange={(e) =>
@@ -224,8 +238,10 @@ function MessagesPage() {
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
               />
             </label>
-            <label>
-              <FieldLabel>Единица</FieldLabel>
+            <label className="block">
+              <span className="flex min-h-8 items-end">
+                <FieldLabel>Единица</FieldLabel>
+              </span>
               <input
                 value={resolve[r.id]?.unit ?? ""}
                 onChange={(e) =>
@@ -237,8 +253,10 @@ function MessagesPage() {
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
               />
             </label>
-            <label>
-              <FieldLabel>Цена</FieldLabel>
+            <label className="block">
+              <span className="flex min-h-8 items-end">
+                <FieldLabel>Цена</FieldLabel>
+              </span>
               <input
                 value={resolve[r.id]?.price ?? ""}
                 onChange={(e) =>
