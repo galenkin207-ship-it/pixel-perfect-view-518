@@ -530,7 +530,7 @@ function ReportsPage() {
 
       // ============ ИТОГО ============
       const itSheet = wb.addWorksheet("ИТОГО", {
-        views: [{ state: "frozen", showGridLines: false }],
+        views: [{ showGridLines: false }],
       });
       itSheet.columns = [{ width: 6 }, { width: 42 }, { width: 13 }, { width: 14 }, { width: 11 }];
 
