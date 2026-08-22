@@ -1082,13 +1082,11 @@ function ReportsPage() {
                           {row.items.map((it) => (
                             <div
                               key={`${it.name}-${it.unit}`}
-                              className="flex items-baseline justify-between gap-3 text-sm"
+                              className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm"
                             >
-                              <span className="min-w-0 flex-1 text-muted-foreground break-words">
-                                {it.name}
-                              </span>
+                              <span className="text-muted-foreground break-words">{it.name}</span>
                               <span className="shrink-0 font-mono font-semibold tabular-nums text-primary">
-                                {formatQty(it.qty)} {it.unit}
+                                — {formatQty(it.qty)} {it.unit}
                               </span>
                             </div>
                           ))}

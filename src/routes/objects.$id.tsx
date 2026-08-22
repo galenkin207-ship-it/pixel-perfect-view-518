@@ -71,10 +71,10 @@ function ObjectRecordsPage() {
               <div className="mt-3 space-y-1.5 rounded-xl bg-surface p-3">
                 {r.items.map((item, i) => (
                   <div key={i}>
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="min-w-0 flex-1 text-sm break-words">{item.name}</span>
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                      <span className="text-sm break-words">{item.name}</span>
                       <span className="shrink-0 font-mono text-sm font-bold tabular-nums">
-                        {itemQty(item)} {item.unit}
+                        — {itemQty(item)} {item.unit}
                       </span>
                     </div>
                     <div className="mt-1 space-y-0.5">
