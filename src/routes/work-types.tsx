@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -44,7 +44,7 @@ function WorkTypesPage() {
 
   const goToRecord = (id: string) => navigate({ to: "/records/$id", params: { id } });
 
-  const handleSwipeAdd = async (type: WorkType) => {
+  const handleAddToRecord = async (type: WorkType) => {
     const newItem: WorkItem = { name: type.name, unit: type.unit, qty: 0, price: type.price };
     const existingDraftId = getQuickDraftId();
     const existingDraft = existingDraftId
@@ -101,14 +101,17 @@ function WorkTypesPage() {
         />
       </div>
 
-      <p className="mt-3 text-xs text-muted-foreground sm:hidden">
-        Свайпните позицию влево, чтобы добавить её в новую запись
+      <p className="mt-3 text-xs text-muted-foreground">
+        <span className="sm:hidden">Свайпните позицию влево, чтобы добавить её в новую запись</span>
+        <span className="hidden sm:inline">
+          Нажмите «+» у позиции, чтобы добавить её в новую запись
+        </span>
       </p>
 
       <div className="mt-5 overflow-hidden rounded-2xl border border-border bg-card">
         <ul className="divide-y divide-border">
           {pageItems.map((w) => (
-            <SwipeToAddRow key={w.id} onSwipe={() => void handleSwipeAdd(w)}>
+            <SwipeToAddRow key={w.id} onSwipe={() => void handleAddToRecord(w)}>
               <div className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <span className="min-w-0 flex-1 text-sm font-medium break-words">{w.name}</span>
                 <span className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground sm:gap-0">
@@ -118,6 +121,15 @@ function WorkTypesPage() {
                       {w.price.toLocaleString("ru-RU")} ₽
                     </span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => void handleAddToRecord(w)}
+                    title="Добавить в новую запись"
+                    aria-label={`Добавить «${w.name}» в новую запись`}
+                    className="hidden shrink-0 items-center justify-center rounded-full border border-dashed border-border p-1.5 text-primary transition-colors hover:border-primary hover:bg-primary/10 sm:inline-flex"
+                  >
+                    <Plus className="size-4" />
+                  </button>
                 </span>
               </div>
             </SwipeToAddRow>
