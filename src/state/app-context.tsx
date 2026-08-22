@@ -307,13 +307,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const deleteRequest = async (id: string): Promise<WorkRequest> => {
+  const deleteRequest = async (id: string): Promise<void> => {
     try {
-      const saved = await api.deleteRequest(id);
-      setRequests((prev) =>
-        prev.map((r) => (r.id === saved.id ? { ...saved, comments: r.comments } : r)),
-      );
-      return saved;
+      const result = await api.deleteRequest(id);
+      if ("hardDeleted" in result) {
+        // Admin удалил чужую заявку из истории — убираем её из списка совсем
+        setRequests((prev) => prev.filter((r) => r.id !== result.id));
+      } else {
+        // Автор удалил свою заявку — оставляем карточку с пометкой "удалена"
+        setRequests((prev) =>
+          prev.map((r) => (r.id === result.id ? { ...result, comments: r.comments } : r)),
+        );
+      }
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to delete request");
     }
