@@ -774,7 +774,7 @@ function ReportsPage() {
   });
 
   const recentCutoff = new Date(now);
-  recentCutoff.setDate(recentCutoff.getDate() - 31);
+  recentCutoff.setDate(recentCutoff.getDate() - (period === "Месяц" ? 31 : 7));
   const recentlyActiveObjectIds = new Set(
     records.filter((r) => parseDate(r.date) >= recentCutoff).map((r) => r.object_id),
   );
@@ -841,7 +841,7 @@ function ReportsPage() {
           ))}
           {perObject.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              Нет объектов с записями за последние 31 день.
+              Нет объектов с записями за последние {period === "Месяц" ? "31 день" : "7 дней"}.
             </p>
           )}
         </div>
