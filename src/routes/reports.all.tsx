@@ -23,7 +23,6 @@ export const Route = createFileRoute("/reports/all")({
       { property: "og:title", content: "Все записи — Учёт работ" },
       { property: "og:description", content: "Реестр выполненных работ строительной компании." },
     ],
-
   }),
   component: AllRecordsPage,
 });
@@ -56,11 +55,12 @@ function AllRecordsPage() {
   const pageStart = (currentPage - 1) * PAGE_SIZE;
   const paginated = filtered.slice(pageStart, pageStart + PAGE_SIZE);
 
-  const updateFilter = <T,>(setter: (v: T) => void) => (v: T) => {
-    setter(v);
-    setPage(1); // при смене любого фильтра начинаем заново с первой страницы
-  };
-
+  const updateFilter =
+    <T,>(setter: (v: T) => void) =>
+    (v: T) => {
+      setter(v);
+      setPage(1); // при смене любого фильтра начинаем заново с первой страницы
+    };
 
   return (
     <AppShell>
@@ -156,11 +156,10 @@ function AllRecordsPage() {
         </label>
       </div>
 
-
       <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
         <span>
-          Показано {filtered.length === 0 ? 0 : pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filtered.length)} из{" "}
-          {filtered.length} записей
+          Показано {filtered.length === 0 ? 0 : pageStart + 1}–
+          {Math.min(pageStart + PAGE_SIZE, filtered.length)} из {filtered.length} записей
         </span>
         <span className="flex items-center gap-2">
           <button
@@ -170,7 +169,8 @@ function AllRecordsPage() {
           >
             ←
           </button>
-          Страница <span className="font-semibold text-foreground">{currentPage}</span> из {totalPages}
+          Страница <span className="font-semibold text-foreground">{currentPage}</span> из{" "}
+          {totalPages}
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage >= totalPages}
@@ -202,17 +202,27 @@ function AllRecordsPage() {
               >
                 <span className="block">
                   <span className="block text-sm font-semibold break-words whitespace-normal">
-                    {object?.name}{" "}
-                    <span className="font-normal text-muted-foreground">
-                      · {object?.address}
-                    </span>
+                    {object ? (
+                      <>
+                        {object.name}{" "}
+                        <span className="font-normal text-muted-foreground">
+                          · {object.address}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="font-normal text-muted-foreground">Объект не выбран</span>
+                    )}
                   </span>
                   <span className="mt-1 block text-base font-semibold text-foreground">
-                    {r.items.map((i) => i.name).join(", ")}
+                    {r.items.length > 0
+                      ? r.items.map((i) => i.name).join(", ")
+                      : "Виды работ не добавлены"}
                   </span>
-                  <span className="mt-1 block font-mono text-sm text-muted-foreground">
-                    {itemQty(r.items[0]!)} {r.items[0]!.unit}
-                  </span>
+                  {r.items[0] && (
+                    <span className="mt-1 block font-mono text-sm text-muted-foreground">
+                      {itemQty(r.items[0])} {r.items[0].unit}
+                    </span>
+                  )}
                 </span>
                 <span className="flex items-center gap-2 text-sm break-words">
                   <InitialsAvatar name={r.created_by} />

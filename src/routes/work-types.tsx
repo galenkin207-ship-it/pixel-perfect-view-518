@@ -1,10 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
+import { SwipeToAddRow } from "@/components/app/swipe-to-add-row";
 import { smartFilter } from "@/lib/smart-search";
+import { getQuickDraftId, setQuickDraftId } from "@/lib/quick-draft";
+import type { WorkItem, WorkType } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/work-types")({
@@ -23,7 +27,8 @@ export const Route = createFileRoute("/work-types")({
 const PER_PAGE = 30;
 
 function WorkTypesPage() {
-  const { workTypes, role } = useApp();
+  const { workTypes, role, records, addRecord, updateRecord, currentUser } = useApp();
+  const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
   const isAdminLike = role === "admin" || role === "curator";
@@ -35,6 +40,51 @@ function WorkTypesPage() {
   const handleSearch = (v: string) => {
     setQ(v);
     setPage(0);
+  };
+
+  const goToRecord = (id: string) => navigate({ to: "/records/$id", params: { id } });
+
+  const handleSwipeAdd = async (type: WorkType) => {
+    const newItem: WorkItem = { name: type.name, unit: type.unit, qty: 0, price: type.price };
+    const existingDraftId = getQuickDraftId();
+    const existingDraft = existingDraftId
+      ? (records.find((r) => r.id === existingDraftId && r.status === "draft") ?? null)
+      : null;
+
+    try {
+      if (existingDraft) {
+        const updated = await updateRecord({
+          ...existingDraft,
+          items: [...existingDraft.items, newItem],
+        });
+        toast.success(`«${type.name}» добавлено в незавершённую запись`, {
+          action: { label: "Открыть запись", onClick: () => goToRecord(updated.id) },
+        });
+        return;
+      }
+
+      const now = new Date();
+      const created = await addRecord({
+        id: `r${Date.now()}`,
+        object_id: "",
+        execution_type: "employee",
+        employees: [],
+        date: new Intl.DateTimeFormat("ru-RU").format(now),
+        time: new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(now),
+        items: [newItem],
+        total: 0,
+        comment: "",
+        photos: [],
+        status: "draft",
+        created_by: currentUser.full_name,
+      });
+      setQuickDraftId(created.id);
+      toast.success(`Создана новая запись, «${type.name}» добавлено`, {
+        action: { label: "Открыть запись", onClick: () => goToRecord(created.id) },
+      });
+    } catch {
+      toast.error("Не удалось добавить вид работы в запись");
+    }
   };
 
   return (
@@ -51,23 +101,26 @@ function WorkTypesPage() {
         />
       </div>
 
+      <p className="mt-3 text-xs text-muted-foreground sm:hidden">
+        Свайпните позицию влево, чтобы добавить её в новую запись
+      </p>
+
       <div className="mt-5 overflow-hidden rounded-2xl border border-border bg-card">
         <ul className="divide-y divide-border">
           {pageItems.map((w) => (
-            <li
-              key={w.id}
-              className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-            >
-              <span className="min-w-0 flex-1 text-sm font-medium break-words">{w.name}</span>
-              <span className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground sm:gap-0">
-                <span className="sm:w-16 sm:text-right">{w.unit}</span>
-                {isAdminLike && (
-                  <span className="font-semibold text-foreground sm:w-24 sm:text-right">
-                    {w.price.toLocaleString("ru-RU")} ₽
-                  </span>
-                )}
-              </span>
-            </li>
+            <SwipeToAddRow key={w.id} onSwipe={() => void handleSwipeAdd(w)}>
+              <div className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                <span className="min-w-0 flex-1 text-sm font-medium break-words">{w.name}</span>
+                <span className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground sm:gap-0">
+                  <span className="sm:w-16 sm:text-right">{w.unit}</span>
+                  {isAdminLike && (
+                    <span className="font-semibold text-foreground sm:w-24 sm:text-right">
+                      {w.price.toLocaleString("ru-RU")} ₽
+                    </span>
+                  )}
+                </span>
+              </div>
+            </SwipeToAddRow>
           ))}
           {!pageItems.length && (
             <li className="px-4 py-10 text-center text-sm text-muted-foreground">

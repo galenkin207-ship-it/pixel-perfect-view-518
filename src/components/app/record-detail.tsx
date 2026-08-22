@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { FieldLabel } from "@/components/app/bits";
 import { StatusBadge } from "@/components/app/status-badge";
 import { allocationsFor, canEditRecord, itemQty, recordTotal } from "@/lib/record-utils";
+import { clearQuickDraftId } from "@/lib/quick-draft";
 import type { WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
@@ -22,6 +23,7 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
     setDeleting(true);
     try {
       await deleteRecord(record.id);
+      clearQuickDraftId(record.id);
       toast.success("Запись удалена");
       onClose();
     } catch {
@@ -155,7 +157,9 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
 
             {confirmingDelete ? (
               <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3">
-                <p className="text-sm font-medium text-foreground">Удалить эту запись без возможности восстановления?</p>
+                <p className="text-sm font-medium text-foreground">
+                  Удалить эту запись без возможности восстановления?
+                </p>
                 <div className="mt-3 flex gap-2">
                   <button
                     onClick={handleDelete}

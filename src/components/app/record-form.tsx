@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { itemQty, recordTotal, round2, syncItem } from "@/lib/record-utils";
 import { smartFilter } from "@/lib/smart-search";
 import { api } from "@/lib/api-client";
+import { clearQuickDraftId } from "@/lib/quick-draft";
 import type { ExecutionType, WorkItem, WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
@@ -85,12 +86,12 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
     selectedEmployees.length > 0;
 
   // Действует только при создании новой записи, а не при редактировании уже существующей.
-  // Как только выбран объект и в форме появились какие-то данные — черновик уходит на сервер
-  // (с небольшой задержкой после последнего изменения, а не спустя фиксированное время).
+  // Черновик уходит на сервер, как только в форме появились какие-то данные — объект
+  // можно выбрать и позже (обязателен только для завершения записи).
   useEffect(() => {
     if (record) return;
     if (cancelledRef.current) return;
-    if (!objectId || !hasEnteredData()) return;
+    if (!hasEnteredData()) return;
 
     const timer = setTimeout(() => {
       autoSaveTimerRef.current = null;
@@ -139,7 +140,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
 
   const autoSaveDraft = async () => {
     if (cancelledRef.current || record) return;
-    if (!objectId || !hasEnteredData()) return;
+    if (!hasEnteredData()) return;
 
     setAutoSaving(true);
     const existingId = draftRecordIdRef.current;
@@ -171,8 +172,9 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
       }
 
       toast.success("Черновик сохранён автоматически");
-    } catch {
-      // тихая ошибка автосохранения — не мешаем пользователю продолжать заполнение
+    } catch (err) {
+      console.error("Автосохранение черновика не удалось:", err);
+      toast.error("Не удалось автоматически сохранить черновик");
     } finally {
       setAutoSaving(false);
     }
@@ -220,7 +222,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
     );
 
   const save = async (status: "draft" | "done") => {
-    if (!objectId) {
+    if (status === "done" && !objectId) {
       toast.error("Выберите объект");
       return;
     }
@@ -241,6 +243,9 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
     try {
       const saved = existingId ? await updateRecord(payload) : await addRecord(payload);
       draftRecordIdRef.current = saved.id;
+      // Запись теперь под ручным контролем пользователя — свайпы на странице
+      // "Все виды работ" больше не должны молча дописывать в неё позиции
+      clearQuickDraftId(saved.id);
       if (pendingFiles.length > 0) {
         try {
           await api.uploadPhotos(saved.id, pendingFiles);
@@ -251,7 +256,11 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
         }
       }
       toast.success(status === "draft" ? "Черновик сохранён" : "Запись сохранена");
-      navigate({ to: "/objects/$id", params: { id: objectId } });
+      if (objectId) {
+        navigate({ to: "/objects/$id", params: { id: objectId } });
+      } else {
+        navigate({ to: "/reports/all" });
+      }
     } catch {
       toast.error("Не удалось сохранить запись, попробуйте ещё раз");
     } finally {
@@ -265,6 +274,8 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
       clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = null;
     }
+
+    if (draftRecordIdRef.current) clearQuickDraftId(draftRecordIdRef.current);
 
     // Если черновик уже был создан автосохранением в этой сессии — удаляем его,
     // чтобы не оставлять "осиротевшую" запись
@@ -551,7 +562,10 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
           <button
             onClick={handleCancel}
             disabled={saving}
-            className="w-full rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold text-muted-foreground disabled:opacity-60 sm:w-auto sm:px-6"
+            className={cn(
+              "w-full rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold transition-colors disabled:opacity-60 sm:w-auto sm:px-6",
+              hasEnteredData() ? "text-foreground" : "text-muted-foreground",
+            )}
           >
             Отменить
           </button>
