@@ -1,5 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronDown, ChevronLeft, ChevronRight, Download, Image as ImageIcon, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Image as ImageIcon,
+  X,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import ExcelJS from "exceljs";
 
@@ -32,7 +39,8 @@ export const Route = createFileRoute("/reports/detail")({
       { property: "og:title", content: "Отчёт по объекту и сотруднику — Учёт работ" },
       {
         property: "og:description",
-        content: "Фильтры по сотруднику, объекту и подавшему, раскрытие день → запись → сотрудники.",
+        content:
+          "Фильтры по сотруднику, объекту и подавшему, раскрытие день → запись → сотрудники.",
       },
     ],
   }),
@@ -66,7 +74,12 @@ function breakdownOf(r: WorkRecord): Breakdown[] {
   const crew = crewOf(r);
   return r.items.flatMap((item) => {
     const allocs = item.allocations?.length ? item.allocations : allocationsFor(item, crew);
-    return allocs.map((a) => ({ employee: a.employee, qty: a.qty, unit: item.unit, item: item.name }));
+    return allocs.map((a) => ({
+      employee: a.employee,
+      qty: a.qty,
+      unit: item.unit,
+      item: item.name,
+    }));
   });
 }
 
@@ -84,7 +97,9 @@ function ReportDetailPage() {
   };
   const hasInitial =
     search.apply === "1" ||
-    Boolean(initial.employee || initial.objectId || initial.submitter || initial.from || initial.to);
+    Boolean(
+      initial.employee || initial.objectId || initial.submitter || initial.from || initial.to,
+    );
 
   const [employee, setEmployee] = useState(initial.employee);
   const [objectId, setObjectId] = useState(initial.objectId);
@@ -141,7 +156,13 @@ function ReportDetailPage() {
       for (const r of day.records) {
         for (const item of r.items) {
           const key = `${item.name}||${item.unit}`;
-          const prev = map.get(key) ?? { name: item.name, unit: item.unit, qty: 0, total: 0, count: 0 };
+          const prev = map.get(key) ?? {
+            name: item.name,
+            unit: item.unit,
+            qty: 0,
+            total: 0,
+            count: 0,
+          };
           prev.qty += itemQty(item);
           prev.total += itemQty(item) * item.price;
           prev.count += 1;
@@ -168,7 +189,11 @@ function ReportDetailPage() {
       left: { style: "thin" as const, color: { argb: BORDER_CLR } },
       right: { style: "thin" as const, color: { argb: BORDER_CLR } },
     };
-    const fill = (argb: string) => ({ type: "pattern" as const, pattern: "solid" as const, fgColor: { argb } });
+    const fill = (argb: string) => ({
+      type: "pattern" as const,
+      pattern: "solid" as const,
+      fgColor: { argb },
+    });
 
     const wb = new ExcelJS.Workbook();
     wb.creator = "Учёт работ";
@@ -180,24 +205,43 @@ function ReportDetailPage() {
       : ["Вид работ", "Ед. изм.", "ФИО", "Кол-во людей", "Объём", "Время", "Кто подал"];
     const nCols = cols.length;
 
-    const sheet = wb.addWorksheet("Отчёт", { views: [{ state: "frozen", ySplit: 2, showGridLines: false }] });
+    const sheet = wb.addWorksheet("Отчёт", {
+      views: [{ state: "frozen", ySplit: 2, showGridLines: false }],
+    });
     sheet.columns = [
-      { width: 42 }, { width: 11 }, { width: 32 }, { width: 13 }, { width: 10 },
-      { width: 9 }, ...(isAdmin ? [{ width: 14 }] : []), { width: 22 },
+      { width: 42 },
+      { width: 11 },
+      { width: 32 },
+      { width: 13 },
+      { width: 10 },
+      { width: 9 },
+      ...(isAdmin ? [{ width: 14 }] : []),
+      { width: 22 },
     ];
 
-    const titleRow = sheet.addRow([objectName ? `ОТЧЁТ ПО ОБЪЕКТУ: ${objectName.toUpperCase()}` : title.toUpperCase()]);
+    const titleRow = sheet.addRow([
+      objectName ? `ОТЧЁТ ПО ОБЪЕКТУ: ${objectName.toUpperCase()}` : title.toUpperCase(),
+    ]);
     sheet.mergeCells(titleRow.number, 1, titleRow.number, nCols);
     titleRow.height = 30;
     titleRow.getCell(1).font = { name: "Calibri", size: 16, bold: true, color: { argb: WHITE } };
     titleRow.getCell(1).fill = fill(NAVY);
     titleRow.getCell(1).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
 
-    const period = applied?.from || applied?.to ? `Период: ${applied.from || "…"} — ${applied.to || "настоящее время"}` : "Период: весь период — настоящее время";
+    const period =
+      applied?.from || applied?.to
+        ? `Период: ${applied.from || "…"} — ${applied.to || "настоящее время"}`
+        : "Период: весь период — настоящее время";
     const subRow = sheet.addRow([period]);
     sheet.mergeCells(subRow.number, 1, subRow.number, nCols);
     subRow.height = 18;
-    subRow.getCell(1).font = { name: "Calibri", size: 10.5, italic: true, bold: true, color: { argb: "FF5B5650" } };
+    subRow.getCell(1).font = {
+      name: "Calibri",
+      size: 10.5,
+      italic: true,
+      bold: true,
+      color: { argb: "FF5B5650" },
+    };
     subRow.getCell(1).fill = fill(ORANGE);
     subRow.getCell(1).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
 
@@ -244,8 +288,14 @@ function ReportDetailPage() {
           const sum = Math.round(qty * item.price);
 
           const mainVals = [
-            item.name, item.unit, allocs.map((a) => a.employee).join(", "), allocs.length, qty, r.time,
-            ...(isAdmin ? [sum] : []), r.created_by,
+            item.name,
+            item.unit,
+            allocs.map((a) => a.employee).join(", "),
+            allocs.length,
+            qty,
+            r.time,
+            ...(isAdmin ? [sum] : []),
+            r.created_by,
           ];
           const mainRow = sheet.addRow(mainVals);
           mainRow.eachCell((cell, colNum) => {
@@ -273,10 +323,15 @@ function ReportDetailPage() {
               cell.border = border;
               cell.fill = fill(blockFill);
               cell.font = { name: "Calibri", size: 10, italic: true, color: { argb: GRAY_TXT } };
-              if (colNum === 1) cell.alignment = { vertical: "middle", horizontal: "left", indent: 3 };
-              else if (colNum === 5) { cell.alignment = { vertical: "middle", horizontal: "right" }; cell.numFmt = "#,##0.###"; }
-              else if (isAdmin && colNum === 7) { cell.alignment = { vertical: "middle", horizontal: "right" }; cell.numFmt = '#,##0" ₽"'; }
-              else cell.alignment = { vertical: "middle", horizontal: "center" };
+              if (colNum === 1)
+                cell.alignment = { vertical: "middle", horizontal: "left", indent: 3 };
+              else if (colNum === 5) {
+                cell.alignment = { vertical: "middle", horizontal: "right" };
+                cell.numFmt = "#,##0.###";
+              } else if (isAdmin && colNum === 7) {
+                cell.alignment = { vertical: "middle", horizontal: "right" };
+                cell.numFmt = '#,##0" ₽"';
+              } else cell.alignment = { vertical: "middle", horizontal: "center" };
             });
           }
         }
@@ -324,9 +379,19 @@ function ReportDetailPage() {
     sheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
 
     // ---------- Лист 2: Сводная (по видам работ) ----------
-    const sumCols = isAdmin ? ["Вид работы", "Ед.", "Всего объём", "Записей", "Сумма, ₽"] : ["Вид работы", "Ед.", "Всего объём", "Записей"];
-    const sSheet = wb.addWorksheet("Сводная", { views: [{ state: "frozen", ySplit: 4, showGridLines: false }] });
-    sSheet.columns = [{ width: 46 }, { width: 9 }, { width: 14 }, { width: 11 }, ...(isAdmin ? [{ width: 15 }] : [])];
+    const sumCols = isAdmin
+      ? ["Вид работы", "Ед.", "Всего объём", "Записей", "Сумма, ₽"]
+      : ["Вид работы", "Ед.", "Всего объём", "Записей"];
+    const sSheet = wb.addWorksheet("Сводная", {
+      views: [{ state: "frozen", ySplit: 4, showGridLines: false }],
+    });
+    sSheet.columns = [
+      { width: 46 },
+      { width: 9 },
+      { width: 14 },
+      { width: 11 },
+      ...(isAdmin ? [{ width: 15 }] : []),
+    ];
 
     const sTitle = sSheet.addRow(["СВОДНАЯ ТАБЛИЦА ПО ВИДАМ РАБОТ"]);
     sSheet.mergeCells(sTitle.number, 1, sTitle.number, sumCols.length);
@@ -335,10 +400,18 @@ function ReportDetailPage() {
     sTitle.getCell(1).fill = fill(NAVY);
     sTitle.getCell(1).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
 
-    const sSub = sSheet.addRow([`Итого видов работ: ${summary.length}  |  Всего записей: ${summary.reduce((s, x) => s + x.count, 0)}`]);
+    const sSub = sSheet.addRow([
+      `Итого видов работ: ${summary.length}  |  Всего записей: ${summary.reduce((s, x) => s + x.count, 0)}`,
+    ]);
     sSheet.mergeCells(sSub.number, 1, sSub.number, sumCols.length);
     sSub.height = 18;
-    sSub.getCell(1).font = { name: "Calibri", size: 10.5, italic: true, bold: true, color: { argb: "FF5B5650" } };
+    sSub.getCell(1).font = {
+      name: "Calibri",
+      size: 10.5,
+      italic: true,
+      bold: true,
+      color: { argb: "FF5B5650" },
+    };
     sSub.getCell(1).fill = fill(ORANGE);
     sSub.getCell(1).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
 
@@ -355,13 +428,18 @@ function ReportDetailPage() {
     const firstDataRow = sHead.number + 1;
     summary.forEach((s, idx) => {
       const rowFill = idx % 2 === 0 ? WHITE : LIGHT_BLUE;
-      const vals = isAdmin ? [s.name, s.unit, s.qty, s.count, Math.round(s.total)] : [s.name, s.unit, s.qty, s.count];
+      const vals = isAdmin
+        ? [s.name, s.unit, s.qty, s.count, Math.round(s.total)]
+        : [s.name, s.unit, s.qty, s.count];
       const row = sSheet.addRow(vals);
       row.eachCell((cell, colNum) => {
         cell.border = border;
         cell.fill = fill(rowFill);
         cell.font = { name: "Calibri", size: 10, color: { argb: "FF1F2933" }, bold: colNum === 1 };
-        cell.alignment = { vertical: "middle", horizontal: colNum === 1 ? "left" : colNum === 2 ? "center" : "right" };
+        cell.alignment = {
+          vertical: "middle",
+          horizontal: colNum === 1 ? "left" : colNum === 2 ? "center" : "right",
+        };
         if (colNum === 3) cell.numFmt = "#,##0.###";
         if (colNum === 5) cell.numFmt = '#,##0" ₽"';
       });
@@ -371,7 +449,16 @@ function ReportDetailPage() {
     if (isAdmin && summary.length) {
       sSheet.addConditionalFormatting({
         ref: `E${firstDataRow}:E${lastDataRow}`,
-        rules: [{ type: "dataBar", gradient: false, minLength: 0, maxLength: 100, color: { argb: "FFA8C4E0" }, cfvo: [{ type: "min" }, { type: "max" }] } as any],
+        rules: [
+          {
+            type: "dataBar",
+            gradient: false,
+            minLength: 0,
+            maxLength: 100,
+            color: { argb: "FFA8C4E0" },
+            cfvo: [{ type: "min" }, { type: "max" }],
+          } as any,
+        ],
       });
     }
 
@@ -613,12 +700,13 @@ function ReportDetailPage() {
             {days.map((day) => {
               const open = openDays.includes(day.date);
               return (
-                <div key={day.date} className="overflow-hidden rounded-2xl border border-border bg-card">
+                <div
+                  key={day.date}
+                  className="overflow-hidden rounded-2xl border border-border bg-card"
+                >
                   <button
                     onClick={() =>
-                      isMobile
-                        ? setMobileDay(day.date)
-                        : toggle(openDays, setOpenDays, day.date)
+                      isMobile ? setMobileDay(day.date) : toggle(openDays, setOpenDays, day.date)
                     }
                     className="flex w-full items-center gap-3 p-4 text-left"
                   >
@@ -703,7 +791,9 @@ function ReportDetailPage() {
                         <td className="px-4 py-2.5 text-right font-mono font-bold whitespace-nowrap">
                           {s.qty} {s.unit}
                         </td>
-                        <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{s.count}</td>
+                        <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">
+                          {s.count}
+                        </td>
                         {isAdmin && (
                           <td className="px-4 py-2.5 text-right font-mono font-bold text-primary whitespace-nowrap">
                             {money(s.total)}
@@ -822,7 +912,9 @@ function RecordDetailBlock({
       {isAdmin && (
         <div className="mt-3 flex items-center justify-between rounded-xl bg-surface px-4 py-3">
           <span className="text-sm font-semibold">Итого по записи</span>
-          <span className="font-mono font-bold text-primary">{money(recordTotal(record.items))}</span>
+          <span className="font-mono font-bold text-primary">
+            {money(recordTotal(record.items))}
+          </span>
         </div>
       )}
 
@@ -839,9 +931,9 @@ function RecordDetailBlock({
             <button
               key={p}
               onClick={() => setPreview(p)}
-              className="flex size-24 shrink-0 items-center justify-center rounded-xl border border-border bg-muted text-xs text-muted-foreground"
+              className="size-24 shrink-0 overflow-hidden rounded-xl border border-border bg-muted"
             >
-              {p}
+              <img src={p} alt="Фото к записи" className="size-full object-cover" />
             </button>
           ))}
           {record.photos.length === 0 && (
@@ -855,12 +947,16 @@ function RecordDetailBlock({
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
           onClick={() => setPreview(null)}
         >
-          <div className="relative flex aspect-video w-full max-w-3xl items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-            {preview}
+          <div className="relative flex aspect-video w-full max-w-3xl items-center justify-center overflow-hidden rounded-2xl bg-muted">
+            <img
+              src={preview}
+              alt="Фото к записи"
+              className="max-h-full max-w-full object-contain"
+            />
             <button
               onClick={() => setPreview(null)}
               aria-label="Закрыть"
-              className="absolute top-3 right-3"
+              className="absolute top-3 right-3 flex size-8 items-center justify-center rounded-full bg-black/50 text-white"
             >
               <X className="size-5" />
             </button>
