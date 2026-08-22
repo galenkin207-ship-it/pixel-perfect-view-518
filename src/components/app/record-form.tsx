@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { EmployeeSelect } from "@/components/app/employee-select";
+import { ObjectSelect } from "@/components/app/object-select";
 import { cn } from "@/lib/utils";
 import { itemQty, recordTotal, round2, syncItem } from "@/lib/record-utils";
 import { smartFilter } from "@/lib/smart-search";
@@ -41,7 +42,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
 
   const isAdmin = role === "admin";
 
-  const [objectId, setObjectId] = useState(record?.object_id ?? objects[0]!.id);
+  const [objectId, setObjectId] = useState(record?.object_id ?? "");
   const [executionType, setExecutionType] = useState<ExecutionType>(
     record?.execution_type ?? "employee",
   );
@@ -60,11 +61,14 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
   const [saving, setSaving] = useState(false);
   const [dateIso, setDateIso] = useState(() => toIso(record?.date));
 
-  const object = objects.find((o) => o.id === objectId)!;
+  const object = objects.find((o) => o.id === objectId) ?? null;
   const total = recordTotal(items);
 
   // --- Автосохранение черновика (только для создания новой записи) ---
-  const AUTO_SAVE_DELAY_MS = 15000;
+  // Черновик сохраняется практически сразу, как только в форме появились данные и выбран
+  // объект — короткая пауза нужна только чтобы не слать запрос на каждое нажатие клавиши,
+  // а не «ждать N секунд с начала заполнения».
+  const AUTO_SAVE_DEBOUNCE_MS = 1200;
   const [autoSaving, setAutoSaving] = useState(false);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelledRef = useRef(false);
@@ -80,26 +84,26 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
     pendingFiles.length > 0 ||
     selectedEmployees.length > 0;
 
-  // Запускаем таймер один раз, как только в форме появились какие-то данные.
   // Действует только при создании новой записи, а не при редактировании уже существующей.
+  // Как только выбран объект и в форме появились какие-то данные — черновик уходит на сервер
+  // (с небольшой задержкой после последнего изменения, а не спустя фиксированное время).
   useEffect(() => {
     if (record) return;
-    if (autoSaveTimerRef.current) return;
-    if (!hasEnteredData()) return;
+    if (cancelledRef.current) return;
+    if (!objectId || !hasEnteredData()) return;
 
-    autoSaveTimerRef.current = setTimeout(() => {
+    const timer = setTimeout(() => {
       autoSaveTimerRef.current = null;
       void autoSaveDraft();
-    }, AUTO_SAVE_DELAY_MS);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, comment, photos, pendingFiles, selectedEmployees, record]);
+    }, AUTO_SAVE_DEBOUNCE_MS);
+    autoSaveTimerRef.current = timer;
 
-  // Снимаем таймер при размонтировании формы
-  useEffect(() => {
     return () => {
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      clearTimeout(timer);
+      autoSaveTimerRef.current = null;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [objectId, items, comment, photos, pendingFiles, selectedEmployees, record]);
 
   const buildPayload = (status: "draft" | "done"): WorkRecord => {
     const now = new Date();
@@ -135,7 +139,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
 
   const autoSaveDraft = async () => {
     if (cancelledRef.current || record) return;
-    if (!hasEnteredData()) return;
+    if (!objectId || !hasEnteredData()) return;
 
     setAutoSaving(true);
     const existingId = draftRecordIdRef.current;
@@ -216,6 +220,10 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
     );
 
   const save = async (status: "draft" | "done") => {
+    if (!objectId) {
+      toast.error("Выберите объект");
+      return;
+    }
     if (status === "done" && items.length === 0) {
       toast.error("Добавьте хотя бы один вид работы");
       return;
@@ -269,7 +277,11 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
     }
 
     toast("Запись отменена");
-    navigate({ to: "/objects/$id", params: { id: objectId } });
+    if (objectId) {
+      navigate({ to: "/objects/$id", params: { id: objectId } });
+    } else {
+      navigate({ to: "/" });
+    }
   };
 
   const addFiles = (files: FileList | null) => {
@@ -297,7 +309,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
               : "Редактирование записи"
             : "Новая запись"
         }
-        title={`${object.name}, ${object.address}`}
+        title={object ? `${object.name}, ${object.address}` : "Выберите объект"}
       />
 
       <div className="mt-5 w-full space-y-5 xl:max-w-5xl 2xl:max-w-none">
@@ -313,17 +325,9 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
 
         <div>
           <FieldLabel>Объект</FieldLabel>
-          <select
-            value={objectId}
-            onChange={(e) => setObjectId(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm"
-          >
-            {objects.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name} · {o.address}
-              </option>
-            ))}
-          </select>
+          <div className="mt-1">
+            <ObjectSelect objects={objects} value={objectId} onChange={setObjectId} />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface p-1">
