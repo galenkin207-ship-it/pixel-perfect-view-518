@@ -50,6 +50,7 @@ export type AppState = {
       reject_reason?: string;
     },
   ) => Promise<WorkRequest>;
+  deleteRequest: (id: string) => Promise<WorkRequest>;
   addRequestComment: (requestId: string, text: string) => Promise<RequestComment>;
   workTypes: WorkType[];
   setWorkTypes: React.Dispatch<React.SetStateAction<WorkType[]>>;

@@ -55,7 +55,7 @@ export type WorkRequest = {
   id: string;
   author: string;
   requested_text: string;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "deleted";
   resolved_name?: string;
   resolved_unit?: string;
   resolved_price?: number;

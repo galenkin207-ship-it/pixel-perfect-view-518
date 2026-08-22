@@ -468,6 +468,32 @@ export const api = {
     };
   },
 
+  async deleteRequest(id: string): Promise<WorkRequest> {
+    const r = await request<{
+      id: number;
+      text: string;
+      submitted_by: string;
+      status: string;
+      resolved_name: string | null;
+      resolved_unit: string | null;
+      resolved_price: number | string | null;
+      reject_reason: string | null;
+      created_at: string;
+    }>(`/requests/${id}`, { method: "DELETE" });
+    return {
+      id: String(r.id),
+      author: r.submitted_by,
+      requested_text: r.text,
+      status: r.status as WorkRequest["status"],
+      ...(r.resolved_name != null ? { resolved_name: r.resolved_name } : {}),
+      ...(r.resolved_unit != null ? { resolved_unit: r.resolved_unit } : {}),
+      ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
+      ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
+      created_at: isoToRu(r.created_at),
+      comments: [],
+    };
+  },
+
   async decideRequest(
     id: string,
     input: {

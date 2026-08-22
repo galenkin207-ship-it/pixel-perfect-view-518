@@ -307,6 +307,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deleteRequest = async (id: string): Promise<WorkRequest> => {
+    try {
+      const saved = await api.deleteRequest(id);
+      setRequests((prev) =>
+        prev.map((r) => (r.id === saved.id ? { ...saved, comments: r.comments } : r)),
+      );
+      return saved;
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to delete request");
+    }
+  };
+
   const addUser = async (input: {
     login: string;
     password: string;
@@ -511,6 +523,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRequests,
     createRequest,
     decideRequest,
+    deleteRequest,
     addRequestComment,
     workTypes,
     setWorkTypes,

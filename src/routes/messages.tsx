@@ -31,6 +31,7 @@ const statusText: Record<WorkRequest["status"], string> = {
   pending: "На рассмотрении",
   approved: "Одобрено",
   rejected: "Отклонено",
+  deleted: "Удалена автором",
 };
 
 function autoResizeTextarea(el: HTMLTextAreaElement | null) {
@@ -40,7 +41,8 @@ function autoResizeTextarea(el: HTMLTextAreaElement | null) {
 }
 
 function MessagesPage() {
-  const { requests, setRequests, role, currentUser, decideRequest, addRequestComment } = useApp();
+  const { requests, role, currentUser, decideRequest, deleteRequest, addRequestComment, units } =
+    useApp();
   const { request: focusId } = Route.useSearch();
 
   // Прокручиваем к выделенной заявке один раз, а не при каждом фоновом
@@ -120,12 +122,34 @@ function MessagesPage() {
     }
   };
 
+  const [deletingSelected, setDeletingSelected] = useState(false);
+
+  const deleteSelected = async () => {
+    setDeletingSelected(true);
+    try {
+      const results = await Promise.allSettled(selected.map((id) => deleteRequest(id)));
+      const failed = results.filter((r) => r.status === "rejected").length;
+      setSelected([]);
+      if (failed > 0) {
+        toast.error(
+          failed === results.length
+            ? "Не удалось удалить заявки"
+            : `Удалены не все заявки (${failed} не удалось)`,
+        );
+      } else {
+        toast.success(selected.length > 1 ? "Заявки удалены" : "Заявка удалена");
+      }
+    } finally {
+      setDeletingSelected(false);
+    }
+  };
+
   const renderCard = (r: WorkRequest) => (
     <div
       key={r.id}
       id={`request-${r.id}`}
       className={cn(
-        "rounded-2xl border border-border bg-card p-4",
+        "rounded-2xl border border-border bg-card p-4 md:p-6",
         focusId === r.id && "border-primary ring-2 ring-primary/30",
       )}
     >
@@ -147,8 +171,8 @@ function MessagesPage() {
             <p className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
               Запрошено автором
             </p>
-            <p className="font-semibold">{r.requested_text}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <p className="font-semibold md:text-lg">{r.requested_text}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground md:text-sm">
               {r.author} · {r.created_at}
             </p>
           </div>
@@ -159,19 +183,26 @@ function MessagesPage() {
             r.status === "approved" && "bg-status-done-soft text-status-done",
             r.status === "pending" && "bg-status-review-soft text-status-review",
             r.status === "rejected" && "bg-status-rejected-soft text-status-rejected",
+            r.status === "deleted" && "bg-muted text-muted-foreground",
           )}
         >
           {statusText[r.status]}
         </span>
       </div>
 
+      {r.status === "deleted" && (
+        <div className="mt-2 rounded-xl bg-muted px-3 py-2">
+          <p className="text-sm text-muted-foreground">Автор ({r.author}) удалил(а) эту заявку.</p>
+        </div>
+      )}
+
       {r.status === "approved" && (
-        <div className="mt-2 rounded-xl bg-status-done-soft px-3 py-2">
+        <div className="mt-2 rounded-xl bg-status-done-soft px-3 py-2 md:px-4 md:py-3">
           <p className="text-[10px] font-semibold tracking-[0.08em] text-status-done uppercase">
             Одобрено как
           </p>
-          <p className="mt-0.5 text-sm font-semibold">{r.resolved_name}</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="mt-0.5 text-sm font-semibold md:text-base">{r.resolved_name}</p>
+          <p className="text-xs text-muted-foreground md:text-sm">
             {r.resolved_unit}
             {isAdmin && r.resolved_price != null
               ? ` · ${r.resolved_price.toLocaleString("ru-RU")} ₽`
@@ -206,7 +237,7 @@ function MessagesPage() {
         })}
       </div>
 
-      {role !== "curator" && (
+      {role !== "curator" && r.status !== "deleted" && (
         <div className="mt-3 flex items-end gap-2">
           <textarea
             ref={(el) => {
@@ -259,15 +290,15 @@ function MessagesPage() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") e.preventDefault();
                 }}
-                rows={1}
-                className="mt-1 max-h-32 min-h-9 w-full resize-none overflow-y-auto rounded-lg border border-border bg-background px-3 py-2 text-sm leading-normal"
+                rows={2}
+                className="mt-1 max-h-32 min-h-16 w-full resize-none overflow-y-auto rounded-lg border border-border bg-background px-3 py-2 text-sm leading-normal"
               />
             </label>
             <label className="block">
               <span className="flex min-h-8 items-end">
                 <FieldLabel>Единица</FieldLabel>
               </span>
-              <input
+              <select
                 value={resolve[r.id]?.unit ?? ""}
                 onChange={(e) =>
                   setResolve((s) => ({
@@ -276,7 +307,14 @@ function MessagesPage() {
                   }))
                 }
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              />
+              >
+                <option value="">Выбрать...</option>
+                {units.map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="block">
               <span className="flex min-h-8 items-end">
@@ -326,23 +364,18 @@ function MessagesPage() {
         <div className="mt-3 flex items-center justify-between rounded-xl bg-surface px-4 py-2 text-sm">
           Выбрано: {selected.length}
           <button
-            onClick={() => {
-              setRequests((prev) => prev.filter((r) => !selected.includes(r.id)));
-              setSelected([]);
-              toast.success("Заявки удалены");
-            }}
-            className="font-semibold text-status-rejected"
+            onClick={() => void deleteSelected()}
+            disabled={deletingSelected}
+            className="font-semibold text-status-rejected disabled:opacity-60"
           >
-            Удалить
+            {deletingSelected ? "Удаление..." : "Удалить"}
           </button>
         </div>
       )}
 
       <section className="mt-5">
         <h2 className="label-caps">На рассмотрении</h2>
-        <div className="mt-3 grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
-          {pending.map(renderCard)}
-        </div>
+        <div className="mt-3 grid gap-4 xl:grid-cols-2">{pending.map(renderCard)}</div>
         {pending.length === 0 && (
           <p className="mt-2 text-sm text-muted-foreground">Нет заявок на рассмотрении.</p>
         )}
@@ -355,9 +388,7 @@ function MessagesPage() {
             <button className="text-sm font-semibold text-primary">Экспорт в Excel</button>
           )}
         </div>
-        <div className="mt-3 grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
-          {history.map(renderCard)}
-        </div>
+        <div className="mt-3 grid gap-4 xl:grid-cols-2">{history.map(renderCard)}</div>
       </section>
     </AppShell>
   );

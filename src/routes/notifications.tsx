@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { Inbox, MessageSquare } from "lucide-react";
+import { Inbox, MessageSquare, Trash2 } from "lucide-react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar, PageHeading } from "@/components/app/bits";
@@ -47,6 +47,20 @@ function NotificationsPage() {
         date: r.created_at,
         time: r.comments[0]?.time ?? "—",
       },
+      ...(r.status === "deleted"
+        ? [
+            {
+              id: `${r.id}-deleted`,
+              requestId: r.id,
+              kind: "deleted" as const,
+              author: r.author,
+              title: "Заявка удалена автором",
+              text: r.requested_text,
+              date: r.created_at,
+              time: "—",
+            },
+          ]
+        : []),
       ...r.comments.map((c) => ({
         id: c.id,
         requestId: r.id,
@@ -88,12 +102,14 @@ function NotificationsPage() {
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold">{n.author}</span>
                   <span className="flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-                    {n.kind === "comment" ? (
-                      <MessageSquare className="size-3" />
-                    ) : (
-                      <Inbox className="size-3" />
-                    )}
-                    {n.kind === "comment" ? "Сообщение" : "Заявка"}
+                    {n.kind === "comment" && <MessageSquare className="size-3" />}
+                    {n.kind === "request" && <Inbox className="size-3" />}
+                    {n.kind === "deleted" && <Trash2 className="size-3" />}
+                    {n.kind === "comment"
+                      ? "Сообщение"
+                      : n.kind === "deleted"
+                        ? "Удалена"
+                        : "Заявка"}
                   </span>
                 </span>
                 <span className="mt-0.5 block text-sm break-words whitespace-normal">
