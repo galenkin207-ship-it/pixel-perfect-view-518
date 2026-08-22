@@ -28,14 +28,17 @@ export async function getPushStatus(): Promise<{
 export async function enablePush(): Promise<{ ok: boolean; error?: string }> {
   if (!isPushSupported()) return { ok: false, error: "Браузер не поддерживает push-уведомления" };
 
-  const { enabled, publicKey } = await api.getPushVapidPublicKey();
-  if (!enabled || !publicKey) {
-    return { ok: false, error: "Push пока не настроен на сервере" };
-  }
-
+  // ВАЖНО: запрос разрешения должен идти первым же действием, без await перед
+  // ним — иначе Safari/iOS теряет связь с жестом пользователя (тапом по
+  // переключателю) и просто ничего не показывает, без ошибки.
   const permission = await Notification.requestPermission();
   if (permission !== "granted") {
     return { ok: false, error: "Разрешение на уведомления не выдано" };
+  }
+
+  const { enabled, publicKey } = await api.getPushVapidPublicKey();
+  if (!enabled || !publicKey) {
+    return { ok: false, error: "Push пока не настроен на сервере" };
   }
 
   const reg = await navigator.serviceWorker.ready;
@@ -59,6 +62,27 @@ export async function enablePush(): Promise<{ ok: boolean; error?: string }> {
     keys: { p256dh, auth },
   });
   return { ok: true };
+}
+
+/**
+ * Если браузер уже подписан на push (например, ранее push включали под другим
+ * аккаунтом на этом же устройстве) — переассоциирует существующую подписку с
+ * текущим авторизованным пользователем. Без этого подписка могла бы навсегда
+ * остаться привязанной к чужому аккаунту, и уведомления уходили бы не туда.
+ */
+export async function resyncPushSubscription(): Promise<boolean> {
+  if (!isPushSupported()) return false;
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  if (!sub) return false;
+
+  const json = sub.toJSON();
+  const p256dh = json.keys?.["p256dh"];
+  const auth = json.keys?.["auth"];
+  if (!json.endpoint || !p256dh || !auth) return false;
+
+  await api.subscribePush({ endpoint: json.endpoint, keys: { p256dh, auth } });
+  return true;
 }
 
 /** Отписывает браузер от push и удаляет подписку на сервере. */

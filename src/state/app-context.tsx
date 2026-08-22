@@ -15,6 +15,7 @@ import {
 } from "@/data/mock";
 import { api, ApiError } from "@/lib/api-client";
 import { playNotificationChime } from "@/lib/notification-sound";
+import { isPushSupported, resyncPushSubscription } from "@/lib/push";
 
 const EMPTY_USER: AppUser = { id: "", login: "", password: "", full_name: "", role: "user" };
 
@@ -167,6 +168,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // переписке и удалённых заявках — работает на любой странице приложения,
   // не только на /messages и /notifications.
   const seenNotificationIdsRef = useRef<Set<string> | null>(null);
+
+  // Если браузер на этом устройстве уже был подписан на push под другим
+  // аккаунтом (например, ранее тестировали под admin, а теперь зашли как
+  // прораб) — тихо переассоциируем подписку с текущим пользователем, чтобы
+  // push не продолжал уходить не туда.
+  useEffect(() => {
+    if (!dataLoaded || !isPushSupported()) return;
+    resyncPushSubscription().catch(() => {});
+  }, [dataLoaded, currentUser.id]);
   useEffect(() => {
     if (!dataLoaded) return;
     if (!notifications.inAppEnabled) return;
