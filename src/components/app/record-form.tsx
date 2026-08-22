@@ -279,6 +279,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
                         value={itemQty(item)}
                         readOnly={item.manual}
                         onChange={(e) => setItemTotal(idx, Number(e.target.value))}
+                        onFocus={(e) => e.currentTarget.select()}
                         className={cn(
                           "w-24 rounded-lg border border-border bg-background px-2 py-1.5 text-right font-mono text-sm",
                           item.manual && "text-muted-foreground",
@@ -317,6 +318,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
                             type="number"
                             value={a.qty}
                             onChange={(e) => setAllocation(idx, a.employee, Number(e.target.value))}
+                            onFocus={(e) => e.currentTarget.select()}
                             className="w-24 rounded-lg border border-border bg-background px-2 py-1.5 text-right font-mono text-sm"
                           />
                           <span className="w-12 text-sm text-muted-foreground">{item.unit}</span>
