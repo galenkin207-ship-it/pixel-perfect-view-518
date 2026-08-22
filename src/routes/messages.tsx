@@ -33,6 +33,12 @@ const statusText: Record<WorkRequest["status"], string> = {
   rejected: "Отклонено",
 };
 
+function autoResizeTextarea(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+
 function MessagesPage() {
   const { requests, setRequests, role, currentUser, decideRequest, addRequestComment } = useApp();
   const { request: focusId } = Route.useSearch();
@@ -59,6 +65,10 @@ function MessagesPage() {
     Record<string, { name: string; unit: string; price: string }>
   >({});
 
+  // Реальные DOM-ссылки на textarea сообщений — нужны, чтобы схлопнуть поле
+  // обратно после отправки (когда текст очищается программно, а не вводом).
+  const commentRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+
   const visible = isForeman ? requests.filter((r) => r.author === currentUser.full_name) : requests;
   const pending = visible.filter((r) => r.status === "pending");
   const history = visible.filter((r) => r.status !== "pending");
@@ -69,11 +79,13 @@ function MessagesPage() {
     const text = (draft[id] ?? "").trim();
     if (!text) return;
     setDraft((d) => ({ ...d, [id]: "" }));
+    requestAnimationFrame(() => autoResizeTextarea(commentRefs.current[id] ?? null));
     setSendingComment(id);
     try {
       await addRequestComment(id, text);
     } catch {
       setDraft((d) => ({ ...d, [id]: text })); // возвращаем текст в поле, если отправка не удалась
+      requestAnimationFrame(() => autoResizeTextarea(commentRefs.current[id] ?? null));
       toast.error("Не удалось отправить сообщение, попробуйте ещё раз");
     } finally {
       setSendingComment(null);
@@ -197,8 +209,15 @@ function MessagesPage() {
       {role !== "curator" && (
         <div className="mt-3 flex items-end gap-2">
           <textarea
+            ref={(el) => {
+              commentRefs.current[r.id] = el;
+              autoResizeTextarea(el);
+            }}
             value={draft[r.id] ?? ""}
-            onChange={(e) => setDraft((d) => ({ ...d, [r.id]: e.target.value }))}
+            onChange={(e) => {
+              setDraft((d) => ({ ...d, [r.id]: e.target.value }));
+              autoResizeTextarea(e.target);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -207,8 +226,8 @@ function MessagesPage() {
             }}
             disabled={sendingComment === r.id}
             placeholder="Сообщение..."
-            rows={Math.min(5, Math.max(1, (draft[r.id] ?? "").split("\n").length))}
-            className="flex-1 resize-none rounded-xl border border-border bg-surface px-3 py-2 text-sm leading-normal disabled:opacity-60"
+            rows={1}
+            className="max-h-40 min-h-10 flex-1 resize-none overflow-y-auto rounded-xl border border-border bg-surface px-3 py-2 text-sm leading-normal disabled:opacity-60"
           />
           <button
             onClick={() => void sendComment(r.id)}
@@ -227,15 +246,21 @@ function MessagesPage() {
               <span className="flex min-h-8 items-end">
                 <FieldLabel>Итоговое название</FieldLabel>
               </span>
-              <input
+              <textarea
+                ref={autoResizeTextarea}
                 value={resolve[r.id]?.name ?? ""}
-                onChange={(e) =>
+                onChange={(e) => {
                   setResolve((s) => ({
                     ...s,
                     [r.id]: { unit: "", price: "", ...s[r.id], name: e.target.value },
-                  }))
-                }
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  }));
+                  autoResizeTextarea(e.target);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.preventDefault();
+                }}
+                rows={1}
+                className="mt-1 max-h-32 min-h-9 w-full resize-none overflow-y-auto rounded-lg border border-border bg-background px-3 py-2 text-sm leading-normal"
               />
             </label>
             <label className="block">
