@@ -586,6 +586,15 @@ export const api = {
   async unsubscribePush(endpoint: string): Promise<void> {
     await request("/push/unsubscribe", { method: "POST", body: JSON.stringify({ endpoint }) });
   },
+
+  async listReadNotificationIds(): Promise<string[]> {
+    return request<string[]>("/notification-reads");
+  },
+
+  async markNotificationsRead(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await request("/notification-reads", { method: "POST", body: JSON.stringify({ ids }) });
+  },
 };
 
 export { ApiError };

@@ -16,6 +16,7 @@ import {
 import { api, ApiError } from "@/lib/api-client";
 import { playNotificationChime } from "@/lib/notification-sound";
 import { isPushSupported, resyncPushSubscription } from "@/lib/push";
+import { buildNotificationItems } from "@/lib/notification-items";
 
 const EMPTY_USER: AppUser = { id: "", login: "", password: "", full_name: "", role: "user" };
 
@@ -50,6 +51,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [units, setUnits] = useState<string[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [pinnedObjectIds, setPinnedObjectIds] = useState<string[]>([]);
+  const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(new Set());
 
   // Проверяем сессию один раз при загрузке приложения.
   useEffect(() => {
@@ -75,7 +77,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // входе, и фоновым автообновлением, и pull-to-refresh на телефоне.
   const loadAppData = useCallback(async () => {
     if (!sessionUser) return;
-    const [objs, emps, uns, types, recs, reqs, usrs, pinned] = await Promise.all([
+    const [objs, emps, uns, types, recs, reqs, usrs, pinned, readIds] = await Promise.all([
       api.listObjects(),
       api.listEmployees(),
       api.listUnits(),
@@ -84,6 +86,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       api.listRequests(),
       sessionUser.role === "admin" ? api.listUsers() : Promise.resolve([]),
       api.listPinnedObjects(),
+      api.listReadNotificationIds().catch(() => [] as string[]),
     ]);
     setObjects(objs);
     setEmployees(emps);
@@ -93,6 +96,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRequests(reqs);
     if (usrs.length) setUsers(usrs);
     setPinnedObjectIds(pinned);
+    setReadNotificationIds(new Set(readIds));
   }, [sessionUser]);
 
   // Как только знаем, что пользователь авторизован — подгружаем справочники и записи.
@@ -182,53 +186,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!notifications.inAppEnabled) return;
 
     const isForeman = role === "user";
-    const visibleRequests = isForeman
-      ? requests.filter((r) => r.author === currentUser.full_name)
-      : requests;
-
-    type NotifyItem = {
-      id: string;
-      requestId: string;
-      kind: "request" | "comment" | "deleted";
-      author: string;
-      title: string;
-      text: string;
-    };
-    const items: NotifyItem[] = [];
-    for (const r of visibleRequests) {
-      if (notifications.inAppRequests) {
-        items.push({
-          id: `${r.id}-new`,
-          requestId: r.id,
-          kind: "request",
-          author: r.author,
-          title: "Новая заявка на вид работ",
-          text: r.requested_text,
-        });
-        if (r.status === "deleted") {
-          items.push({
-            id: `${r.id}-deleted`,
-            requestId: r.id,
-            kind: "deleted",
-            author: r.author,
-            title: "Заявка удалена автором",
-            text: r.requested_text,
-          });
-        }
-      }
-      if (notifications.inAppMessages) {
-        for (const c of r.comments) {
-          items.push({
-            id: c.id,
-            requestId: r.id,
-            kind: "comment",
-            author: c.author,
-            title: `Сообщение по заявке: ${r.requested_text}`,
-            text: c.text,
-          });
-        }
-      }
-    }
+    const items = buildNotificationItems(requests, isForeman, currentUser.full_name, {
+      includeRequests: notifications.inAppRequests,
+      includeMessages: notifications.inAppMessages,
+    });
 
     if (!seenNotificationIdsRef.current) {
       // Первая загрузка после входа — просто запоминаем уже существующее,
@@ -307,22 +268,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const objectNameById = useMemo(() => new Map(objects.map((o) => [o.id, o.name])), [objects]);
 
-  // Считаем так же, как страница "Уведомления": новые заявки и комментарии от
-  // других участников (прораб видит только свои заявки, admin/curator — все).
-  const notificationsCount = useMemo(() => {
+  // Считаем по-настоящему непрочитанные (то, чего ещё нет в notification_reads
+  // на сервере) — так же, как страница "Уведомления". Прораб видит только свои
+  // заявки, admin/curator — все.
+  const notificationItems = useMemo(() => {
     const isForeman = role === "user";
-    const visible = isForeman
-      ? requests.filter((r) => r.author === currentUser.full_name)
-      : requests;
-    let count = 0;
-    for (const r of visible) {
-      if (r.author !== currentUser.full_name) count += 1;
-      for (const c of r.comments) {
-        if (c.author !== currentUser.full_name) count += 1;
-      }
-    }
-    return count;
+    return buildNotificationItems(requests, isForeman, currentUser.full_name);
   }, [requests, role, currentUser.full_name]);
+
+  const notificationsCount = useMemo(() => {
+    return notificationItems.filter(
+      (i) => i.author !== currentUser.full_name && !readNotificationIds.has(i.id),
+    ).length;
+  }, [notificationItems, currentUser.full_name, readNotificationIds]);
+
+  // Бейдж непрочитанных на иконке приложения (значок на экране "Домой" на
+  // телефоне, иконка в панели задач на компьютере) — поддерживается не везде,
+  // поэтому вызываем с проверкой наличия API.
+  useEffect(() => {
+    if (typeof navigator === "undefined") return;
+    const nav = navigator as Navigator & {
+      setAppBadge?: (count?: number) => Promise<void>;
+      clearAppBadge?: () => Promise<void>;
+    };
+    if (!nav.setAppBadge || !nav.clearAppBadge) return;
+    if (notificationsCount > 0) {
+      nav.setAppBadge(notificationsCount).catch(() => {});
+    } else {
+      nav.clearAppBadge().catch(() => {});
+    }
+  }, [notificationsCount]);
+
+  const markNotificationsRead = useCallback(
+    (ids: string[]) => {
+      const fresh = ids.filter((id) => !readNotificationIds.has(id));
+      if (fresh.length === 0) return;
+      setReadNotificationIds((prev) => {
+        const next = new Set(prev);
+        for (const id of fresh) next.add(id);
+        return next;
+      });
+      void api.markNotificationsRead(fresh).catch(() => {
+        // не критично — при следующей загрузке просто ещё раз попробуем считать непрочитанным
+      });
+    },
+    [readNotificationIds],
+  );
 
   const login = async (loginValue: string, password: string) => {
     const me = await api.login(loginValue, password);
@@ -676,6 +667,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateUser,
     brigades: mockBrigades,
     notificationsCount,
+    notificationItems,
+    readNotificationIds,
+    markNotificationsRead,
     login,
     logout,
     isAuthenticated: !!sessionUser,

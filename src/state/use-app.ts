@@ -8,6 +8,7 @@ import type {
   WorkType,
   RequestComment,
 } from "@/data/mock";
+import type { NotificationItem } from "@/lib/notification-items";
 
 export type AppState = {
   role: Role;
@@ -84,6 +85,11 @@ export type AppState = {
   ) => Promise<AppUser>;
   brigades: { name: string; members: string[] }[];
   notificationsCount: number;
+  notificationItems: NotificationItem[];
+  /** id уведомлений, которые текущий пользователь уже открыл/просмотрел. */
+  readNotificationIds: Set<string>;
+  /** Помечает уведомления как прочитанные (локально и на сервере). */
+  markNotificationsRead: (ids: string[]) => void;
   login: (login: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
