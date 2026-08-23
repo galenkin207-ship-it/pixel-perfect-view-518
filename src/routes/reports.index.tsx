@@ -70,13 +70,17 @@ type StatsRow = {
   label: string;
   positions: number;
   totalValue: number;
-  items: { name: string; unit: string; qty: number }[];
+  items: { name: string; unit: string; qty: number; price: number; sum: number }[];
 };
 
 function finalizeStatsRows(
   map: Map<
     string,
-    { positions: number; totalValue: number; items: Map<string, { qty: number; unit: string }> }
+    {
+      positions: number;
+      totalValue: number;
+      items: Map<string, { qty: number; unit: string; sum: number }>;
+    }
   >,
   labelFor: (key: string) => string,
 ): StatsRow[] {
@@ -91,6 +95,11 @@ function finalizeStatsRows(
           name: nameUnit.split("||")[0] ?? nameUnit,
           unit: d.unit,
           qty: d.qty,
+          sum: d.sum,
+          // Средняя цена за единицу по факту записей (обычно совпадает с
+          // текущей ценой в справочнике, но так корректно и если цена вида
+          // работ менялась в течение периода).
+          price: d.qty ? d.sum / d.qty : 0,
         }))
         .sort((a, b) => b.qty - a.qty),
     }))
@@ -102,7 +111,11 @@ function finalizeStatsRows(
 function buildEmployeeStats(records: WorkRecord[]): StatsRow[] {
   const map = new Map<
     string,
-    { positions: number; totalValue: number; items: Map<string, { qty: number; unit: string }> }
+    {
+      positions: number;
+      totalValue: number;
+      items: Map<string, { qty: number; unit: string; sum: number }>;
+    }
   >();
   for (const r of records) {
     const crew = crewOf(r);
@@ -119,8 +132,12 @@ function buildEmployeeStats(records: WorkRecord[]): StatsRow[] {
         entry.totalValue += a.qty * item.price;
         const key = `${item.name}||${item.unit}`;
         const existing = entry.items.get(key);
-        if (existing) existing.qty += a.qty;
-        else entry.items.set(key, { qty: a.qty, unit: item.unit });
+        if (existing) {
+          existing.qty += a.qty;
+          existing.sum += a.qty * item.price;
+        } else {
+          entry.items.set(key, { qty: a.qty, unit: item.unit, sum: a.qty * item.price });
+        }
       }
     }
   }
@@ -132,7 +149,11 @@ function buildObjectStats(records: WorkRecord[], objects: WorkObject[]): StatsRo
   const nameById = new Map(objects.map((o) => [o.id, o.name]));
   const map = new Map<
     string,
-    { positions: number; totalValue: number; items: Map<string, { qty: number; unit: string }> }
+    {
+      positions: number;
+      totalValue: number;
+      items: Map<string, { qty: number; unit: string; sum: number }>;
+    }
   >();
   for (const r of records) {
     for (const item of r.items) {
@@ -146,8 +167,12 @@ function buildObjectStats(records: WorkRecord[], objects: WorkObject[]): StatsRo
       entry.totalValue += qty * item.price;
       const key = `${item.name}||${item.unit}`;
       const existing = entry.items.get(key);
-      if (existing) existing.qty += qty;
-      else entry.items.set(key, { qty, unit: item.unit });
+      if (existing) {
+        existing.qty += qty;
+        existing.sum += qty * item.price;
+      } else {
+        entry.items.set(key, { qty, unit: item.unit, sum: qty * item.price });
+      }
     }
   }
   return finalizeStatsRows(map, (id) => nameById.get(id) ?? id);
@@ -1092,6 +1117,16 @@ function ReportsPage() {
                               <span className="shrink-0 font-mono font-semibold tabular-nums text-primary">
                                 — {formatQty(it.qty)} {it.unit}
                               </span>
+                              {isAdmin && (
+                                <>
+                                  <span className="shrink-0 font-mono tabular-nums text-status-review">
+                                    × {formatMoney(it.price)}
+                                  </span>
+                                  <span className="shrink-0 font-mono font-semibold tabular-nums text-status-done">
+                                    = {formatMoney(it.sum)}
+                                  </span>
+                                </>
+                              )}
                             </div>
                           ))}
                           {isAdmin && (
