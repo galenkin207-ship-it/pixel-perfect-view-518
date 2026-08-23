@@ -101,7 +101,7 @@ function finalizeStatsRows(
           // работ менялась в течение периода).
           price: d.qty ? d.sum / d.qty : 0,
         }))
-        .sort((a, b) => b.qty - a.qty),
+        .sort((a, b) => b.sum - a.sum),
     }))
     .sort((a, b) => b.totalValue - a.totalValue);
 }
