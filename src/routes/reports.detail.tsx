@@ -15,7 +15,7 @@ import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { allocationsFor, itemQty, recordTotal } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
-import type { WorkRecord } from "@/data/mock";
+import type { WorkItem, WorkRecord } from "@/data/mock";
 import { roleLabels } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
@@ -83,6 +83,12 @@ function breakdownOf(r: WorkRecord): Breakdown[] {
   });
 }
 
+/** Доля конкретного сотрудника в объёме позиции (0, если он в ней не участвовал). */
+function employeeItemQty(item: WorkItem, employeeName: string, crew: string[]) {
+  const allocs = item.allocations?.length ? item.allocations : allocationsFor(item, crew);
+  return allocs.find((a) => a.employee === employeeName)?.qty ?? 0;
+}
+
 function ReportDetailPage() {
   const { records, objects, employees, role } = useApp();
   const isAdmin = role === "admin";
@@ -140,7 +146,19 @@ function ReportDetailPage() {
     const list = [...map.entries()].map(([date, recs]) => ({
       date,
       records: recs,
-      total: recs.reduce((s, r) => s + recordTotal(r.items), 0),
+      total: recs.reduce((s, r) => {
+        if (applied.employee) {
+          const crew = crewOf(r);
+          return (
+            s +
+            r.items.reduce(
+              (a, item) => a + employeeItemQty(item, applied.employee, crew) * item.price,
+              0,
+            )
+          );
+        }
+        return s + recordTotal(r.items);
+      }, 0),
     }));
     list.sort((a, b) =>
       sortDesc
@@ -154,7 +172,12 @@ function ReportDetailPage() {
     const map = new Map<string, SummaryRow>();
     for (const day of days) {
       for (const r of day.records) {
+        const crew = crewOf(r);
         for (const item of r.items) {
+          const qty = applied?.employee
+            ? employeeItemQty(item, applied.employee, crew)
+            : itemQty(item);
+          if (!qty) continue;
           const key = `${item.name}||${item.unit}`;
           const prev = map.get(key) ?? {
             name: item.name,
@@ -163,8 +186,8 @@ function ReportDetailPage() {
             total: 0,
             count: 0,
           };
-          prev.qty += itemQty(item);
-          prev.total += itemQty(item) * item.price;
+          prev.qty += qty;
+          prev.total += qty * item.price;
           prev.count += 1;
           map.set(key, prev);
         }
@@ -173,7 +196,7 @@ function ReportDetailPage() {
     return [...map.values()]
       .map((s) => ({ ...s, qty: Math.round(s.qty * 100) / 100 }))
       .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
-  }, [days]);
+  }, [days, applied]);
 
   const exportExcel = async () => {
     const NAVY = "FF2E4A6B";
@@ -281,10 +304,17 @@ function ReportDetailPage() {
       for (const r of day.records) {
         const crew = crewOf(r);
         for (const item of r.items) {
+          const allAllocs = item.allocations?.length
+            ? item.allocations
+            : allocationsFor(item, crew);
+          // Если задан фильтр по сотруднику — в отчёте показываем только его
+          // долю объёма/суммы и его строку в разбивке, а не всю запись целиком.
+          const empFilter = applied?.employee || undefined;
+          const allocs = empFilter ? allAllocs.filter((a) => a.employee === empFilter) : allAllocs;
+          if (empFilter && allocs.length === 0) continue;
           blockIdx += 1;
           const blockFill = blockIdx % 2 === 0 ? LIGHT_BLUE : WHITE;
-          const allocs = item.allocations?.length ? item.allocations : allocationsFor(item, crew);
-          const qty = itemQty(item);
+          const qty = empFilter ? employeeItemQty(item, empFilter, crew) : itemQty(item);
           const sum = Math.round(qty * item.price);
 
           const mainVals = [
@@ -513,7 +543,11 @@ function ReportDetailPage() {
     return (
       <AppShell>
         <MobileHeader title={`Запись ${activeRecord.time}`} onBack={() => setMobileRecord(null)} />
-        <RecordDetailBlock record={activeRecord} isAdmin={isAdmin} />
+        <RecordDetailBlock
+          record={activeRecord}
+          isAdmin={isAdmin}
+          {...(applied?.employee ? { employeeFilter: applied.employee } : {})}
+        />
       </AppShell>
     );
   }
@@ -533,7 +567,11 @@ function ReportDetailPage() {
               className="flex w-full items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left"
             >
               <div className="min-w-0 flex-1">
-                <RecordSummary record={r} isAdmin={isAdmin} />
+                <RecordSummary
+                  record={r}
+                  isAdmin={isAdmin}
+                  {...(applied?.employee ? { employeeFilter: applied.employee } : {})}
+                />
               </div>
               <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground" />
             </button>
@@ -750,12 +788,25 @@ function ReportDetailPage() {
                                 )}
                               />
                               <div className="min-w-0 flex-1">
-                                <RecordSummary record={r} isAdmin={isAdmin} />
+                                <RecordSummary
+                                  record={r}
+                                  isAdmin={isAdmin}
+                                  {...(applied?.employee
+                                    ? { employeeFilter: applied.employee }
+                                    : {})}
+                                />
                               </div>
                             </button>
                             {rOpen && (
                               <div className="border-t border-border p-4">
-                                <RecordDetailBlock record={r} isAdmin={isAdmin} nested />
+                                <RecordDetailBlock
+                                  record={r}
+                                  isAdmin={isAdmin}
+                                  nested
+                                  {...(applied?.employee
+                                    ? { employeeFilter: applied.employee }
+                                    : {})}
+                                />
                               </div>
                             )}
                           </div>
@@ -839,11 +890,24 @@ function MobileHeader({ title, onBack }: { title: string; onBack: () => void }) 
   );
 }
 
-function RecordSummary({ record, isAdmin }: { record: WorkRecord; isAdmin: boolean }) {
+function RecordSummary({
+  record,
+  isAdmin,
+  employeeFilter,
+}: {
+  record: WorkRecord;
+  isAdmin: boolean;
+  employeeFilter?: string;
+}) {
   const crew = crewOf(record);
+  const rows = employeeFilter
+    ? record.items
+        .map((item) => ({ item, qty: employeeItemQty(item, employeeFilter, crew) }))
+        .filter((x) => x.qty > 0)
+    : record.items.map((item) => ({ item, qty: itemQty(item) }));
   return (
     <div className="space-y-1.5">
-      {record.items.map((item, i) => (
+      {rows.map(({ item, qty }, i) => (
         <div key={i} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <span className="flex min-w-0 flex-1 items-start gap-1.5 font-semibold break-words whitespace-normal">
             {item.name}
@@ -853,11 +917,11 @@ function RecordSummary({ record, isAdmin }: { record: WorkRecord; isAdmin: boole
           </span>
           <span className="flex shrink-0 items-baseline gap-3">
             <span className="font-mono text-sm font-bold tabular-nums">
-              {itemQty(item)} {item.unit}
+              {qty} {item.unit}
             </span>
             {isAdmin && (
               <span className="font-mono text-sm font-bold tabular-nums text-primary">
-                {money(itemQty(item) * item.price)}
+                {money(qty * item.price)}
               </span>
             )}
           </span>
@@ -877,18 +941,35 @@ function RecordDetailBlock({
   record,
   isAdmin,
   nested,
+  employeeFilter,
 }: {
   record: WorkRecord;
   isAdmin: boolean;
   nested?: boolean;
+  employeeFilter?: string;
 }) {
   const [photosOpen, setPhotosOpen] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
-  const rows = breakdownOf(record);
+  const crew = crewOf(record);
+  const rows = breakdownOf(record).filter(
+    (row) => !employeeFilter || row.employee === employeeFilter,
+  );
+  const recordTotalValue = employeeFilter
+    ? record.items.reduce(
+        (s, item) => s + employeeItemQty(item, employeeFilter, crew) * item.price,
+        0,
+      )
+    : recordTotal(record.items);
 
   return (
     <div className={cn(!nested && "mt-4 rounded-2xl border border-border bg-card p-4")}>
-      {!nested && <RecordSummary record={record} isAdmin={isAdmin} />}
+      {!nested && (
+        <RecordSummary
+          record={record}
+          isAdmin={isAdmin}
+          {...(employeeFilter ? { employeeFilter } : {})}
+        />
+      )}
 
       <h3 className="label-caps mt-4">Кто и сколько сделал</h3>
       <div className="mt-2">
@@ -914,9 +995,7 @@ function RecordDetailBlock({
       {isAdmin && (
         <div className="mt-3 flex items-center justify-between rounded-xl bg-surface px-4 py-3">
           <span className="text-sm font-semibold">Итого по записи</span>
-          <span className="font-mono font-bold text-primary">
-            {money(recordTotal(record.items))}
-          </span>
+          <span className="font-mono font-bold text-primary">{money(recordTotalValue)}</span>
         </div>
       )}
 
