@@ -7,7 +7,6 @@ import { InitialsAvatar } from "@/components/app/bits";
 import { RecordDetail } from "@/components/app/record-detail";
 import { StatusBadge } from "@/components/app/status-badge";
 import { cn } from "@/lib/utils";
-import { itemQty } from "@/lib/record-utils";
 import { statusLabels, type RecordStatus } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
@@ -215,14 +214,14 @@ function AllRecordsPage() {
                   </span>
                   <span className="mt-1 block text-base font-semibold text-foreground">
                     {r.items.length > 0
-                      ? r.items.map((i) => i.name).join(", ")
+                      ? r.items.map((item, i) => (
+                          <span key={i} className="block">
+                            {item.name}
+                            {i < r.items.length - 1 ? ";" : ""}
+                          </span>
+                        ))
                       : "Виды работ не добавлены"}
                   </span>
-                  {r.items[0] && (
-                    <span className="mt-1 block font-mono text-sm text-muted-foreground">
-                      {itemQty(r.items[0])} {r.items[0].unit}
-                    </span>
-                  )}
                 </span>
                 <span className="flex items-center gap-2 text-sm break-words">
                   <InitialsAvatar name={r.created_by} />
