@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { Archive, ArchiveRestore } from "lucide-react";
+import { Archive, ArchiveRestore, ImageIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -55,7 +55,7 @@ function ObjectRecordsPage() {
   return (
     <AppShell {...(isArchived ? {} : { fab: { to: "/records/new", search: { object: id } } })}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageHeading context={object.name} title={object.address} />
+        <PageHeading context={object.address} title={object.name} />
         {canManage && (
           <button
             type="button"
@@ -145,8 +145,20 @@ function ObjectRecordsPage() {
                   </div>
                 ))}
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {r.execution_type === "brigade" ? r.brigade_name : crew.join(", ")} · {r.time}
+              <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+                <span>{r.execution_type === "brigade" ? r.brigade_name : crew.join(", ")}</span>
+                <span>
+                  · {r.date}, {r.time}
+                </span>
+                {r.photos.length > 0 && (
+                  <span
+                    className="flex items-center gap-0.5 text-muted-foreground"
+                    title={`${r.photos.length} фото`}
+                  >
+                    <ImageIcon className="size-3.5" />
+                    {r.photos.length}
+                  </span>
+                )}
               </p>
               {r.comment && <p className="mt-1 text-sm text-muted-foreground">{r.comment}</p>}
               {r.status === "draft" && (
