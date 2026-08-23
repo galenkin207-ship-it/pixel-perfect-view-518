@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Inbox, MessageSquare, Trash2 } from "lucide-react";
+import { ClipboardList, Inbox, MessageSquare, Trash2 } from "lucide-react";
 import { AppContext, type AppState, type NotificationSettings, type ThemeMode } from "./use-app";
 import {
   brigades as mockBrigades,
@@ -172,6 +172,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // переписке и удалённых заявках — работает на любой странице приложения,
   // не только на /messages и /notifications.
   const seenNotificationIdsRef = useRef<Set<string> | null>(null);
+  // Отдельный трекер для баннеров о новых записях по объектам — настройка
+  // "Новые записи по объектам" в Профиле раньше ни на что не влияла, теперь
+  // включает эти уведомления.
+  const seenRecordIdsRef = useRef<Set<string> | null>(null);
 
   // Если браузер на этом устройстве уже был подписан на push под другим
   // аккаунтом (например, ранее тестировали под admin, а теперь зашли как
@@ -241,6 +245,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
     notifications.inAppMessages,
     notifications.inAppSound,
     role,
+    currentUser.full_name,
+    navigate,
+  ]);
+
+  useEffect(() => {
+    if (!dataLoaded) return;
+    if (!notifications.inAppEnabled || !notifications.inAppNewRecords) return;
+
+    if (!seenRecordIdsRef.current) {
+      // Первая загрузка после входа — просто запоминаем уже существующие
+      // записи, не показываем баннеры пачкой по всей истории.
+      seenRecordIdsRef.current = new Set(records.map((r) => r.id));
+      return;
+    }
+
+    const seen = seenRecordIdsRef.current;
+    for (const r of records) {
+      if (seen.has(r.id)) continue;
+      seen.add(r.id);
+      if (r.created_by === currentUser.full_name) continue; // свои записи не уведомляем
+      if (r.status === "draft") continue; // черновики ещё не поданы
+
+      const object = objects.find((o) => o.id === r.object_id);
+      const workNames = r.items.map((i) => i.name).join(", ") || "Виды работ не указаны";
+      toast(
+        <div className="flex items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <ClipboardList className="size-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">{r.created_by}</p>
+            <p className="text-xs text-muted-foreground">
+              Новая запись{object ? ` · ${object.name}` : ""}
+            </p>
+            <p className="mt-0.5 line-clamp-2 text-sm break-words">{workNames}</p>
+          </div>
+        </div>,
+        {
+          duration: 6000,
+          action: {
+            label: "Открыть",
+            onClick: () => void navigate({ to: "/objects/$id", params: { id: r.object_id } }),
+          },
+        },
+      );
+      if (notifications.inAppSound) playNotificationChime();
+    }
+  }, [
+    records,
+    objects,
+    dataLoaded,
+    notifications.inAppEnabled,
+    notifications.inAppNewRecords,
+    notifications.inAppSound,
     currentUser.full_name,
     navigate,
   ]);
