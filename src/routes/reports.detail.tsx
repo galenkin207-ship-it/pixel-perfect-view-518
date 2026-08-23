@@ -928,7 +928,10 @@ function RecordSummary({
         </div>
       ))}
       <p className="text-sm break-words text-muted-foreground">
-        Сотрудники: <span className="text-foreground">{crew.join(", ") || "—"}</span>
+        {employeeFilter ? "Сотрудник" : "Сотрудники"}:{" "}
+        <span className="text-foreground">
+          {employeeFilter ? employeeFilter : crew.join(", ") || "—"}
+        </span>
       </p>
       <p className="text-sm text-muted-foreground">
         Кто подал: <span className="text-foreground">{record.created_by}</span>
