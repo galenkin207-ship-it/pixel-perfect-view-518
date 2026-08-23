@@ -27,7 +27,13 @@ function fromIso(iso: string) {
   return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
 }
 
-export function RecordForm({ record }: { record?: WorkRecord }) {
+export function RecordForm({
+  record,
+  defaultObjectId,
+}: {
+  record?: WorkRecord;
+  defaultObjectId?: string;
+}) {
   const navigate = useNavigate();
   const {
     objects,
@@ -44,7 +50,7 @@ export function RecordForm({ record }: { record?: WorkRecord }) {
 
   const isAdmin = role === "admin";
 
-  const [objectId, setObjectId] = useState(record?.object_id ?? "");
+  const [objectId, setObjectId] = useState(record?.object_id ?? defaultObjectId ?? "");
   const [executionType, setExecutionType] = useState<ExecutionType>(
     record?.execution_type ?? "employee",
   );

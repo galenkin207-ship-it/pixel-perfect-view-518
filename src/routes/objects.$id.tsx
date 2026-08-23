@@ -47,7 +47,7 @@ function ObjectRecordsPage() {
   }
 
   return (
-    <AppShell fab={{ to: "/records/new" }}>
+    <AppShell fab={{ to: "/records/new", search: { object: id } }}>
       <PageHeading context={object.name} title={object.address} />
 
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">

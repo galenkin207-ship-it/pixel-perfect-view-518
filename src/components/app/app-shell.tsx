@@ -50,7 +50,7 @@ export function AppShell({
   fab,
 }: {
   children: ReactNode;
-  fab?: { to: string; label?: string };
+  fab?: { to: string; label?: string; search?: Record<string, string> };
 }) {
   const { role, currentUser, notificationsCount, requests, refreshData } = useApp();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -200,6 +200,7 @@ export function AppShell({
           {fab && (
             <Link
               to={fab.to}
+              {...(fab.search ? { search: fab.search } : {})}
               aria-label={fab.label ?? "Новая запись"}
               className={cn(
                 "fixed right-5 bottom-28 z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:right-10 md:bottom-10",

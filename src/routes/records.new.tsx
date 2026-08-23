@@ -4,6 +4,10 @@ import { AppShell } from "@/components/app/app-shell";
 import { RecordForm } from "@/components/app/record-form";
 
 export const Route = createFileRoute("/records/new")({
+  validateSearch: (search: Record<string, unknown>): { object?: string } => {
+    const object = typeof search["object"] === "string" ? search["object"] : undefined;
+    return object ? { object } : {};
+  },
   head: () => ({
     meta: [
       { title: "Новая запись — Учёт работ" },
@@ -21,9 +25,10 @@ export const Route = createFileRoute("/records/new")({
 });
 
 function NewRecordPage() {
+  const { object } = Route.useSearch();
   return (
     <AppShell>
-      <RecordForm />
+      <RecordForm {...(object ? { defaultObjectId: object } : {})} />
     </AppShell>
   );
 }
