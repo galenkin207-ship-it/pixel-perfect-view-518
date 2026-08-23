@@ -191,6 +191,8 @@ function AllRecordsPage() {
         </div>
         {paginated.map((r) => {
           const object = objects.find((o) => o.id === r.object_id);
+          const performer =
+            r.execution_type === "brigade" ? (r.brigade_name ?? "") : r.employees.join(", ");
           return (
             <div key={r.id} className="border-b border-border last:border-0">
               <button
@@ -225,21 +227,7 @@ function AllRecordsPage() {
                   <InitialsAvatar name={r.created_by} />
                   {r.created_by}
                 </span>
-                <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm break-words">
-                  {r.execution_type === "brigade" ? (
-                    <span className="flex items-center gap-2">
-                      <InitialsAvatar name={r.brigade_name ?? ""} />
-                      {r.brigade_name}
-                    </span>
-                  ) : (
-                    r.employees.map((name, i) => (
-                      <span key={`${name}-${i}`} className="flex items-center gap-2">
-                        <InitialsAvatar name={name} />
-                        {name}
-                      </span>
-                    ))
-                  )}
-                </span>
+                <span className="text-sm break-words">{performer}</span>
                 <span className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
                   <span>
                     {r.date.slice(0, 5)}, {r.time}

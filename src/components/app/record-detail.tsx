@@ -3,7 +3,7 @@ import { Pencil, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { FieldLabel } from "@/components/app/bits";
+import { FieldLabel, InitialsAvatar } from "@/components/app/bits";
 import { StatusBadge } from "@/components/app/status-badge";
 import { allocationsFor, canEditRecord, itemQty, recordTotal } from "@/lib/record-utils";
 import { clearQuickDraftId } from "@/lib/quick-draft";
@@ -85,8 +85,11 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
                   <FieldLabel>Кто и сколько сделал</FieldLabel>
                   <div className="mt-2 space-y-1.5">
                     {allocations.map((a) => (
-                      <div key={a.employee} className="flex items-baseline justify-between gap-3">
-                        <span className="min-w-0 flex-1 text-sm break-words">{a.employee}</span>
+                      <div key={a.employee} className="flex items-center justify-between gap-3">
+                        <span className="flex min-w-0 flex-1 items-center gap-2 text-sm break-words">
+                          <InitialsAvatar name={a.employee} />
+                          {a.employee}
+                        </span>
                         <span className="font-mono text-sm font-semibold">
                           {a.qty} {item.unit}
                         </span>
