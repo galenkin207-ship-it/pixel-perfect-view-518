@@ -426,6 +426,7 @@ export const api = {
       ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
       ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
       created_at: isoToRu(r.created_at),
+      created_time: formatTime(r.created_at),
       comments: r.comments.map((c) => ({
         id: String(c.id),
         author: c.author,
@@ -466,6 +467,7 @@ export const api = {
       requested_text: r.text,
       status: r.status as WorkRequest["status"],
       created_at: isoToRu(r.created_at),
+      created_time: formatTime(r.created_at),
       comments: [],
     };
   },
@@ -498,6 +500,7 @@ export const api = {
       ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
       ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
       created_at: r.created_at ? isoToRu(r.created_at) : "",
+      created_time: r.created_at ? formatTime(r.created_at) : "",
       comments: [],
     };
   },
@@ -533,6 +536,7 @@ export const api = {
       ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
       ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
       created_at: isoToRu(r.created_at),
+      created_time: formatTime(r.created_at),
       comments: [],
     };
   },

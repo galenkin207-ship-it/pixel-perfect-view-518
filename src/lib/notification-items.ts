@@ -39,7 +39,10 @@ export function buildNotificationItems(
         title: "Новая заявка на вид работ",
         text: r.requested_text,
         date: r.created_at,
-        time: r.comments[0]?.time ?? "—",
+        // Время подачи самой заявки, а не первого сообщения в переписке —
+        // иначе у только что созданной заявки (без сообщений) время не
+        // отображалось и сортировка по убыванию даты/времени ломалась.
+        time: r.created_time || r.comments[0]?.time || "—",
       });
       if (r.status === "deleted") {
         items.push({

@@ -65,6 +65,9 @@ export type WorkRequest = {
   resolved_price?: number;
   reject_reason?: string;
   created_at: string;
+  // Время подачи заявки (чч:мм) — отдельно от даты, нужно для правильной
+  // сортировки в уведомлениях, пока у заявки ещё нет ни одного сообщения.
+  created_time?: string;
   comments: RequestComment[];
 };
 
