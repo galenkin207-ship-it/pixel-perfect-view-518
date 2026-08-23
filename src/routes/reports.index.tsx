@@ -61,6 +61,10 @@ function formatQty(n: number) {
   return rounded.toLocaleString("ru-RU", { maximumFractionDigits: 3 });
 }
 
+function formatMoney(n: number) {
+  return `${Math.round(n).toLocaleString("ru-RU").replace(/,/g, " ")} ₽`;
+}
+
 type StatsRow = {
   key: string;
   label: string;
@@ -90,7 +94,7 @@ function finalizeStatsRows(
         }))
         .sort((a, b) => b.qty - a.qty),
     }))
-    .sort((a, b) => b.positions - a.positions);
+    .sort((a, b) => b.totalValue - a.totalValue);
 }
 
 /** Статистика по сотрудникам: "позиция" — это участие сотрудника в одной строке
@@ -913,7 +917,7 @@ function ReportsPage() {
         : buildObjectStats(statsInRange, objects),
     [statsInRange, grouping, objects],
   );
-  const statsMaxPositions = Math.max(1, ...statsRows.map((r) => r.positions));
+  const statsMaxValue = Math.max(1, ...statsRows.map((r) => r.totalValue));
   const statsTotalPositions = statsRows.reduce((s, r) => s + r.positions, 0);
 
   return (
@@ -1047,7 +1051,7 @@ function ReportsPage() {
               </div>
 
               <p className="mt-4 label-caps">
-                {grouping === "employees" ? "По сотрудникам" : "По объектам"} — позиций за период
+                {grouping === "employees" ? "По сотрудникам" : "По объектам"} — сумма за период, ₽
               </p>
               <div className="mt-2 divide-y divide-border">
                 {statsRows.map((row, i) => {
@@ -1064,11 +1068,11 @@ function ReportsPage() {
                         <span className="hidden h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-muted sm:block sm:w-40">
                           <span
                             className="block h-full rounded-full bg-primary"
-                            style={{ width: `${(row.positions / statsMaxPositions) * 100}%` }}
+                            style={{ width: `${(row.totalValue / statsMaxValue) * 100}%` }}
                           />
                         </span>
-                        <span className="w-16 shrink-0 text-right text-xs font-bold">
-                          {row.positions} поз.
+                        <span className="w-24 shrink-0 text-right text-xs font-bold">
+                          {formatMoney(row.totalValue)}
                         </span>
                         <ChevronRight
                           className={cn(
