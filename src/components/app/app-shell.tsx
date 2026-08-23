@@ -18,6 +18,8 @@ import { useMemo, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { roleLabels, type Role } from "@/data/mock";
 import { useApp } from "@/state/use-app";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useKeyboardOpen } from "@/hooks/use-keyboard-open";
 import { useSwipeNav } from "@/hooks/use-swipe-nav";
 import { InitialsAvatar } from "./bits";
 import { PullToRefresh } from "./pull-to-refresh";
@@ -57,6 +59,13 @@ export function AppShell({
 
   const swipeOrder = useMemo(() => mobileTabs(role).map((t) => t.to), [role]);
   useSwipeNav(swipeOrder, pathname);
+
+  // Пока на мобильном открыта экранная клавиатура (в фокусе текстовое
+  // поле), прячем нижнее меню и FAB — иначе на iOS/Android они "уезжают"
+  // вместе со скроллом вместо того, чтобы оставаться на месте.
+  const isMobile = useIsMobile();
+  const keyboardOpen = useKeyboardOpen();
+  const hideMobileChrome = isMobile && keyboardOpen;
 
   const home: NavItem[] = [
     { to: "/", label: "Объекты", icon: Building2 },
@@ -192,7 +201,10 @@ export function AppShell({
             <Link
               to={fab.to}
               aria-label={fab.label ?? "Новая запись"}
-              className="fixed right-5 bottom-28 z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:right-10 md:bottom-10"
+              className={cn(
+                "fixed right-5 bottom-28 z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:right-10 md:bottom-10",
+                hideMobileChrome && "hidden",
+              )}
             >
               <Plus className="size-6" />
             </Link>
@@ -201,7 +213,12 @@ export function AppShell({
       </div>
 
       {/* Mobile bottom tabs */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-panel pt-3 pb-[calc(1.1rem+env(safe-area-inset-bottom))] [transform:translateZ(0)] md:hidden">
+      <nav
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-panel pt-3 pb-[calc(1.1rem+env(safe-area-inset-bottom))] [transform:translateZ(0)] md:hidden",
+          hideMobileChrome && "hidden",
+        )}
+      >
         {mobileTabs(role).map((t) => {
           const active = isActive(t.to);
           return (
