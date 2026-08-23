@@ -101,7 +101,6 @@ function ObjectRecordsPage() {
 
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {list.map((r) => {
-          const crew = r.execution_type === "brigade" ? (r.brigade_members ?? []) : r.employees;
           return (
             <button
               key={r.id}
@@ -112,26 +111,23 @@ function ObjectRecordsPage() {
                 className={`absolute inset-y-3 left-0 w-1 rounded-full ${statusBar[r.status]}`}
               />
               <div className="flex items-start justify-between gap-3">
-                <p className="min-w-0 flex-1 font-bold break-words whitespace-normal">
-                  {r.items.map((i) => i.name).join(", ")}
-                </p>
+                <div className="min-w-0 flex-1 space-y-1.5 rounded-xl bg-surface p-3">
+                  {r.items.map((item, i) => (
+                    <div
+                      key={i}
+                      className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"
+                    >
+                      <span className="text-sm font-bold break-words">{item.name}</span>
+                      <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-xs font-bold tabular-nums text-primary">
+                        {itemQty(item)} {item.unit}
+                      </span>
+                    </div>
+                  ))}
+                </div>
                 <StatusBadge status={r.status} />
               </div>
-              <div className="mt-3 space-y-1.5 rounded-xl bg-surface p-3">
-                {r.items.map((item, i) => (
-                  <div
-                    key={i}
-                    className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5"
-                  >
-                    <span className="text-sm break-words">{item.name}</span>
-                    <span className="shrink-0 font-mono text-sm font-bold tabular-nums">
-                      — {itemQty(item)} {item.unit}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
-                <span>{r.execution_type === "brigade" ? r.brigade_name : crew.join(", ")}</span>
+              <p className="mt-3 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+                <span>{r.created_by}</span>
                 <span>
                   · {r.date}, {r.time}
                 </span>
