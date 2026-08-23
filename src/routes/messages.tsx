@@ -1,12 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { roleLabels, type WorkRequest } from "@/data/mock";
 import { useApp } from "@/state/use-app";
+import { notificationIdsForRequest } from "@/lib/notification-items";
 
 export const Route = createFileRoute("/messages")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -41,23 +43,18 @@ function autoResizeTextarea(el: HTMLTextAreaElement | null) {
 }
 
 function MessagesPage() {
-  const { requests, role, currentUser, decideRequest, deleteRequest, addRequestComment, units } =
-    useApp();
+  const {
+    requests,
+    role,
+    currentUser,
+    decideRequest,
+    deleteRequest,
+    addRequestComment,
+    units,
+    markNotificationsRead,
+  } = useApp();
   const { request: focusId } = Route.useSearch();
-
-  // Прокручиваем к выделенной заявке один раз, а не при каждом фоновом
-  // обновлении данных (иначе экран каждые несколько секунд "прыгал" обратно).
-  const scrolledForRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    if (!focusId) return;
-    if (scrolledForRef.current === focusId) return;
-    if (requests.length === 0) return;
-    const el = document.getElementById(`request-${focusId}`);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      scrolledForRef.current = focusId;
-    }
-  }, [focusId, requests]);
+  const navigate = useNavigate();
 
   const isAdmin = role === "admin";
   const isForeman = role === "user";
@@ -74,6 +71,18 @@ function MessagesPage() {
   const visible = isForeman ? requests.filter((r) => r.author === currentUser.full_name) : requests;
   const pending = visible.filter((r) => r.status === "pending");
   const history = visible.filter((r) => r.status !== "pending");
+
+  // Заявка, открытая из уведомления — показываем её отдельным окном поверх
+  // списка (акцентированный переход), а не просто подсветкой карточки в
+  // общем списке. Открытие автоматически помечает прочитанным всё, что
+  // относится к этой заявке (саму заявку и все сообщения переписки).
+  const dialogRequest = focusId ? visible.find((r) => r.id === focusId) : undefined;
+  const closeDialog = () => void navigate({ to: "/messages", search: { request: undefined } });
+
+  useEffect(() => {
+    if (!dialogRequest) return;
+    markNotificationsRead(notificationIdsForRequest(dialogRequest));
+  }, [dialogRequest, markNotificationsRead]);
 
   const [sendingComment, setSendingComment] = useState<string | null>(null);
 
@@ -144,16 +153,13 @@ function MessagesPage() {
     }
   };
 
-  const renderCard = (r: WorkRequest, section: "pending" | "history") => {
+  const renderCard = (r: WorkRequest, section: "pending" | "history", inDialog = false) => {
     const canSelect = isForeman || (isAdmin && section === "history");
     return (
       <div
         key={r.id}
-        id={`request-${r.id}`}
-        className={cn(
-          "rounded-2xl border border-border bg-card p-4 md:p-6",
-          focusId === r.id && "border-primary ring-2 ring-primary/30",
-        )}
+        {...(inDialog ? {} : { id: `request-${r.id}` })}
+        className="rounded-2xl border border-border bg-card p-4 md:p-6"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-2">
@@ -399,6 +405,18 @@ function MessagesPage() {
           {history.map((r) => renderCard(r, "history"))}
         </div>
       </section>
+
+      <Dialog open={!!dialogRequest} onOpenChange={(open) => !open && closeDialog()}>
+        <DialogContent className="max-h-[85vh] w-[calc(100%-2rem)] overflow-y-auto border-none bg-transparent p-0 shadow-none sm:max-w-xl">
+          <DialogTitle className="sr-only">Заявка</DialogTitle>
+          {dialogRequest &&
+            renderCard(
+              dialogRequest,
+              dialogRequest.status === "pending" ? "pending" : "history",
+              true,
+            )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

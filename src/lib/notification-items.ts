@@ -83,3 +83,15 @@ export function sortNotificationItems(items: NotificationItem[]): NotificationIt
   };
   return [...items].sort((a, b) => key(b.date, b.time).localeCompare(key(a.date, a.time)));
 }
+
+/**
+ * Все id уведомлений, относящиеся к одной заявке (сама заявка, её удаление
+ * автором, если было, и все сообщения переписки) — чтобы при открытии
+ * заявки можно было одним вызовом пометить прочитанным всё, что с ней связано.
+ */
+export function notificationIdsForRequest(r: WorkRequest): string[] {
+  const ids = [`${r.id}-new`];
+  if (r.status === "deleted") ids.push(`${r.id}-deleted`);
+  for (const c of r.comments) ids.push(c.id);
+  return ids;
+}
