@@ -111,10 +111,15 @@ function ObjectRecordsPage() {
               onClick={() => setOpenId(r.id)}
               className="grid h-auto w-full auto-rows-min grid-cols-1 gap-2 px-4 py-3 text-left hover:bg-muted/40 lg:grid-cols-[3fr_1.1fr_1.1fr_1fr] lg:items-start lg:gap-3"
             >
-              <span className="flex flex-col gap-1.5">
+              <span className="flex flex-col gap-1">
                 {r.items.map((item, i) => (
-                  <span key={i} className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold break-words">{item.name}</span>
+                  <span
+                    key={i}
+                    className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
+                  >
+                    <span className="text-base font-semibold break-words text-foreground">
+                      {item.name}
+                    </span>
                     <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-xs font-bold tabular-nums text-primary">
                       {itemQty(item)} {item.unit}
                     </span>

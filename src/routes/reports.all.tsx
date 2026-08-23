@@ -6,6 +6,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar } from "@/components/app/bits";
 import { RecordDetail } from "@/components/app/record-detail";
 import { StatusBadge } from "@/components/app/status-badge";
+import { itemQty } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
 import { statusLabels, type RecordStatus } from "@/data/mock";
 import { useApp } from "@/state/use-app";
@@ -212,15 +213,27 @@ function AllRecordsPage() {
                       <span className="font-normal text-muted-foreground">Объект не выбран</span>
                     )}
                   </span>
-                  <span className="mt-1 block text-base font-semibold text-foreground">
-                    {r.items.length > 0
-                      ? r.items.map((item, i) => (
-                          <span key={i} className="block">
+                  <span className="mt-1 flex flex-col gap-1">
+                    {r.items.length > 0 ? (
+                      r.items.map((item, i) => (
+                        <span
+                          key={i}
+                          className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
+                        >
+                          <span className="text-base font-semibold break-words text-foreground">
                             {item.name}
                             {i < r.items.length - 1 ? ";" : ""}
                           </span>
-                        ))
-                      : "Виды работ не добавлены"}
+                          <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-xs font-bold tabular-nums text-primary">
+                            {itemQty(item)} {item.unit}
+                          </span>
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-base font-semibold text-foreground">
+                        Виды работ не добавлены
+                      </span>
+                    )}
                   </span>
                 </span>
                 <span className="flex items-center gap-2 text-sm break-words">
