@@ -6,12 +6,12 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/")({
@@ -58,11 +58,9 @@ function ObjectsPage() {
   const visibleObjects = useMemo(
     () =>
       objects.filter(
-        (o) =>
-          o.status !== "archived" &&
-          (objectIdsWithRecords.has(o.id) || (isForeman && pinnedSet.has(o.id))),
+        (o) => o.status !== "archived" && (objectIdsWithRecords.has(o.id) || pinnedSet.has(o.id)),
       ),
-    [objects, objectIdsWithRecords, isForeman, pinnedSet],
+    [objects, objectIdsWithRecords, pinnedSet],
   );
 
   const filtered = visibleObjects.filter(
@@ -86,16 +84,14 @@ function ObjectsPage() {
             <Archive className="size-3.5" />
             Архив
           </Link>
-          {isForeman && (
-            <button
-              type="button"
-              onClick={() => setPickerOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted"
-            >
-              <Plus className="size-3.5" />
-              Добавить объект
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted"
+          >
+            <Plus className="size-3.5" />
+            Добавить объект
+          </button>
         </div>
       </div>
 
@@ -109,16 +105,16 @@ function ObjectsPage() {
         />
       </div>
 
-      {isForeman && !visibleObjects.length && (
+      {!visibleObjects.length && (
         <p className="mt-5 text-sm text-muted-foreground">
-          Здесь появятся объекты, на которых вы сделали хотя бы одну запись. Ещё можно закрепить
-          объект вручную — кнопка «Добавить объект» выше.
+          Здесь появятся объекты с записями. Ещё можно закрепить объект вручную — кнопка «Добавить
+          объект» выше.
         </p>
       )}
 
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {filtered.map((o) => {
-          const pinnedOnly = isForeman && pinnedSet.has(o.id) && !objectIdsWithRecords.has(o.id);
+          const pinnedOnly = pinnedSet.has(o.id) && !objectIdsWithRecords.has(o.id);
           return (
             <div key={o.id} className="group relative">
               <Link
@@ -167,9 +163,7 @@ function ObjectsPage() {
         })}
       </div>
 
-      {isForeman && (
-        <ObjectPickerDialog open={pickerOpen} onOpenChange={setPickerOpen} pinnedSet={pinnedSet} />
-      )}
+      <ObjectPickerDialog open={pickerOpen} onOpenChange={setPickerOpen} pinnedSet={pinnedSet} />
     </AppShell>
   );
 }
@@ -207,26 +201,25 @@ function ObjectPickerDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Добавить объект на главный экран</DialogTitle>
-          <DialogDescription>
-            Закреплённый объект будет показываться среди ваших объектов, даже если на нём ещё нет
-            ваших записей.
-          </DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="mx-auto max-w-lg sm:max-w-lg">
+        <SheetHeader className="shrink-0 text-left">
+          <SheetTitle>Добавить объект на главный экран</SheetTitle>
+          <SheetDescription>
+            Закреплённый объект будет показываться среди объектов, даже если на нём ещё нет записей.
+          </SheetDescription>
+        </SheetHeader>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Поиск по объекту..."
-          className="w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary"
+          className="mt-1 w-full shrink-0 rounded-xl border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary"
         />
-        <ul className="max-h-80 divide-y divide-border overflow-auto rounded-xl border border-border">
+        <ul className="-mx-6 min-h-0 flex-1 divide-y divide-border overflow-y-auto border-t border-border px-6">
           {filtered.map((o) => {
             const pinned = pinnedSet.has(o.id);
             return (
-              <li key={o.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+              <li key={o.id} className="flex items-center justify-between gap-3 py-2.5">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{o.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{o.address}</p>
@@ -248,12 +241,10 @@ function ObjectPickerDialog({
             );
           })}
           {!filtered.length && (
-            <li className="px-3 py-6 text-center text-sm text-muted-foreground">
-              Ничего не найдено
-            </li>
+            <li className="py-6 text-center text-sm text-muted-foreground">Ничего не найдено</li>
           )}
         </ul>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
