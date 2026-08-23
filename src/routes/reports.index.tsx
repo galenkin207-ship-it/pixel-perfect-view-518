@@ -1226,49 +1226,51 @@ function ReportsPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <h3 className="font-semibold">Месячный свод по всем объектам</h3>
-            <div className="mt-3 space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <FieldLabel>Месяц</FieldLabel>
-                  <select
-                    value={svodMonth}
-                    onChange={(e) => setSvodMonth(Number(e.target.value))}
-                    className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-                  >
-                    {monthNames.map((m, i) => (
-                      <option key={m} value={i}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
+          {isAdmin && (
+            <div className="rounded-2xl border border-border bg-card p-4">
+              <h3 className="font-semibold">Месячный свод по всем объектам</h3>
+              <div className="mt-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <FieldLabel>Месяц</FieldLabel>
+                    <select
+                      value={svodMonth}
+                      onChange={(e) => setSvodMonth(Number(e.target.value))}
+                      className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+                    >
+                      {monthNames.map((m, i) => (
+                        <option key={m} value={i}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <FieldLabel>Год</FieldLabel>
+                    <select
+                      value={svodYear}
+                      onChange={(e) => setSvodYear(Number(e.target.value))}
+                      className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+                    >
+                      {svodYears.map((y) => (
+                        <option key={y} value={y}>
+                          {y}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <FieldLabel>Год</FieldLabel>
-                  <select
-                    value={svodYear}
-                    onChange={(e) => setSvodYear(Number(e.target.value))}
-                    className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-                  >
-                    {svodYears.map((y) => (
-                      <option key={y} value={y}>
-                        {y}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <button
+                  type="button"
+                  disabled={svodBusy}
+                  onClick={() => void exportMonthlySummary()}
+                  className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:cursor-default disabled:opacity-60 cursor-pointer"
+                >
+                  {svodBusy ? "Формирование..." : "Скачать Excel"}
+                </button>
               </div>
-              <button
-                type="button"
-                disabled={svodBusy}
-                onClick={() => void exportMonthlySummary()}
-                className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:cursor-default disabled:opacity-60 cursor-pointer"
-              >
-                {svodBusy ? "Формирование..." : "Скачать Excel"}
-              </button>
             </div>
-          </div>
+          )}
         </div>
 
         <Link to="/reports/all" className="mt-4 inline-block text-sm font-semibold text-primary">
