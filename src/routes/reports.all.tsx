@@ -191,8 +191,6 @@ function AllRecordsPage() {
         </div>
         {paginated.map((r) => {
           const object = objects.find((o) => o.id === r.object_id);
-          const performer =
-            r.execution_type === "brigade" ? (r.brigade_name ?? "") : r.employees.join(", ");
           return (
             <div key={r.id} className="border-b border-border last:border-0">
               <button
@@ -215,14 +213,9 @@ function AllRecordsPage() {
                   <span className="mt-1 block text-base font-semibold text-foreground">
                     {r.items.length > 0
                       ? r.items.map((item, i) => (
-                          <span key={i} className="flex items-baseline gap-1.5">
-                            {r.items.length > 1 && (
-                              <span className="size-1.5 shrink-0 self-center rounded-full bg-primary" />
-                            )}
-                            <span>
-                              {item.name}
-                              {i < r.items.length - 1 ? ";" : ""}
-                            </span>
+                          <span key={i} className="block">
+                            {item.name}
+                            {i < r.items.length - 1 ? ";" : ""}
                           </span>
                         ))
                       : "Виды работ не добавлены"}
@@ -232,9 +225,20 @@ function AllRecordsPage() {
                   <InitialsAvatar name={r.created_by} />
                   {r.created_by}
                 </span>
-                <span className="flex items-center gap-2 text-sm break-words">
-                  <InitialsAvatar name={performer} />
-                  {performer}
+                <span className="flex flex-col gap-1 text-sm break-words">
+                  {r.execution_type === "brigade" ? (
+                    <span className="flex items-center gap-2">
+                      <InitialsAvatar name={r.brigade_name ?? ""} />
+                      {r.brigade_name}
+                    </span>
+                  ) : (
+                    r.employees.map((name, i) => (
+                      <span key={`${name}-${i}`} className="flex items-center gap-2">
+                        <InitialsAvatar name={name} />
+                        {name}
+                      </span>
+                    ))
+                  )}
                 </span>
                 <span className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
                   <span>
