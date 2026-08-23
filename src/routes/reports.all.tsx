@@ -224,7 +224,7 @@ function AllRecordsPage() {
                             {item.name}
                             {i < r.items.length - 1 ? ";" : ""}
                           </span>
-                          <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-xs font-bold tabular-nums text-primary">
+                          <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 font-mono text-sm font-bold tabular-nums text-primary">
                             {itemQty(item)} {item.unit}
                           </span>
                         </span>
