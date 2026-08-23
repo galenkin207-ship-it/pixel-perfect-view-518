@@ -488,8 +488,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   ): Promise<WorkObject> => {
     try {
       const saved = await api.updateObject(id, input);
-      setObjects((prev) => prev.map((o) => (o.id === saved.id ? { ...o, ...saved } : o)));
-      return saved;
+      // PUT /objects не возвращает статус архивации — сохраняем его как был
+      // на клиенте, а не то, что подставил api-client по умолчанию.
+      let merged: WorkObject = saved;
+      setObjects((prev) =>
+        prev.map((o) => {
+          if (o.id !== saved.id) return o;
+          merged = { ...o, ...saved, status: o.status, archived_at: o.archived_at };
+          return merged;
+        }),
+      );
+      return merged;
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to update object");
     }
@@ -501,6 +510,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setObjects((prev) => prev.filter((o) => o.id !== id));
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to delete object");
+    }
+  };
+
+  const archiveObject = async (id: string): Promise<WorkObject> => {
+    try {
+      const saved = await api.archiveObject(id);
+      setObjects((prev) => prev.map((o) => (o.id === saved.id ? { ...o, ...saved } : o)));
+      return saved;
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to archive object");
+    }
+  };
+
+  const restoreObject = async (id: string): Promise<WorkObject> => {
+    try {
+      const saved = await api.restoreObject(id);
+      setObjects((prev) => prev.map((o) => (o.id === saved.id ? { ...o, ...saved } : o)));
+      return saved;
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to restore object");
     }
   };
 
@@ -633,6 +662,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addObject,
     updateObject,
     deleteObject,
+    archiveObject,
+    restoreObject,
     pinnedObjectIds,
     pinObject,
     unpinObject,

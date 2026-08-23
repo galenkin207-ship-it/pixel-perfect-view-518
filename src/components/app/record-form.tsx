@@ -72,6 +72,11 @@ export function RecordForm({
   const object = objects.find((o) => o.id === objectId) ?? null;
   const total = recordTotal(items);
 
+  // В выборе объекта для новой/редактируемой записи не показываем архивные —
+  // кроме уже выбранного, чтобы редактирование старой записи на завершённом
+  // объекте по-прежнему открывалось корректно.
+  const selectableObjects = objects.filter((o) => o.status !== "archived" || o.id === objectId);
+
   // --- Автосохранение черновика ---
   // Черновик сохраняется практически сразу, как только в форме появились/изменились
   // данные — и при первом создании записи, и при продолжении заполнения уже
@@ -366,7 +371,7 @@ export function RecordForm({
         <div>
           <FieldLabel>Объект</FieldLabel>
           <div className="mt-1">
-            <ObjectSelect objects={objects} value={objectId} onChange={setObjectId} />
+            <ObjectSelect objects={selectableObjects} value={objectId} onChange={setObjectId} />
           </div>
         </div>
 

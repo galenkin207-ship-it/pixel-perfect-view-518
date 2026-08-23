@@ -2,12 +2,16 @@ export type Role = "user" | "curator" | "admin";
 export type RecordStatus = "done" | "draft";
 export type ExecutionType = "employee" | "brigade";
 
+export type ObjectStatus = "active" | "archived";
+
 export type WorkObject = {
   id: string;
   name: string;
   address: string;
   records_today: number;
   progress_percent: number;
+  status: ObjectStatus;
+  archived_at: string | null;
 };
 
 export type EmployeeQty = { employee: string; qty: number };
@@ -89,6 +93,8 @@ export const objects: WorkObject[] = [
     address: "ул. Строителей, уч. 3",
     records_today: 3,
     progress_percent: 56,
+    status: "active",
+    archived_at: null,
   },
   {
     id: "9",
@@ -96,6 +102,8 @@ export const objects: WorkObject[] = [
     address: "Заречная, стр. 2",
     records_today: 1,
     progress_percent: 28,
+    status: "active",
+    archived_at: null,
   },
   {
     id: "21",
@@ -103,6 +111,8 @@ export const objects: WorkObject[] = [
     address: "пр. Мира, 118",
     records_today: 0,
     progress_percent: 84,
+    status: "active",
+    archived_at: null,
   },
   {
     id: "5",
@@ -110,6 +120,8 @@ export const objects: WorkObject[] = [
     address: "Южный проезд, 7",
     records_today: 5,
     progress_percent: 41,
+    status: "active",
+    archived_at: null,
   },
   {
     id: "31",
@@ -117,6 +129,8 @@ export const objects: WorkObject[] = [
     address: "ул. Кузнечная, 12к2",
     records_today: 2,
     progress_percent: 67,
+    status: "active",
+    archived_at: null,
   },
 ];
 

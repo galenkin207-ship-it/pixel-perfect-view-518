@@ -1,5 +1,7 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { Archive, ArchiveRestore } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
@@ -29,11 +31,13 @@ export const Route = createFileRoute("/objects/$id")({
 
 function ObjectRecordsPage() {
   const { id } = useParams({ from: "/objects/$id" });
-  const { objects, records } = useApp();
+  const { objects, records, role, archiveObject, restoreObject } = useApp();
   const object = objects.find((o) => o.id === id);
   const list = records.filter((r) => r.object_id === id);
   const [openId, setOpenId] = useState<string | null>(null);
   const openRecord = records.find((r) => r.id === openId) ?? null;
+  const [busy, setBusy] = useState(false);
+  const canManage = role === "curator" || role === "admin";
 
   if (!object) {
     return (
@@ -46,9 +50,54 @@ function ObjectRecordsPage() {
     );
   }
 
+  const isArchived = object.status === "archived";
+
   return (
-    <AppShell fab={{ to: "/records/new", search: { object: id } }}>
-      <PageHeading context={object.name} title={object.address} />
+    <AppShell {...(isArchived ? {} : { fab: { to: "/records/new", search: { object: id } } })}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeading context={object.name} title={object.address} />
+        {canManage && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                if (isArchived) {
+                  await restoreObject(object.id);
+                  toast.success("Объект возвращён в активную работу");
+                } else {
+                  await archiveObject(object.id);
+                  toast.success("Объект перенесён в архив");
+                }
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Не удалось изменить статус");
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
+          >
+            {isArchived ? (
+              <>
+                <ArchiveRestore className="size-3.5" />
+                {busy ? "..." : "Вернуть из архива"}
+              </>
+            ) : (
+              <>
+                <Archive className="size-3.5" />
+                {busy ? "..." : "Завершить объект"}
+              </>
+            )}
+          </button>
+        )}
+      </div>
+
+      {isArchived && (
+        <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">
+          Объект в архиве — работы завершены, новые записи по нему не добавляются.
+        </p>
+      )}
 
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {list.map((r) => {

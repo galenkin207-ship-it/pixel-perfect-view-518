@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Pin, PinOff, Plus, Search } from "lucide-react";
+import { Archive, Pin, PinOff, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -57,7 +57,11 @@ function ObjectsPage() {
 
   const visibleObjects = useMemo(
     () =>
-      objects.filter((o) => objectIdsWithRecords.has(o.id) || (isForeman && pinnedSet.has(o.id))),
+      objects.filter(
+        (o) =>
+          o.status !== "archived" &&
+          (objectIdsWithRecords.has(o.id) || (isForeman && pinnedSet.has(o.id))),
+      ),
     [objects, objectIdsWithRecords, isForeman, pinnedSet],
   );
 
@@ -74,16 +78,25 @@ function ObjectsPage() {
           context={isForeman ? `Кто подал · ${today}` : `Все объекты компании · ${today}`}
           title={isForeman ? "Мои объекты" : "Объекты"}
         />
-        {isForeman && (
-          <button
-            type="button"
-            onClick={() => setPickerOpen(true)}
+        <div className="flex items-center gap-2">
+          <Link
+            to="/objects/archive"
             className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted"
           >
-            <Plus className="size-3.5" />
-            Добавить объект
-          </button>
-        )}
+            <Archive className="size-3.5" />
+            Архив
+          </Link>
+          {isForeman && (
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted"
+            >
+              <Plus className="size-3.5" />
+              Добавить объект
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="relative mt-4 w-full max-w-xl lg:max-w-2xl xl:max-w-3xl">
@@ -174,7 +187,9 @@ function ObjectPickerDialog({
   const [q, setQ] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const filtered = objects.filter((o) => o.name.toLowerCase().includes(q.trim().toLowerCase()));
+  const filtered = objects
+    .filter((o) => o.status !== "archived")
+    .filter((o) => o.name.toLowerCase().includes(q.trim().toLowerCase()));
 
   const toggle = async (id: string, pinned: boolean) => {
     setBusyId(id);

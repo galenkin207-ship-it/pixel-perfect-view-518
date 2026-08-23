@@ -167,16 +167,24 @@ export const api = {
   },
 
   async listObjects(): Promise<WorkObject[]> {
-    const rows =
-      await request<{ id: number; name: string; address: string; progress_percent: number }[]>(
-        "/objects",
-      );
+    const rows = await request<
+      {
+        id: number;
+        name: string;
+        address: string;
+        progress_percent: number;
+        status?: string | null;
+        archived_at?: string | null;
+      }[]
+    >("/objects");
     return rows.map((o) => ({
       id: String(o.id),
       name: o.name,
       address: o.address ?? "",
       records_today: 0,
       progress_percent: o.progress_percent ?? 0,
+      status: o.status === "archived" ? "archived" : "active",
+      archived_at: o.archived_at ?? null,
     }));
   },
 
@@ -200,6 +208,8 @@ export const api = {
       address: row.address ?? "",
       records_today: 0,
       progress_percent: row.progress_percent ?? 0,
+      status: "active",
+      archived_at: null,
     };
   },
 
@@ -219,11 +229,54 @@ export const api = {
       address: row.address ?? "",
       records_today: 0,
       progress_percent: row.progress_percent ?? 0,
+      // Обновление через PUT не трогает статус — сохраняем его на месте в app-context.
+      status: "active",
+      archived_at: null,
     };
   },
 
   async deleteObject(id: string): Promise<void> {
     await request<{ deleted: number }>(`/objects/${id}`, { method: "DELETE" });
+  },
+
+  async archiveObject(id: string): Promise<WorkObject> {
+    const row = await request<{
+      id: number;
+      name: string;
+      address: string;
+      progress_percent: number;
+      status: string;
+      archived_at: string | null;
+    }>(`/objects/${id}/archive`, { method: "PATCH" });
+    return {
+      id: String(row.id),
+      name: row.name,
+      address: row.address ?? "",
+      records_today: 0,
+      progress_percent: row.progress_percent ?? 0,
+      status: row.status === "archived" ? "archived" : "active",
+      archived_at: row.archived_at ?? null,
+    };
+  },
+
+  async restoreObject(id: string): Promise<WorkObject> {
+    const row = await request<{
+      id: number;
+      name: string;
+      address: string;
+      progress_percent: number;
+      status: string;
+      archived_at: string | null;
+    }>(`/objects/${id}/restore`, { method: "PATCH" });
+    return {
+      id: String(row.id),
+      name: row.name,
+      address: row.address ?? "",
+      records_today: 0,
+      progress_percent: row.progress_percent ?? 0,
+      status: row.status === "archived" ? "archived" : "active",
+      archived_at: row.archived_at ?? null,
+    };
   },
 
   async listEmployees(): Promise<string[]> {

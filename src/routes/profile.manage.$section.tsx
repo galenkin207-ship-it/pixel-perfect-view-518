@@ -855,41 +855,126 @@ function EmployeesSection() {
 function ObjectsSection() {
   const { objects, addObject, updateObject, deleteObject } = useApp();
   return (
-    <StringSection
-      addTitle="Добавить объект"
-      fieldLabel="Название объекта"
-      addButton="Добавить объект"
-      bulkButton="Загрузить объекты"
-      bulkPlaceholder={
-        "По одному названию объекта на строку\n\nПример:\nОбъект №42\nСклад на Заречной"
-      }
-      searchPlaceholder="Начните вводить название объекта..."
-      items={objects.map((o) => ({ id: o.id, label: o.name }))}
-      onAdd={async (v) => {
-        await addObject({ name: v, address: "Адрес уточняется", progress_percent: 0 });
-      }}
-      onBulk={async (lines) => {
-        let ok = 0;
-        for (const name of lines) {
-          try {
-            await addObject({ name, address: "Адрес уточняется", progress_percent: 0 });
-            ok++;
-          } catch {
-            /* пропускаем строку, которая не загрузилась, и продолжаем остальные */
-          }
+    <>
+      <StringSection
+        addTitle="Добавить объект"
+        fieldLabel="Название объекта"
+        addButton="Добавить объект"
+        bulkButton="Загрузить объекты"
+        bulkPlaceholder={
+          "По одному названию объекта на строку\n\nПример:\nОбъект №42\nСклад на Заречной"
         }
-        return ok;
-      }}
-      onRename={async (id, v) => {
-        const obj = objects.find((o) => o.id === id);
-        await updateObject(id, {
-          name: v,
-          address: obj?.address ?? "Адрес уточняется",
-          progress_percent: obj?.progress_percent ?? 0,
-        });
-      }}
-      onRemove={(id) => deleteObject(id)}
-    />
+        searchPlaceholder="Начните вводить название объекта..."
+        items={objects.map((o) => ({ id: o.id, label: o.name }))}
+        onAdd={async (v) => {
+          await addObject({ name: v, address: "Адрес уточняется", progress_percent: 0 });
+        }}
+        onBulk={async (lines) => {
+          let ok = 0;
+          for (const name of lines) {
+            try {
+              await addObject({ name, address: "Адрес уточняется", progress_percent: 0 });
+              ok++;
+            } catch {
+              /* пропускаем строку, которая не загрузилась, и продолжаем остальные */
+            }
+          }
+          return ok;
+        }}
+        onRename={async (id, v) => {
+          const obj = objects.find((o) => o.id === id);
+          await updateObject(id, {
+            name: v,
+            address: obj?.address ?? "Адрес уточняется",
+            progress_percent: obj?.progress_percent ?? 0,
+          });
+        }}
+        onRemove={(id) => deleteObject(id)}
+      />
+      <ObjectsStatusList />
+    </>
+  );
+}
+
+/* Список всех объектов со статусом "активен / в архиве" — завершение объекта
+   переносит его в раздел «Архив объектов» на главной, без удаления данных. */
+function ObjectsStatusList() {
+  const { objects, archiveObject, restoreObject } = useApp();
+  const [q, setQ] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const filtered = useMemo(() => smartFilter(objects, q, (o) => o.name), [objects, q]);
+
+  return (
+    <section className="mt-4 rounded-2xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-semibold">Все объекты и их статус</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Завершённые объекты попадают в раздел «Архив» на главной — данные и записи по ним
+            сохраняются.
+          </p>
+        </div>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Поиск по названию..."
+          className={cn(input, "sm:w-72")}
+        />
+      </div>
+
+      <ul className="mt-3 max-h-[min(70vh,900px)] divide-y divide-border overflow-auto rounded-xl border border-border">
+        {filtered.map((o) => {
+          const archived = o.status === "archived";
+          return (
+            <li
+              key={o.id}
+              className="flex flex-wrap items-center justify-between gap-3 bg-surface px-3 py-2.5"
+            >
+              <div className="min-w-0">
+                <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                  {o.name}
+                  {archived && (
+                    <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                      В архиве
+                    </span>
+                  )}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">{o.address}</p>
+              </div>
+              <button
+                type="button"
+                disabled={busyId === o.id}
+                className={cn(ghostBtn, "shrink-0 disabled:opacity-60")}
+                onClick={async () => {
+                  setBusyId(o.id);
+                  try {
+                    if (archived) {
+                      await restoreObject(o.id);
+                      toast.success("Объект возвращён в активную работу");
+                    } else {
+                      await archiveObject(o.id);
+                      toast.success("Объект перенесён в архив");
+                    }
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Не удалось изменить статус");
+                  } finally {
+                    setBusyId(null);
+                  }
+                }}
+              >
+                {busyId === o.id ? "..." : archived ? "Вернуть из архива" : "Завершить"}
+              </button>
+            </li>
+          );
+        })}
+        {!filtered.length && (
+          <li className="bg-surface px-3 py-6 text-center text-sm text-muted-foreground">
+            Ничего не найдено
+          </li>
+        )}
+      </ul>
+    </section>
   );
 }
 

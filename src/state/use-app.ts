@@ -31,6 +31,8 @@ export type AppState = {
     input: { name: string; address: string; progress_percent: number },
   ) => Promise<WorkObject>;
   deleteObject: (id: string) => Promise<void>;
+  archiveObject: (id: string) => Promise<WorkObject>;
+  restoreObject: (id: string) => Promise<WorkObject>;
   pinnedObjectIds: string[];
   pinObject: (id: string) => Promise<void>;
   unpinObject: (id: string) => Promise<void>;
