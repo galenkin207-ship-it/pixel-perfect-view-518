@@ -99,57 +99,63 @@ function ObjectRecordsPage() {
       )}
 
       <div className="mt-5 overflow-hidden rounded-2xl border border-border">
-        <div className="hidden grid-cols-[3fr_1.1fr_1.1fr_1fr] gap-3 border-b border-border bg-card px-4 py-3 lg:grid">
+        <div className="hidden grid-cols-[2.6fr_1.1fr_1.2fr_1.1fr_1fr] gap-3 border-b border-border bg-card px-4 py-3 lg:grid">
           <span className="label-caps">Вид работы</span>
           <span className="label-caps">Кто подал</span>
+          <span className="label-caps">Сотрудник / Бригада</span>
           <span className="label-caps">Дата</span>
           <span className="label-caps">Статус</span>
         </div>
-        {list.map((r) => (
-          <div key={r.id} className="border-b border-border last:border-0">
-            <button
-              onClick={() => setOpenId(r.id)}
-              className="grid h-auto w-full auto-rows-min grid-cols-1 gap-2 px-4 py-3 text-left hover:bg-muted/40 lg:grid-cols-[3fr_1.1fr_1.1fr_1fr] lg:items-start lg:gap-3"
-            >
-              <span className="flex flex-col gap-1">
-                {r.items.map((item, i) => (
-                  <span
-                    key={i}
-                    className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
-                  >
-                    <span className="text-base font-semibold break-words text-foreground">
-                      {item.name}
+        {list.map((r) => {
+          const performer =
+            r.execution_type === "brigade" ? (r.brigade_name ?? "") : r.employees.join(", ");
+          return (
+            <div key={r.id} className="border-b border-border last:border-0">
+              <button
+                onClick={() => setOpenId(r.id)}
+                className="grid h-auto w-full auto-rows-min grid-cols-1 gap-2 px-4 py-3 text-left hover:bg-muted/40 lg:grid-cols-[2.6fr_1.1fr_1.2fr_1.1fr_1fr] lg:items-start lg:gap-3"
+              >
+                <span className="flex flex-col gap-1">
+                  {r.items.map((item, i) => (
+                    <span
+                      key={i}
+                      className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
+                    >
+                      <span className="text-base font-semibold break-words text-foreground">
+                        {item.name}
+                      </span>
+                      <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-xs font-bold tabular-nums text-primary">
+                        {itemQty(item)} {item.unit}
+                      </span>
                     </span>
-                    <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-xs font-bold tabular-nums text-primary">
-                      {itemQty(item)} {item.unit}
-                    </span>
-                  </span>
-                ))}
-              </span>
-              <span className="flex items-center gap-2 text-sm break-words">
-                <InitialsAvatar name={r.created_by} />
-                {r.created_by}
-              </span>
-              <span className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
-                <span>
-                  {r.date.slice(0, 5)}, {r.time}
+                  ))}
                 </span>
-                {r.photos.length > 0 && (
-                  <span
-                    className="flex items-center gap-0.5 font-semibold text-primary"
-                    title={`${r.photos.length} фото`}
-                  >
-                    <ImageIcon className="size-4" />
-                    {r.photos.length}
+                <span className="flex items-center gap-2 text-sm break-words">
+                  <InitialsAvatar name={r.created_by} />
+                  {r.created_by}
+                </span>
+                <span className="text-sm break-words">{performer}</span>
+                <span className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+                  <span>
+                    {r.date.slice(0, 5)}, {r.time}
                   </span>
-                )}
-              </span>
-              <span className="flex items-center gap-2">
-                <StatusBadge status={r.status} />
-              </span>
-            </button>
-          </div>
-        ))}
+                  {r.photos.length > 0 && (
+                    <span
+                      className="flex items-center gap-0.5 font-semibold text-primary"
+                      title={`${r.photos.length} фото`}
+                    >
+                      <ImageIcon className="size-4" />
+                      {r.photos.length}
+                    </span>
+                  )}
+                </span>
+                <span className="flex items-center gap-2">
+                  <StatusBadge status={r.status} />
+                </span>
+              </button>
+            </div>
+          );
+        })}
         {list.length === 0 && (
           <p className="px-4 py-6 text-sm text-muted-foreground">
             По этому объекту записей пока нет.
