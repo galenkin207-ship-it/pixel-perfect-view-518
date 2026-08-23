@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { roleLabels, type WorkRequest } from "@/data/mock";
 import { useApp } from "@/state/use-app";
@@ -55,6 +56,7 @@ function MessagesPage() {
   } = useApp();
   const { request: focusId } = Route.useSearch();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const isAdmin = role === "admin";
   const isForeman = role === "user";
@@ -407,7 +409,14 @@ function MessagesPage() {
       </section>
 
       <Dialog open={!!dialogRequest} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="max-h-[85vh] w-[calc(100%-2rem)] overflow-y-auto border-none bg-transparent p-0 shadow-none sm:max-w-xl">
+        <DialogContent
+          className={cn(
+            "overflow-y-auto border-none shadow-none",
+            isMobile
+              ? "inset-0 left-0 top-0 h-full max-h-full w-full max-w-full translate-x-0 translate-y-0 rounded-none bg-background p-4"
+              : "max-h-[85vh] w-[calc(100%-2rem)] bg-transparent p-0 sm:max-w-xl",
+          )}
+        >
           <DialogTitle className="sr-only">Заявка</DialogTitle>
           {dialogRequest &&
             renderCard(
