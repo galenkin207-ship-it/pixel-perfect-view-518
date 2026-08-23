@@ -225,7 +225,7 @@ function AllRecordsPage() {
                   <InitialsAvatar name={r.created_by} />
                   {r.created_by}
                 </span>
-                <span className="flex flex-col gap-1 text-sm break-words">
+                <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm break-words">
                   {r.execution_type === "brigade" ? (
                     <span className="flex items-center gap-2">
                       <InitialsAvatar name={r.brigade_name ?? ""} />
