@@ -159,7 +159,7 @@ export function AppShell({
         <main className="relative min-w-0 flex-1 bg-background pb-28 md:overflow-y-auto md:pb-0">
           <PullToRefresh onRefresh={refreshData}>
             {/* Mobile top bar */}
-            <div className="flex items-center justify-between gap-2 px-4 pt-4 md:hidden">
+            <div className="flex items-center justify-between gap-2 px-2 pt-4 md:hidden">
               <Link to="/" className="flex items-center gap-2 text-sm font-bold">
                 <span className="flex size-6 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground">
                   У
@@ -194,7 +194,7 @@ export function AppShell({
               </div>
             </div>
 
-            <div className="w-full px-4 py-5 md:px-6 md:py-6 xl:px-10 xl:py-8">{children}</div>
+            <div className="w-full px-2 py-5 md:px-6 md:py-6 xl:px-10 xl:py-8">{children}</div>
           </PullToRefresh>
 
           {fab && (

@@ -110,21 +110,21 @@ function ObjectRecordsPage() {
               <span
                 className={`absolute inset-y-3 left-0 w-1 rounded-full ${statusBar[r.status]}`}
               />
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1 space-y-1.5 rounded-xl bg-surface p-3">
-                  {r.items.map((item, i) => (
-                    <div
-                      key={i}
-                      className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"
-                    >
-                      <span className="text-sm font-bold break-words">{item.name}</span>
-                      <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-xs font-bold tabular-nums text-primary">
-                        {itemQty(item)} {item.unit}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <StatusBadge status={r.status} />
+              <StatusBadge status={r.status} className="absolute top-3 right-3" />
+              <div className="mt-7 space-y-1.5 rounded-xl bg-surface p-3">
+                {r.items.map((item, i) => (
+                  <div
+                    key={i}
+                    className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"
+                  >
+                    <span className="min-w-0 flex-1 text-sm font-bold break-words">
+                      {item.name}
+                    </span>
+                    <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-xs font-bold tabular-nums text-primary">
+                      {itemQty(item)} {item.unit}
+                    </span>
+                  </div>
+                ))}
               </div>
               <p className="mt-3 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
                 <span>{r.created_by}</span>
