@@ -49,6 +49,10 @@ export type RequestComment = {
   own: boolean;
   text: string;
   time: string;
+  // Дата самого сообщения (dd.mm.yyyy), а не дата создания заявки.
+  // Опционально — у старых моковых данных её может не быть, тогда
+  // используется дата заявки как фолбэк (см. notification-items.ts).
+  date?: string;
 };
 
 export type WorkRequest = {

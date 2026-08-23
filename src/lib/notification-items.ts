@@ -63,7 +63,11 @@ export function buildNotificationItems(
           author: c.author,
           title: `Сообщение по заявке: ${r.requested_text}`,
           text: c.text,
-          date: r.created_at,
+          // Дата самого сообщения, а не дата создания заявки — иначе вся
+          // переписка "залипает" на дате заявки и сортировка по убыванию
+          // даты/времени в уведомлениях ломается. Фолбэк на r.created_at
+          // остаётся на случай старых моковых данных без даты у комментария.
+          date: c.date ?? r.created_at,
           time: c.time,
         });
       }

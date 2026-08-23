@@ -432,6 +432,7 @@ export const api = {
         own: false,
         text: c.text,
         time: formatTime(c.created_at),
+        date: isoToRu(c.created_at),
       })),
     }));
   },
@@ -447,6 +448,7 @@ export const api = {
       own: false,
       text: c.text,
       time: formatTime(c.created_at),
+      date: isoToRu(c.created_at),
     };
   },
 
