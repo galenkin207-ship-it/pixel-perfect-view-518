@@ -8,7 +8,7 @@ import { PageHeading } from "@/components/app/bits";
 import { RecordDetail } from "@/components/app/record-detail";
 import { StatusBadge } from "@/components/app/status-badge";
 import { statusBar } from "@/lib/status-styles";
-import { allocationsFor, itemQty } from "@/lib/record-utils";
+import { itemQty } from "@/lib/record-utils";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/objects/$id")({
@@ -119,29 +119,14 @@ function ObjectRecordsPage() {
               </div>
               <div className="mt-3 space-y-1.5 rounded-xl bg-surface p-3">
                 {r.items.map((item, i) => (
-                  <div key={i}>
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                      <span className="text-sm break-words">{item.name}</span>
-                      <span className="shrink-0 font-mono text-sm font-bold tabular-nums">
-                        — {itemQty(item)} {item.unit}
-                      </span>
-                    </div>
-                    <div className="mt-1 space-y-0.5">
-                      {(item.allocations?.length
-                        ? item.allocations
-                        : allocationsFor(item, crew)
-                      ).map((a) => (
-                        <div
-                          key={a.employee}
-                          className="flex items-baseline justify-between gap-3 text-xs text-muted-foreground"
-                        >
-                          <span className="min-w-0 flex-1 break-words">{a.employee}</span>
-                          <span className="font-mono">
-                            {a.qty} {item.unit}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                  <div
+                    key={i}
+                    className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5"
+                  >
+                    <span className="text-sm break-words">{item.name}</span>
+                    <span className="shrink-0 font-mono text-sm font-bold tabular-nums">
+                      — {itemQty(item)} {item.unit}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -152,10 +137,10 @@ function ObjectRecordsPage() {
                 </span>
                 {r.photos.length > 0 && (
                   <span
-                    className="flex items-center gap-0.5 text-muted-foreground"
+                    className="flex items-center gap-0.5 font-semibold text-primary"
                     title={`${r.photos.length} фото`}
                   >
-                    <ImageIcon className="size-3.5" />
+                    <ImageIcon className="size-4" />
                     {r.photos.length}
                   </span>
                 )}
