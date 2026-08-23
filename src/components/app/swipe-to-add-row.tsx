@@ -85,7 +85,7 @@ export function SwipeToAddRow({
       >
         <Plus className="size-5" />
         <span className="text-sm font-semibold whitespace-nowrap">
-          {armed ? "Отпустите, чтобы добавить" : "В новую запись"}
+          {armed ? "Добавить" : "В новую запись"}
         </span>
       </div>
       <div
@@ -97,7 +97,7 @@ export function SwipeToAddRow({
           transform: `translateX(${dragX}px)`,
           transition: dragging ? "none" : "transform 200ms ease",
         }}
-        className="relative touch-pan-y bg-card select-none"
+        className="relative touch-pan-y bg-card transition-colors select-none [@media(hover:hover)]:hover:bg-muted/60"
       >
         {children}
       </div>
