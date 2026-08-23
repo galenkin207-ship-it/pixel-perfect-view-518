@@ -113,16 +113,18 @@ function ObjectRecordsPage() {
               <StatusBadge status={r.status} className="absolute top-3 right-3" />
               <div className="mt-7 space-y-1.5 rounded-xl bg-surface p-3">
                 {r.items.map((item, i) => (
-                  <div
-                    key={i}
-                    className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"
-                  >
-                    <span className="min-w-0 flex-1 text-sm font-bold break-words">
-                      {item.name}
-                    </span>
-                    <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-xs font-bold tabular-nums text-primary">
-                      {itemQty(item)} {item.unit}
-                    </span>
+                  <div key={i} className="flex items-baseline gap-2">
+                    {r.items.length > 1 && (
+                      <span className="size-1.5 shrink-0 self-center rounded-full bg-primary" />
+                    )}
+                    <div className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                      <span className="min-w-0 flex-1 text-sm font-bold break-words">
+                        {item.name}
+                      </span>
+                      <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-xs font-bold tabular-nums text-primary">
+                        {itemQty(item)} {item.unit}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>

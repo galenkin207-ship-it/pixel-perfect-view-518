@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { SlidersHorizontal } from "lucide-react";
+import { ImageIcon, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 
 import { AppShell } from "@/components/app/app-shell";
@@ -215,9 +215,14 @@ function AllRecordsPage() {
                   <span className="mt-1 block text-base font-semibold text-foreground">
                     {r.items.length > 0
                       ? r.items.map((item, i) => (
-                          <span key={i} className="block">
-                            {item.name}
-                            {i < r.items.length - 1 ? ";" : ""}
+                          <span key={i} className="flex items-baseline gap-1.5">
+                            {r.items.length > 1 && (
+                              <span className="size-1.5 shrink-0 self-center rounded-full bg-primary" />
+                            )}
+                            <span>
+                              {item.name}
+                              {i < r.items.length - 1 ? ";" : ""}
+                            </span>
                           </span>
                         ))
                       : "Виды работ не добавлены"}
@@ -231,8 +236,19 @@ function AllRecordsPage() {
                   <InitialsAvatar name={performer} />
                   {performer}
                 </span>
-                <span className="text-sm text-muted-foreground">
-                  {r.date.slice(0, 5)}, {r.time}
+                <span className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+                  <span>
+                    {r.date.slice(0, 5)}, {r.time}
+                  </span>
+                  {r.photos.length > 0 && (
+                    <span
+                      className="flex items-center gap-0.5 font-semibold text-primary"
+                      title={`${r.photos.length} фото`}
+                    >
+                      <ImageIcon className="size-4" />
+                      {r.photos.length}
+                    </span>
+                  )}
                 </span>
                 <span className="flex items-center gap-2">
                   <StatusBadge status={r.status} />
