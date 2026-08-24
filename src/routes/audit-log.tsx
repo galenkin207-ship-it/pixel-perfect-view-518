@@ -62,26 +62,386 @@ function formatDateTime(iso: string) {
   }).format(d)}`;
 }
 
-function recordLabel(data: Record<string, unknown> | null) {
-  if (!data) return null;
-  const name = typeof data["object_name_raw"] === "string" ? data["object_name_raw"] : "";
-  const date = typeof data["date"] === "string" ? data["date"] : "";
-  const totalRaw = data["total"];
-  const total = typeof totalRaw === "number" || typeof totalRaw === "string" ? totalRaw : "";
-  return [name, date, total ? `${total} ₽` : ""].filter(Boolean).join(" · ");
+// ---- Форматирование значений полей ----
+
+function formatMoney(v: unknown) {
+  const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+  if (Number.isNaN(n)) return "";
+  return `${Math.round(n).toLocaleString("ru-RU")} ₽`;
 }
 
-function requestLabel(data: Record<string, unknown> | null) {
-  if (!data) return null;
-  const text = typeof data["text"] === "string" ? (data["text"] as string) : "";
-  return text.length > 80 ? `${text.slice(0, 80)}…` : text;
+function formatQty(n: number | undefined) {
+  if (n == null || Number.isNaN(n)) return "";
+  const rounded = Math.round(n * 1000) / 1000;
+  return rounded.toLocaleString("ru-RU", { maximumFractionDigits: 3 });
 }
 
-function EntrySummary({ entry }: { entry: AuditLogEntryFull }) {
-  const data = (entry.after_data ?? entry.before_data) as Record<string, unknown> | null;
-  const label = entry.entity_type === "record" ? recordLabel(data) : requestLabel(data);
-  if (!label) return null;
-  return <p className="mt-2 truncate text-sm text-muted-foreground">{label}</p>;
+function formatDateField(v: unknown) {
+  if (typeof v !== "string") return "";
+  const d = v.slice(0, 10);
+  const m = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : d;
+}
+
+function get(obj: Record<string, unknown> | null | undefined, key: string): unknown {
+  return obj ? obj[key] : undefined;
+}
+
+// ---- Дифф скалярных полей (по конфигу — что за поле, как его подписать/форматировать) ----
+
+type FieldConfig = { key: string; label: string; format?: (v: unknown) => string };
+
+const recordStatusLabels: Record<string, string> = { draft: "Черновик", done: "Готово" };
+
+const recordScalarFields: FieldConfig[] = [
+  { key: "object_name_raw", label: "Объект" },
+  { key: "date", label: "Дата", format: formatDateField },
+  {
+    key: "employees",
+    label: "Сотрудники",
+    format: (v) => (Array.isArray(v) ? (v as string[]).join(", ") : ""),
+  },
+  { key: "total", label: "Сумма", format: formatMoney },
+  { key: "comment", label: "Комментарий" },
+  {
+    key: "status",
+    label: "Статус",
+    format: (v) => recordStatusLabels[String(v)] ?? String(v ?? ""),
+  },
+];
+
+const requestStatusLabels: Record<string, string> = {
+  pending: "На рассмотрении",
+  approved: "Одобрена",
+  rejected: "Отклонена",
+  deleted: "Удалена",
+};
+
+const requestScalarFields: FieldConfig[] = [
+  { key: "text", label: "Текст заявки" },
+  {
+    key: "status",
+    label: "Статус",
+    format: (v) => requestStatusLabels[String(v)] ?? String(v ?? ""),
+  },
+  { key: "resolved_name", label: "Утверждённое название" },
+  { key: "resolved_unit", label: "Ед. изм." },
+  { key: "resolved_price", label: "Цена", format: formatMoney },
+  { key: "reject_reason", label: "Причина отклонения" },
+];
+
+type FieldValue = { key: string; label: string; value: string };
+
+function readFields(data: Record<string, unknown> | null, fields: FieldConfig[]): FieldValue[] {
+  if (!data) return [];
+  return fields
+    .map((f) => {
+      const raw = get(data, f.key);
+      const value = f.format ? f.format(raw) : raw != null ? String(raw) : "";
+      return { key: f.key, label: f.label, value };
+    })
+    .filter((f) => f.value);
+}
+
+type ScalarDiff = { key: string; label: string; before: string; after: string };
+
+function diffScalars(
+  before: Record<string, unknown> | null,
+  after: Record<string, unknown> | null,
+  fields: FieldConfig[],
+): ScalarDiff[] {
+  const result: ScalarDiff[] = [];
+  for (const f of fields) {
+    const bRaw = get(before, f.key);
+    const aRaw = get(after, f.key);
+    const bStr = f.format ? f.format(bRaw) : bRaw != null ? String(bRaw) : "";
+    const aStr = f.format ? f.format(aRaw) : aRaw != null ? String(aRaw) : "";
+    if (bStr !== aStr) result.push({ key: f.key, label: f.label, before: bStr, after: aStr });
+  }
+  return result;
+}
+
+function ScalarField({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "added" | "removed";
+}) {
+  return (
+    <p>
+      <span className="text-muted-foreground">{label}: </span>
+      <span
+        className={cn(
+          "font-medium",
+          tone === "added" ? "text-status-done" : "text-status-rejected line-through",
+        )}
+      >
+        {value}
+      </span>
+    </p>
+  );
+}
+
+function ScalarDiffRow({ diff }: { diff: ScalarDiff }) {
+  return (
+    <p>
+      <span className="text-muted-foreground">{diff.label}: </span>
+      {diff.before && <span className="text-status-rejected line-through">{diff.before}</span>}
+      {diff.before && diff.after && <span className="text-muted-foreground"> → </span>}
+      {diff.after && <span className="font-medium text-status-done">{diff.after}</span>}
+      {!diff.before && !diff.after && <span className="text-muted-foreground">—</span>}
+    </p>
+  );
+}
+
+// ---- Дифф видов работ в записи (сопоставляем по названию + ед. изм.) ----
+
+type RecordItem = { name: string; unit: string; qty: number | string; price: number | string };
+
+type ItemDiff = {
+  key: string;
+  name: string;
+  unit: string;
+  kind: "added" | "removed" | "changed";
+  beforeQty?: number;
+  afterQty?: number;
+  beforePrice?: number;
+  afterPrice?: number;
+};
+
+function itemsOf(data: Record<string, unknown> | null): RecordItem[] {
+  const raw = get(data, "items");
+  return Array.isArray(raw) ? (raw as RecordItem[]) : [];
+}
+
+function diffItems(beforeItems: RecordItem[], afterItems: RecordItem[]): ItemDiff[] {
+  const key = (it: RecordItem) => `${it.name}||${it.unit}`;
+  const beforeMap = new Map(beforeItems.map((it) => [key(it), it]));
+  const afterMap = new Map(afterItems.map((it) => [key(it), it]));
+  const keys = new Set([...beforeMap.keys(), ...afterMap.keys()]);
+  const result: ItemDiff[] = [];
+  for (const k of keys) {
+    const b = beforeMap.get(k);
+    const a = afterMap.get(k);
+    if (b && !a) {
+      result.push({
+        key: k,
+        name: b.name,
+        unit: b.unit,
+        kind: "removed",
+        beforeQty: Number(b.qty),
+        beforePrice: Number(b.price),
+      });
+    } else if (!b && a) {
+      result.push({
+        key: k,
+        name: a.name,
+        unit: a.unit,
+        kind: "added",
+        afterQty: Number(a.qty),
+        afterPrice: Number(a.price),
+      });
+    } else if (b && a && (Number(b.qty) !== Number(a.qty) || Number(b.price) !== Number(a.price))) {
+      result.push({
+        key: k,
+        name: a.name,
+        unit: a.unit,
+        kind: "changed",
+        beforeQty: Number(b.qty),
+        afterQty: Number(a.qty),
+        beforePrice: Number(b.price),
+        afterPrice: Number(a.price),
+      });
+    }
+  }
+  return result;
+}
+
+function ItemsList({ items, tone }: { items: RecordItem[]; tone: "added" | "removed" }) {
+  if (!items.length) return null;
+  const cls = tone === "added" ? "text-status-done" : "text-status-rejected line-through";
+  return (
+    <div>
+      <p className="text-muted-foreground">Виды работ:</p>
+      <ul className="ml-3 list-disc space-y-0.5">
+        {items.map((it, i) => (
+          <li key={i} className={cn("text-xs", cls)}>
+            {it.name} — {formatQty(Number(it.qty))} {it.unit} × {formatMoney(it.price)}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ItemDiffList({ diffs }: { diffs: ItemDiff[] }) {
+  if (!diffs.length) return null;
+  return (
+    <div>
+      <p className="text-muted-foreground">Виды работ:</p>
+      <ul className="ml-3 list-disc space-y-0.5">
+        {diffs.map((d) => (
+          <li key={d.key} className="text-xs">
+            {d.kind === "added" && (
+              <span className="text-status-done">
+                + {d.name} — {formatQty(d.afterQty)} {d.unit} × {formatMoney(d.afterPrice)}
+              </span>
+            )}
+            {d.kind === "removed" && (
+              <span className="text-status-rejected line-through">
+                {d.name} — {formatQty(d.beforeQty)} {d.unit} × {formatMoney(d.beforePrice)}
+              </span>
+            )}
+            {d.kind === "changed" && (
+              <span>
+                <span className="text-foreground">{d.name}</span>{" "}
+                <span className="text-status-rejected line-through">
+                  {formatQty(d.beforeQty)} {d.unit} × {formatMoney(d.beforePrice)}
+                </span>{" "}
+                <span className="text-muted-foreground">→</span>{" "}
+                <span className="font-medium text-status-done">
+                  {formatQty(d.afterQty)} {d.unit} × {formatMoney(d.afterPrice)}
+                </span>
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ---- Сборка вида для записи и заявки в зависимости от типа действия ----
+
+function RecordChangeDetails({ entry }: { entry: AuditLogEntryFull }) {
+  const before = entry.before_data;
+  const after = entry.after_data;
+
+  if (entry.action === "create" || entry.action === "restore") {
+    const fields = readFields(
+      after,
+      recordScalarFields.filter((f) => f.key !== "employees"),
+    );
+    const employeesField = readFields(
+      after,
+      recordScalarFields.filter((f) => f.key === "employees"),
+    )[0];
+    const photos = get(after, "photos");
+    return (
+      <div className="mt-2 space-y-1.5 text-sm">
+        {fields.map((f) => (
+          <ScalarField key={f.key} label={f.label} value={f.value} tone="added" />
+        ))}
+        {employeesField && (
+          <ScalarField label={employeesField.label} value={employeesField.value} tone="added" />
+        )}
+        <ItemsList items={itemsOf(after)} tone="added" />
+        {Array.isArray(photos) && photos.length > 0 && (
+          <p className="text-xs text-muted-foreground">Фото: {photos.length} шт.</p>
+        )}
+      </div>
+    );
+  }
+
+  if (entry.action === "delete") {
+    const fields = readFields(
+      before,
+      recordScalarFields.filter((f) => f.key !== "employees"),
+    );
+    const employeesField = readFields(
+      before,
+      recordScalarFields.filter((f) => f.key === "employees"),
+    )[0];
+    const photos = get(before, "photos");
+    return (
+      <div className="mt-2 space-y-1.5 text-sm">
+        {fields.map((f) => (
+          <ScalarField key={f.key} label={f.label} value={f.value} tone="removed" />
+        ))}
+        {employeesField && (
+          <ScalarField label={employeesField.label} value={employeesField.value} tone="removed" />
+        )}
+        <ItemsList items={itemsOf(before)} tone="removed" />
+        {Array.isArray(photos) && photos.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Фото: {photos.length} шт. (перемещены в корзину)
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // update
+  const scalarDiffs = diffScalars(before, after, recordScalarFields);
+  const itemDiffs = diffItems(itemsOf(before), itemsOf(after));
+
+  if (scalarDiffs.length === 0 && itemDiffs.length === 0) {
+    return <p className="mt-2 text-sm text-muted-foreground">Изменений в данных не найдено.</p>;
+  }
+
+  return (
+    <div className="mt-2 space-y-1.5 text-sm">
+      {scalarDiffs.map((d) => (
+        <ScalarDiffRow key={d.key} diff={d} />
+      ))}
+      <ItemDiffList diffs={itemDiffs} />
+    </div>
+  );
+}
+
+function RequestChangeDetails({ entry }: { entry: AuditLogEntryFull }) {
+  const before = entry.before_data;
+  const after = entry.after_data;
+
+  if (entry.action === "create" || entry.action === "restore") {
+    const fields = readFields(after, requestScalarFields);
+    return (
+      <div className="mt-2 space-y-1.5 text-sm">
+        {fields.map((f) => (
+          <ScalarField key={f.key} label={f.label} value={f.value} tone="added" />
+        ))}
+      </div>
+    );
+  }
+
+  if (entry.action === "delete") {
+    const fields = readFields(before, requestScalarFields);
+    const comments = get(before, "comments");
+    return (
+      <div className="mt-2 space-y-1.5 text-sm">
+        {fields.map((f) => (
+          <ScalarField key={f.key} label={f.label} value={f.value} tone="removed" />
+        ))}
+        {Array.isArray(comments) && comments.length > 0 && (
+          <p className="text-xs text-muted-foreground">Переписка: {comments.length} сообщ.</p>
+        )}
+      </div>
+    );
+  }
+
+  // update
+  const scalarDiffs = diffScalars(before, after, requestScalarFields);
+  if (scalarDiffs.length === 0) {
+    return <p className="mt-2 text-sm text-muted-foreground">Изменений в данных не найдено.</p>;
+  }
+  return (
+    <div className="mt-2 space-y-1.5 text-sm">
+      {scalarDiffs.map((d) => (
+        <ScalarDiffRow key={d.key} diff={d} />
+      ))}
+    </div>
+  );
+}
+
+function ChangeDetails({ entry }: { entry: AuditLogEntryFull }) {
+  return entry.entity_type === "record" ? (
+    <RecordChangeDetails entry={entry} />
+  ) : (
+    <RequestChangeDetails entry={entry} />
+  );
 }
 
 function AuditLogPage() {
@@ -269,7 +629,7 @@ function AuditLogPage() {
                     <p className="text-sm text-muted-foreground">Загрузка…</p>
                   ) : (
                     <>
-                      <EntrySummary entry={full} />
+                      <ChangeDetails entry={full} />
                       {entry.restored_at && entry.restored_by_name && (
                         <p className="mt-1 text-xs text-muted-foreground">
                           Восстановлено пользователем {entry.restored_by_name},{" "}
