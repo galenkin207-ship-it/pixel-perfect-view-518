@@ -165,15 +165,6 @@ function ObjectsPage() {
           const isActive = stats?.active ?? false;
           return (
             <div key={o.id} className="group relative">
-              {isActive && (
-                <span
-                  title={`Есть записи за последние ${ACTIVE_WINDOW_DAYS} дней`}
-                  className="pointer-events-none absolute -top-1.5 -left-1.5 z-10 flex size-3.5"
-                >
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex size-3.5 rounded-full bg-emerald-500 shadow-[0_0_10px_2px_rgba(16,185,129,0.65)]" />
-                </span>
-              )}
               <Link
                 to="/objects/$id"
                 params={{ id: o.id }}
@@ -181,7 +172,15 @@ function ObjectsPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-base font-bold">{o.name}</p>
+                    <p className="flex items-center gap-1.5 truncate text-base font-bold">
+                      <span className="truncate">{o.name}</span>
+                      {isActive && (
+                        <span
+                          title={`Есть записи за последние ${ACTIVE_WINDOW_DAYS} дней`}
+                          className="inline-block size-2 shrink-0 rounded-full bg-emerald-500"
+                        />
+                      )}
+                    </p>
                     <p className="mt-0.5 text-sm text-muted-foreground">{o.address}</p>
                   </div>
                   <span
