@@ -53,59 +53,62 @@ function ObjectRecordsPage() {
 
   return (
     <AppShell {...(isArchived ? {} : { fab: { to: "/records/new", search: { object: id } } })}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageHeading context={object.address} title={object.name} />
-        {canManage && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                if (isArchived) {
-                  await restoreObject(object.id);
-                  toast.success("Объект возвращён в активную работу");
-                } else {
-                  await archiveObject(object.id);
-                  toast.success("Объект перенесён в архив");
+      <div className="sticky top-0 z-20 border-b border-border bg-background pt-5 pb-3 shadow-[0_8px_12px_-10px_rgba(15,23,42,0.35)] md:pt-6 xl:pt-8">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <PageHeading context={object.address} title={object.name} />
+          {canManage && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  if (isArchived) {
+                    await restoreObject(object.id);
+                    toast.success("Объект возвращён в активную работу");
+                  } else {
+                    await archiveObject(object.id);
+                    toast.success("Объект перенесён в архив");
+                  }
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Не удалось изменить статус");
+                } finally {
+                  setBusy(false);
                 }
-              } catch (err) {
-                toast.error(err instanceof Error ? err.message : "Не удалось изменить статус");
-              } finally {
-                setBusy(false);
-              }
-            }}
-            className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
-          >
-            {isArchived ? (
-              <>
-                <ArchiveRestore className="size-3.5" />
-                {busy ? "..." : "Вернуть из архива"}
-              </>
-            ) : (
-              <>
-                <Archive className="size-3.5" />
-                {busy ? "..." : "Завершить объект"}
-              </>
-            )}
-          </button>
+              }}
+              className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
+            >
+              {isArchived ? (
+                <>
+                  <ArchiveRestore className="size-3.5" />
+                  {busy ? "..." : "Вернуть из архива"}
+                </>
+              ) : (
+                <>
+                  <Archive className="size-3.5" />
+                  {busy ? "..." : "Завершить объект"}
+                </>
+              )}
+            </button>
+          )}
+        </div>
+
+        {isArchived && (
+          <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">
+            Объект в архиве — работы завершены, новые записи по нему не добавляются.
+          </p>
         )}
-      </div>
 
-      {isArchived && (
-        <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">
-          Объект в архиве — работы завершены, новые записи по нему не добавляются.
-        </p>
-      )}
-
-      <div className="mt-5 overflow-hidden rounded-2xl border border-border">
-        <div className="hidden grid-cols-[2.6fr_1.1fr_1.2fr_1.1fr_1fr] gap-3 border-b border-border bg-card px-4 py-3 lg:grid">
+        <div className="mt-5 hidden grid-cols-[2.6fr_1.1fr_1.2fr_1.1fr_1fr] gap-3 rounded-t-2xl border border-border bg-card px-4 py-3 lg:grid">
           <span className="label-caps">Вид работы</span>
           <span className="label-caps">Кто подал</span>
           <span className="label-caps">Сотрудник / Бригада</span>
           <span className="label-caps">Дата</span>
           <span className="label-caps">Статус</span>
         </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-border lg:rounded-t-none lg:border-t-0">
         {list.map((r) => {
           const performer =
             r.execution_type === "brigade" ? (r.brigade_name ?? "") : r.employees.join(", ");

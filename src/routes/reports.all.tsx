@@ -64,125 +64,125 @@ function AllRecordsPage() {
 
   return (
     <AppShell>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Все записи</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Выполненные работы по всем объектам
-          </p>
+      <div className="sticky top-0 z-20 border-b border-border bg-background pt-5 pb-3 shadow-[0_8px_12px_-10px_rgba(15,23,42,0.35)] md:pt-6 xl:pt-8">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Все записи</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Выполненные работы по всем объектам
+            </p>
+          </div>
+          <Link
+            to="/records/new"
+            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+          >
+            Новая запись
+          </Link>
         </div>
-        <Link
-          to="/records/new"
-          className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+
+        <button
+          onClick={() => setFiltersOpen((v) => !v)}
+          className="mt-4 flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold md:hidden"
         >
-          Новая запись
-        </Link>
-      </div>
+          <SlidersHorizontal className="size-4" />
+          {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
+        </button>
 
-      <button
-        onClick={() => setFiltersOpen((v) => !v)}
-        className="mt-4 flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold md:hidden"
-      >
-        <SlidersHorizontal className="size-4" />
-        {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
-      </button>
+        <div
+          className={cn(
+            "mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5",
+            !filtersOpen && "hidden md:grid",
+          )}
+        >
+          <label className="block">
+            <span className="label-caps">Объект</span>
+            <select
+              value={objectId}
+              onChange={(e) => updateFilter(setObjectId)(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
+            >
+              <option value="all">Все объекты</option>
+              {objects.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="label-caps">Поиск по работе</span>
+            <input
+              value={query}
+              onChange={(e) => updateFilter(setQuery)(e.target.value)}
+              placeholder="Вид работы..."
+              className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="label-caps">Кто подал</span>
+            <select
+              value={submitter}
+              onChange={(e) => updateFilter(setSubmitter)(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
+            >
+              <option value="all">Все</option>
+              {submitters.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="label-caps">Дата</span>
+            <input
+              type="date"
+              className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="label-caps">Статус</span>
+            <select
+              value={status}
+              onChange={(e) => updateFilter(setStatus)(e.target.value as "all" | RecordStatus)}
+              className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
+            >
+              <option value="all">Все</option>
+              {(Object.keys(statusLabels) as RecordStatus[]).map((s) => (
+                <option key={s} value={s}>
+                  {statusLabels[s]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
-      <div
-        className={cn(
-          "mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5",
-          !filtersOpen && "hidden md:grid",
-        )}
-      >
-        <label className="block">
-          <span className="label-caps">Объект</span>
-          <select
-            value={objectId}
-            onChange={(e) => updateFilter(setObjectId)(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
-          >
-            <option value="all">Все объекты</option>
-            {objects.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="label-caps">Поиск по работе</span>
-          <input
-            value={query}
-            onChange={(e) => updateFilter(setQuery)(e.target.value)}
-            placeholder="Вид работы..."
-            className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
-          />
-        </label>
-        <label className="block">
-          <span className="label-caps">Кто подал</span>
-          <select
-            value={submitter}
-            onChange={(e) => updateFilter(setSubmitter)(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
-          >
-            <option value="all">Все</option>
-            {submitters.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="label-caps">Дата</span>
-          <input
-            type="date"
-            className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
-          />
-        </label>
-        <label className="block">
-          <span className="label-caps">Статус</span>
-          <select
-            value={status}
-            onChange={(e) => updateFilter(setStatus)(e.target.value as "all" | RecordStatus)}
-            className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
-          >
-            <option value="all">Все</option>
-            {(Object.keys(statusLabels) as RecordStatus[]).map((s) => (
-              <option key={s} value={s}>
-                {statusLabels[s]}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+        <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+          <span>
+            Показано {filtered.length === 0 ? 0 : pageStart + 1}–
+            {Math.min(pageStart + PAGE_SIZE, filtered.length)} из {filtered.length} записей
+          </span>
+          <span className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              className="rounded-lg border border-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              ←
+            </button>
+            Страница <span className="font-semibold text-foreground">{currentPage}</span> из{" "}
+            {totalPages}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+              className="rounded-lg border border-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              →
+            </button>
+          </span>
+        </div>
 
-      <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          Показано {filtered.length === 0 ? 0 : pageStart + 1}–
-          {Math.min(pageStart + PAGE_SIZE, filtered.length)} из {filtered.length} записей
-        </span>
-        <span className="flex items-center gap-2">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage <= 1}
-            className="rounded-lg border border-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            ←
-          </button>
-          Страница <span className="font-semibold text-foreground">{currentPage}</span> из{" "}
-          {totalPages}
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage >= totalPages}
-            className="rounded-lg border border-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            →
-          </button>
-        </span>
-      </div>
-
-      <div className="mt-3 overflow-hidden rounded-2xl border border-border">
-        <div className="hidden grid-cols-[2.5fr_1.2fr_1.2fr_1fr_1fr_1.2fr] gap-3 border-b border-border bg-card px-4 py-3 lg:grid">
+        <div className="mt-3 hidden grid-cols-[2.5fr_1.2fr_1.2fr_1fr_1fr_1.2fr] gap-3 rounded-t-2xl border border-border bg-card px-4 py-3 lg:grid">
           <span className="label-caps">Объект / Вид работы</span>
           <span className="label-caps">Кто подал</span>
           <span className="label-caps">Сотрудник / Бригада</span>
@@ -190,6 +190,9 @@ function AllRecordsPage() {
           <span className="label-caps">Статус</span>
           <span className="label-caps">Изменено</span>
         </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-border lg:rounded-t-none lg:border-t-0">
         {paginated.map((r) => {
           const object = objects.find((o) => o.id === r.object_id);
           const performer =
@@ -201,16 +204,20 @@ function AllRecordsPage() {
                 className="grid h-auto w-full auto-rows-min grid-cols-1 gap-2 px-4 py-3 text-left hover:bg-muted/40 lg:grid-cols-[2.5fr_1.2fr_1.2fr_1fr_1fr_1.2fr] lg:items-start lg:gap-3"
               >
                 <span className="block">
-                  <span className="block text-sm font-semibold break-words whitespace-normal">
+                  <span className="block break-words whitespace-normal">
                     {object ? (
                       <>
-                        {object.name}{" "}
-                        <span className="font-normal text-muted-foreground">
-                          · {object.address}
+                        <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                          {object.name}
+                        </span>{" "}
+                        <span className="text-sm font-normal text-muted-foreground">
+                          {object.address}
                         </span>
                       </>
                     ) : (
-                      <span className="font-normal text-muted-foreground">Объект не выбран</span>
+                      <span className="text-sm font-normal text-muted-foreground">
+                        Объект не выбран
+                      </span>
                     )}
                   </span>
                   <span className="mt-1 flex flex-col gap-1">
