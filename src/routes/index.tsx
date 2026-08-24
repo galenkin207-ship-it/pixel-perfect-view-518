@@ -32,6 +32,27 @@ export const Route = createFileRoute("/")({
   component: ObjectsPage,
 });
 
+// WorkRecord.date хранится в виде "dd.mm.yyyy" — парсим в Date для сравнения
+// с сегодняшней датой (без времени).
+function parseRuDate(ru: string): Date | null {
+  const m = ru.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (!m) return null;
+  return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+}
+
+function pluralizeRecords(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "запись";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "записи";
+  return "записей";
+}
+
+// Порог "активности" объекта — если по нему есть хотя бы одна запись за это
+// количество последних календарных дней (включая сегодня), на карточке
+// показывается светящийся индикатор.
+const ACTIVE_WINDOW_DAYS = 15;
+
 function ObjectsPage() {
   const { objects, records, role, currentUser, pinnedObjectIds, unpinObject } = useApp();
   const [query, setQuery] = useState("");
@@ -44,14 +65,38 @@ function ObjectsPage() {
     month: "long",
   }).format(new Date());
 
-  // Объекты, где уже есть записи: для "Кто подал" — только его собственные,
-  // для куратора/администратора — записи всех пользователей.
-  const objectIdsWithRecords = useMemo(() => {
-    const relevant = isForeman
-      ? records.filter((r) => r.created_by === currentUser.full_name)
-      : records;
-    return new Set(relevant.map((r) => r.object_id));
-  }, [records, isForeman, currentUser.full_name]);
+  // Записи, видимые для текущей роли: у "Кто подал" — только свои,
+  // у куратора/администратора — записи всех пользователей.
+  const relevantRecords = useMemo(
+    () => (isForeman ? records.filter((r) => r.created_by === currentUser.full_name) : records),
+    [records, isForeman, currentUser.full_name],
+  );
+
+  // Объекты, где уже есть записи.
+  const objectIdsWithRecords = useMemo(
+    () => new Set(relevantRecords.map((r) => r.object_id)),
+    [relevantRecords],
+  );
+
+  // Кол-во записей "сегодня" и признак активности объекта. Backend не отдаёт
+  // такие агрегаты вместе с объектом, поэтому считаем на фронте из уже
+  // загруженного списка записей.
+  const objectStats = useMemo(() => {
+    const map = new Map<string, { today: number; active: boolean }>();
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    for (const r of relevantRecords) {
+      if (!r.object_id) continue;
+      const recordDate = parseRuDate(r.date);
+      if (!recordDate) continue;
+      const diffDays = Math.round((startOfToday.getTime() - recordDate.getTime()) / 86_400_000);
+      const entry = map.get(r.object_id) ?? { today: 0, active: false };
+      if (diffDays === 0) entry.today += 1;
+      if (diffDays >= 0 && diffDays < ACTIVE_WINDOW_DAYS) entry.active = true;
+      map.set(r.object_id, entry);
+    }
+    return map;
+  }, [relevantRecords]);
 
   const pinnedSet = useMemo(() => new Set(pinnedObjectIds), [pinnedObjectIds]);
 
@@ -115,8 +160,20 @@ function ObjectsPage() {
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {filtered.map((o) => {
           const pinnedOnly = pinnedSet.has(o.id) && !objectIdsWithRecords.has(o.id);
+          const stats = objectStats.get(o.id);
+          const recordsToday = stats?.today ?? 0;
+          const isActive = stats?.active ?? false;
           return (
             <div key={o.id} className="group relative">
+              {isActive && (
+                <span
+                  title={`Есть записи за последние ${ACTIVE_WINDOW_DAYS} дней`}
+                  className="pointer-events-none absolute -top-1.5 -left-1.5 z-10 flex size-3.5"
+                >
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex size-3.5 rounded-full bg-emerald-500 shadow-[0_0_10px_2px_rgba(16,185,129,0.65)]" />
+                </span>
+              )}
               <Link
                 to="/objects/$id"
                 params={{ id: o.id }}
@@ -129,12 +186,14 @@ function ObjectsPage() {
                   </div>
                   <span
                     className={
-                      o.records_today > 0
+                      recordsToday > 0
                         ? "shrink-0 rounded-full bg-accent px-2.5 py-1 text-[10px] font-semibold tracking-[0.06em] text-accent-foreground uppercase"
                         : "shrink-0 rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase"
                     }
                   >
-                    {o.records_today > 0 ? `${o.records_today} записей сегодня` : "Нет записей"}
+                    {recordsToday > 0
+                      ? `${recordsToday} ${pluralizeRecords(recordsToday)} сегодня`
+                      : "Нет записей"}
                   </span>
                 </div>
               </Link>
