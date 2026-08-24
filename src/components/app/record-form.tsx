@@ -22,6 +22,54 @@ function toIso(ru?: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// Как в старом приложении: фото сжимаются на телефоне перед отправкой, чтобы
+// не гонять по мобильной сети тяжёлые снимки с камеры (10-15 МБ HEIC/JPEG).
+// PHOTO_TARGET_SIZE_BYTES — ориентир, до которого пытаемся ужать (не гарантия).
+const PHOTO_TARGET_SIZE_BYTES = 450 * 1024; // ~450 КБ
+const PHOTO_MAX_DIMENSION = 1600;
+const PHOTO_MIN_QUALITY = 0.4;
+// Совсем огромные/битые файлы даже не пытаемся декодировать в браузере —
+// сразу отклоняем (страховка, совпадает по духу с лимитом на бэкенде).
+const PHOTO_MAX_RAW_SIZE_BYTES = 30 * 1024 * 1024;
+
+async function compressImage(file: File): Promise<File> {
+  // HEIC/HEIF браузеры (кроме Safari) не умеют декодировать через canvas —
+  // отправляем как есть, сервер сам переконвертирует и сожмёт при обработке.
+  if (/\.(heic|heif)$/i.test(file.name)) return file;
+
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (!bitmap) return file; // не смогли декодировать в браузере — сожмёт сервер
+
+  const scale = Math.min(1, PHOTO_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+  const width = Math.round(bitmap.width * scale);
+  const height = Math.round(bitmap.height * scale);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    bitmap.close();
+    return file;
+  }
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+
+  const toBlob = (quality: number) =>
+    new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+
+  let quality = 0.85;
+  let blob = await toBlob(quality);
+  while (blob && blob.size > PHOTO_TARGET_SIZE_BYTES && quality > PHOTO_MIN_QUALITY) {
+    quality -= 0.1;
+    blob = await toBlob(quality);
+  }
+  if (!blob) return file;
+
+  const newName = file.name.replace(/\.\w+$/, "") + ".jpg";
+  return new File([blob], newName, { type: "image/jpeg" });
+}
+
 function fromIso(iso: string) {
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
@@ -58,6 +106,7 @@ export function RecordForm({
   const [photos, setPhotos] = useState<string[]>(record?.photos ?? []); // уже загруженные (URL с сервера)
   const [pendingFiles, setPendingFiles] = useState<File[]>([]); // выбраны, но ещё не отправлены
   const [pendingPreviews, setPendingPreviews] = useState<string[]>([]);
+  const [compressingPhotos, setCompressingPhotos] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dateIso, setDateIso] = useState(() => toIso(record?.date));
 
@@ -314,11 +363,32 @@ export function RecordForm({
     }
   };
 
-  const addFiles = (files: FileList | null) => {
+  const addFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const arr = Array.from(files);
-    setPendingFiles((prev) => [...prev, ...arr]);
-    setPendingPreviews((prev) => [...prev, ...arr.map((f) => URL.createObjectURL(f))]);
+    const rejected: string[] = [];
+    const toProcess: File[] = [];
+    for (const f of arr) {
+      if (f.size > PHOTO_MAX_RAW_SIZE_BYTES) rejected.push(f.name);
+      else toProcess.push(f);
+    }
+    if (rejected.length > 0) {
+      toast.error(
+        rejected.length === 1
+          ? `Файл «${rejected[0]}» повреждён или слишком большой`
+          : `Некоторые файлы повреждены или слишком большие: ${rejected.join(", ")}`,
+      );
+    }
+    if (toProcess.length === 0) return;
+
+    setCompressingPhotos(true);
+    try {
+      const compressed = await Promise.all(toProcess.map(compressImage));
+      setPendingFiles((prev) => [...prev, ...compressed]);
+      setPendingPreviews((prev) => [...prev, ...compressed.map((f) => URL.createObjectURL(f))]);
+    } finally {
+      setCompressingPhotos(false);
+    }
   };
 
   const removePendingFile = (idx: number) => {
@@ -495,34 +565,49 @@ export function RecordForm({
         <div>
           <FieldLabel>Фото</FieldLabel>
           <div className="mt-1 flex gap-2">
-            <label className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-surface py-3 text-sm font-semibold">
+            <label
+              className={cn(
+                "flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-surface py-3 text-sm font-semibold",
+                compressingPhotos && "pointer-events-none opacity-60",
+              )}
+            >
               <Camera className="size-4" /> Снять фото
               <input
                 type="file"
                 accept="image/*"
                 capture="environment"
                 multiple
+                disabled={compressingPhotos}
                 className="hidden"
                 onChange={(e) => {
-                  addFiles(e.target.files);
+                  void addFiles(e.target.files);
                   e.target.value = "";
                 }}
               />
             </label>
-            <label className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-surface py-3 text-sm font-semibold">
+            <label
+              className={cn(
+                "flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-surface py-3 text-sm font-semibold",
+                compressingPhotos && "pointer-events-none opacity-60",
+              )}
+            >
               <ImageIcon className="size-4" /> Из галереи
               <input
                 type="file"
                 accept="image/*"
                 multiple
+                disabled={compressingPhotos}
                 className="hidden"
                 onChange={(e) => {
-                  addFiles(e.target.files);
+                  void addFiles(e.target.files);
                   e.target.value = "";
                 }}
               />
             </label>
           </div>
+          {compressingPhotos && (
+            <p className="mt-1.5 text-xs text-muted-foreground">Сжимаем фото...</p>
+          )}
           {(photos.length > 0 || pendingPreviews.length > 0) && (
             <div className="mt-2 flex flex-wrap gap-2">
               {photos.map((p) => (
