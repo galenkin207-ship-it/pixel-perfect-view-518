@@ -53,7 +53,7 @@ function ObjectRecordsPage() {
 
   return (
     <AppShell {...(isArchived ? {} : { fab: { to: "/records/new", search: { object: id } } })}>
-      <div className="sticky top-0 z-20 border-b border-border bg-background pt-5 pb-3 shadow-[0_8px_12px_-10px_rgba(15,23,42,0.35)] md:pt-6 xl:pt-8">
+      <div className="bg-background pt-5 pb-3 md:sticky md:top-0 md:z-20 md:border-b md:border-border md:pt-6 md:shadow-[0_8px_12px_-10px_rgba(15,23,42,0.35)] xl:pt-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <PageHeading context={object.address} title={object.name} />
           {canManage && (
