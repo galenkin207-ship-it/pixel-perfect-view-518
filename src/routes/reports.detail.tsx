@@ -1,17 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Image as ImageIcon,
-  X,
-} from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Download, Image as ImageIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import ExcelJS from "exceljs";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
+import { PhotoViewer } from "@/components/app/photo-viewer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { allocationsFor, itemQty, recordTotal } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
@@ -952,7 +946,7 @@ function RecordDetailBlock({
   employeeFilter?: string;
 }) {
   const [photosOpen, setPhotosOpen] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const crew = crewOf(record);
   const rows = breakdownOf(record).filter(
     (row) => !employeeFilter || row.employee === employeeFilter,
@@ -1011,10 +1005,10 @@ function RecordDetailBlock({
       </button>
       {photosOpen && (
         <div className="mt-2 flex gap-2 overflow-x-auto">
-          {record.photos.map((p) => (
+          {record.photos.map((p, i) => (
             <button
               key={p}
-              onClick={() => setPreview(p)}
+              onClick={() => setPreviewIndex(i)}
               className="size-24 shrink-0 overflow-hidden rounded-xl border border-border bg-muted"
             >
               <img src={p} alt="Фото к записи" className="size-full object-cover" />
@@ -1026,26 +1020,12 @@ function RecordDetailBlock({
         </div>
       )}
 
-      {preview && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
-          onClick={() => setPreview(null)}
-        >
-          <div className="relative flex aspect-video w-full max-w-3xl items-center justify-center overflow-hidden rounded-2xl bg-muted">
-            <img
-              src={preview}
-              alt="Фото к записи"
-              className="max-h-full max-w-full object-contain"
-            />
-            <button
-              onClick={() => setPreview(null)}
-              aria-label="Закрыть"
-              className="absolute top-3 right-3 flex size-8 items-center justify-center rounded-full bg-black/50 text-white"
-            >
-              <X className="size-5" />
-            </button>
-          </div>
-        </div>
+      {previewIndex !== null && (
+        <PhotoViewer
+          photos={record.photos}
+          initialIndex={previewIndex}
+          onClose={() => setPreviewIndex(null)}
+        />
       )}
     </div>
   );

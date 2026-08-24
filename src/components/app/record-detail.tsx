@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { FieldLabel, InitialsAvatar } from "@/components/app/bits";
+import { PhotoViewer } from "@/components/app/photo-viewer";
 import { StatusBadge } from "@/components/app/status-badge";
 import { allocationsFor, canEditRecord, itemQty, recordTotal } from "@/lib/record-utils";
 import { clearQuickDraftId } from "@/lib/quick-draft";
@@ -12,7 +13,7 @@ import { useApp } from "@/state/use-app";
 
 export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose: () => void }) {
   const { objects, role, currentUser, deleteRecord } = useApp();
-  const [photo, setPhoto] = useState<string | null>(null);
+  const [photoIndex, setPhotoIndex] = useState<number | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const object = objects.find((o) => o.id === record.object_id);
@@ -124,10 +125,10 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
           <FieldLabel>Фото записи</FieldLabel>
           {record.photos.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-2">
-              {record.photos.map((p) => (
+              {record.photos.map((p, i) => (
                 <button
                   key={p}
-                  onClick={() => setPhoto(p)}
+                  onClick={() => setPhotoIndex(i)}
                   className="size-20 overflow-hidden rounded-xl bg-muted"
                 >
                   <img src={p} alt="Фото к записи" className="size-full object-cover" />
@@ -196,17 +197,12 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
           </p>
         )}
 
-        {photo && (
-          <div
-            className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 p-6"
-            onClick={() => setPhoto(null)}
-          >
-            <img
-              src={photo}
-              alt="Фото к записи, полный размер"
-              className="max-h-full max-w-xl rounded-2xl object-contain"
-            />
-          </div>
+        {photoIndex !== null && (
+          <PhotoViewer
+            photos={record.photos}
+            initialIndex={photoIndex}
+            onClose={() => setPhotoIndex(null)}
+          />
         )}
       </div>
     </div>
