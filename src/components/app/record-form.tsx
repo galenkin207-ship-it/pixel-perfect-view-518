@@ -240,8 +240,10 @@ export function RecordForm({
         try {
           const uploaded = await api.uploadPhotos(saved.id, pendingFiles);
           commitUploadedPhotos(saved.id, uploaded);
-        } catch {
-          // тихая ошибка — фото можно будет добавить при следующем сохранении
+        } catch (photoErr) {
+          console.error("Автосохранение: не удалось загрузить фото:", photoErr);
+          const detail = photoErr instanceof Error ? photoErr.message : String(photoErr);
+          toast.error(`Фото не загрузились при автосохранении: ${detail}`);
         }
       }
 
@@ -332,14 +334,23 @@ export function RecordForm({
       // Запись теперь под ручным контролем пользователя — свайпы на странице
       // "Все виды работ" больше не должны молча дописывать в неё позиции
       clearQuickDraftId(saved.id);
+
+      if (pendingFiles.length === 0 && pendingPreviews.length > 0) {
+        // Диагностика: превью выбранных фото видны на экране, а список файлов
+        // на отправку почему-то пуст — рассинхронизация состояния, а не сбой сети.
+        toast.error(
+          `Диагностика: превью фото есть (${pendingPreviews.length}), но файлов на отправку 0 — сообщите об этом разработчику`,
+        );
+      }
+
       if (pendingFiles.length > 0) {
         try {
           const uploaded = await api.uploadPhotos(saved.id, pendingFiles);
           commitUploadedPhotos(saved.id, uploaded);
-        } catch {
-          toast.error(
-            "Запись сохранена, но фото загрузить не удалось — попробуйте добавить их ещё раз",
-          );
+        } catch (photoErr) {
+          console.error("Не удалось загрузить фото:", photoErr);
+          const detail = photoErr instanceof Error ? photoErr.message : String(photoErr);
+          toast.error(`Запись сохранена, но фото не загрузились: ${detail}`);
         }
       }
       toast.success(status === "draft" ? "Черновик сохранён" : "Запись сохранена");
@@ -348,8 +359,10 @@ export function RecordForm({
       } else {
         navigate({ to: "/reports/all" });
       }
-    } catch {
-      toast.error("Не удалось сохранить запись, попробуйте ещё раз");
+    } catch (err) {
+      console.error("Не удалось сохранить запись:", err);
+      const detail = err instanceof Error ? err.message : String(err);
+      toast.error(`Не удалось сохранить запись: ${detail}`);
     } finally {
       setSaving(false);
     }
