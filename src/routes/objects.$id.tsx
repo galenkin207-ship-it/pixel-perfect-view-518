@@ -7,6 +7,16 @@ import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar, PageHeading } from "@/components/app/bits";
 import { RecordDetail } from "@/components/app/record-detail";
 import { StatusBadge } from "@/components/app/status-badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { itemQty } from "@/lib/record-utils";
 import { useApp } from "@/state/use-app";
 
@@ -36,6 +46,7 @@ function ObjectRecordsPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const openRecord = records.find((r) => r.id === openId) ?? null;
   const [busy, setBusy] = useState(false);
+  const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false);
   const canManage = role === "curator" || role === "admin";
 
   if (!object) {
@@ -51,6 +62,31 @@ function ObjectRecordsPage() {
 
   const isArchived = object.status === "archived";
 
+  const runArchive = async () => {
+    setBusy(true);
+    try {
+      await archiveObject(object.id);
+      toast.success("Объект перенесён в архив");
+      setConfirmArchiveOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Не удалось изменить статус");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runRestore = async () => {
+    setBusy(true);
+    try {
+      await restoreObject(object.id);
+      toast.success("Объект возвращён в активную работу");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Не удалось изменить статус");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <AppShell {...(isArchived ? {} : { fab: { to: "/records/new", search: { object: id } } })}>
       <div className="bg-background pt-5 pb-3 md:sticky md:top-0 md:z-20 md:border-b md:border-border md:pt-6 md:shadow-[0_8px_12px_-10px_rgba(15,23,42,0.35)] xl:pt-8">
@@ -60,20 +96,11 @@ function ObjectRecordsPage() {
             <button
               type="button"
               disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  if (isArchived) {
-                    await restoreObject(object.id);
-                    toast.success("Объект возвращён в активную работу");
-                  } else {
-                    await archiveObject(object.id);
-                    toast.success("Объект перенесён в архив");
-                  }
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Не удалось изменить статус");
-                } finally {
-                  setBusy(false);
+              onClick={() => {
+                if (isArchived) {
+                  void runRestore();
+                } else {
+                  setConfirmArchiveOpen(true);
                 }
               }}
               className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
@@ -167,6 +194,29 @@ function ObjectRecordsPage() {
       </div>
 
       {openRecord && <RecordDetail record={openRecord} onClose={() => setOpenId(null)} />}
+
+      <AlertDialog
+        open={confirmArchiveOpen}
+        onOpenChange={(open) => !busy && setConfirmArchiveOpen(open)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Завершить объект «{object.name}»?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Объект будет перенесён в архив: новые записи по нему создавать будет нельзя, а сам
+              объект пропадёт из основного списка активных объектов. Все уже внесённые записи и
+              история сохранятся, и объект всегда можно будет вернуть из архива обратно в активную
+              работу.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Отмена</AlertDialogCancel>
+            <AlertDialogAction disabled={busy} onClick={() => void runArchive()}>
+              {busy ? "Завершаем…" : "Завершить объект"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }
