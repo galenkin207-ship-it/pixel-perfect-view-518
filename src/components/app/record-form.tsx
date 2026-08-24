@@ -33,41 +33,52 @@ const PHOTO_MIN_QUALITY = 0.4;
 const PHOTO_MAX_RAW_SIZE_BYTES = 30 * 1024 * 1024;
 
 async function compressImage(file: File): Promise<File> {
-  // HEIC/HEIF браузеры (кроме Safari) не умеют декодировать через canvas —
-  // отправляем как есть, сервер сам переконвертирует и сожмёт при обработке.
-  if (/\.(heic|heif)$/i.test(file.name)) return file;
+  try {
+    // HEIC/HEIF браузеры (кроме Safari) не умеют декодировать через canvas —
+    // отправляем как есть, сервер сам переконвертирует и сожмёт при обработке.
+    if (/\.(heic|heif)$/i.test(file.name)) return file;
+    if (typeof createImageBitmap !== "function") return file;
 
-  const bitmap = await createImageBitmap(file).catch(() => null);
-  if (!bitmap) return file; // не смогли декодировать в браузере — сожмёт сервер
+    const bitmap = await createImageBitmap(file);
 
-  const scale = Math.min(1, PHOTO_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
-  const width = Math.round(bitmap.width * scale);
-  const height = Math.round(bitmap.height * scale);
+    const scale = Math.min(1, PHOTO_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+    const width = Math.round(bitmap.width * scale) || bitmap.width;
+    const height = Math.round(bitmap.height * scale) || bitmap.height;
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      bitmap.close();
+      return file;
+    }
+    ctx.drawImage(bitmap, 0, 0, width, height);
     bitmap.close();
+
+    const toBlob = (quality: number) =>
+      new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+
+    let quality = 0.85;
+    let blob = await toBlob(quality);
+    while (blob && blob.size > PHOTO_TARGET_SIZE_BYTES && quality > PHOTO_MIN_QUALITY) {
+      quality -= 0.1;
+      blob = await toBlob(quality);
+    }
+    if (!blob || blob.size === 0) return file;
+
+    // Камера (capture="environment") на многих мобильных браузерах отдаёт File
+    // с пустым name — тогда без запасного варианта имя превратилось бы в
+    // ".jpg" (файл-с-точки), а path.extname('.jpg') на бэкенде вернёт "" и
+    // сервер молча пропустит такое фото при сохранении.
+    const base = file.name.replace(/\.\w+$/, "").trim() || "photo";
+    return new File([blob], `${base}.jpg`, { type: "image/jpeg" });
+  } catch {
+    // Что бы ни пошло не так при сжатии (нет createImageBitmap, ошибка canvas
+    // и т.п.) — отправляем оригинал файла как есть, сервер сам его обработает.
+    // Фото не должно теряться из-за сбоя сжатия на конкретном устройстве.
     return file;
   }
-  ctx.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
-
-  const toBlob = (quality: number) =>
-    new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
-
-  let quality = 0.85;
-  let blob = await toBlob(quality);
-  while (blob && blob.size > PHOTO_TARGET_SIZE_BYTES && quality > PHOTO_MIN_QUALITY) {
-    quality -= 0.1;
-    blob = await toBlob(quality);
-  }
-  if (!blob) return file;
-
-  const newName = file.name.replace(/\.\w+$/, "") + ".jpg";
-  return new File([blob], newName, { type: "image/jpeg" });
 }
 
 function fromIso(iso: string) {
@@ -394,6 +405,12 @@ export function RecordForm({
         const compressed = await Promise.all(toProcess.map(compressImage));
         setPendingFiles((prev) => [...prev, ...compressed]);
         setPendingPreviews((prev) => [...prev, ...compressed.map((f) => URL.createObjectURL(f))]);
+      } catch {
+        // compressImage сама не должна кидать исключений, но на случай
+        // непредвиденного сбоя всё равно добавляем оригиналы файлов —
+        // фото не должно теряться молча.
+        setPendingFiles((prev) => [...prev, ...toProcess]);
+        setPendingPreviews((prev) => [...prev, ...toProcess.map((f) => URL.createObjectURL(f))]);
       } finally {
         setCompressingPhotos(false);
       }
