@@ -107,6 +107,7 @@ export function RecordForm({
   const [pendingFiles, setPendingFiles] = useState<File[]>([]); // выбраны, но ещё не отправлены
   const [pendingPreviews, setPendingPreviews] = useState<string[]>([]);
   const [compressingPhotos, setCompressingPhotos] = useState(false);
+  const compressionPromiseRef = useRef<Promise<void> | null>(null);
   const [saving, setSaving] = useState(false);
   const [dateIso, setDateIso] = useState(() => toIso(record?.date));
 
@@ -198,6 +199,8 @@ export function RecordForm({
 
   const autoSaveDraft = async () => {
     if (cancelledRef.current || !isDraftEditable) return;
+    if (compressionPromiseRef.current) await compressionPromiseRef.current;
+    if (cancelledRef.current) return;
     if (!hasEnteredData()) return;
 
     setAutoSaving(true);
@@ -223,7 +226,8 @@ export function RecordForm({
 
       if (pendingFiles.length > 0) {
         try {
-          await api.uploadPhotos(saved.id, pendingFiles);
+          const uploaded = await api.uploadPhotos(saved.id, pendingFiles);
+          commitUploadedPhotos(uploaded);
         } catch {
           // тихая ошибка — фото можно будет добавить при следующем сохранении
         }
@@ -299,6 +303,8 @@ export function RecordForm({
       return;
     }
 
+    if (compressionPromiseRef.current) await compressionPromiseRef.current;
+
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = null;
@@ -316,7 +322,8 @@ export function RecordForm({
       clearQuickDraftId(saved.id);
       if (pendingFiles.length > 0) {
         try {
-          await api.uploadPhotos(saved.id, pendingFiles);
+          const uploaded = await api.uploadPhotos(saved.id, pendingFiles);
+          commitUploadedPhotos(uploaded);
         } catch {
           toast.error(
             "Запись сохранена, но фото загрузить не удалось — попробуйте добавить их ещё раз",
@@ -363,7 +370,7 @@ export function RecordForm({
     }
   };
 
-  const addFiles = async (files: FileList | null) => {
+  const addFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const arr = Array.from(files);
     const rejected: string[] = [];
@@ -382,13 +389,19 @@ export function RecordForm({
     if (toProcess.length === 0) return;
 
     setCompressingPhotos(true);
-    try {
-      const compressed = await Promise.all(toProcess.map(compressImage));
-      setPendingFiles((prev) => [...prev, ...compressed]);
-      setPendingPreviews((prev) => [...prev, ...compressed.map((f) => URL.createObjectURL(f))]);
-    } finally {
-      setCompressingPhotos(false);
-    }
+    const task = (async () => {
+      try {
+        const compressed = await Promise.all(toProcess.map(compressImage));
+        setPendingFiles((prev) => [...prev, ...compressed]);
+        setPendingPreviews((prev) => [...prev, ...compressed.map((f) => URL.createObjectURL(f))]);
+      } finally {
+        setCompressingPhotos(false);
+      }
+    })();
+    // Держим последний запущенный процесс сжатия, чтобы save()/autoSaveDraft()
+    // могли на него дождаться и не отправить запись раньше, чем фото попадут
+    // в pendingFiles (иначе при быстром нажатии «Сохранить» фото терялись).
+    compressionPromiseRef.current = task;
   };
 
   const removePendingFile = (idx: number) => {
@@ -396,6 +409,18 @@ export function RecordForm({
     setPendingPreviews((prev) => {
       URL.revokeObjectURL(prev[idx]!);
       return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  // После успешной загрузки на сервер переносим фото из "ожидающих" в
+  // "уже сохранённые" и чистим pendingFiles — иначе следующее автосохранение
+  // отправило бы те же файлы повторно, плодя дубликаты вплоть до лимита.
+  const commitUploadedPhotos = (uploadedUrls: string[]) => {
+    setPhotos((prev) => [...prev, ...uploadedUrls]);
+    setPendingFiles([]);
+    setPendingPreviews((prev) => {
+      prev.forEach((p) => URL.revokeObjectURL(p));
+      return [];
     });
   };
 
@@ -580,7 +605,7 @@ export function RecordForm({
                 disabled={compressingPhotos}
                 className="hidden"
                 onChange={(e) => {
-                  void addFiles(e.target.files);
+                  addFiles(e.target.files);
                   e.target.value = "";
                 }}
               />
@@ -599,7 +624,7 @@ export function RecordForm({
                 disabled={compressingPhotos}
                 className="hidden"
                 onChange={(e) => {
-                  void addFiles(e.target.files);
+                  addFiles(e.target.files);
                   e.target.value = "";
                 }}
               />
@@ -647,7 +672,7 @@ export function RecordForm({
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
             onClick={handleCancel}
-            disabled={saving}
+            disabled={saving || compressingPhotos}
             className={cn(
               "w-full rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold transition-colors disabled:opacity-60 sm:w-auto sm:px-6",
               hasEnteredData() ? "text-foreground" : "text-muted-foreground",
@@ -657,17 +682,17 @@ export function RecordForm({
           </button>
           <button
             onClick={() => save("draft")}
-            disabled={saving}
+            disabled={saving || compressingPhotos}
             className="w-full rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold disabled:opacity-60"
           >
             Сохранить черновик
           </button>
           <button
             onClick={() => save("done")}
-            disabled={saving}
+            disabled={saving || compressingPhotos}
             className="w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
-            {saving ? "Сохранение..." : "Сохранить запись"}
+            {saving ? "Сохранение..." : compressingPhotos ? "Сжимаем фото..." : "Сохранить запись"}
           </button>
         </div>
       </div>
