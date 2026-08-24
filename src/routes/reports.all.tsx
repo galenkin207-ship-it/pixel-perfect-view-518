@@ -38,7 +38,7 @@ function AllRecordsPage() {
   const [page, setPage] = useState(1);
   const openRecord = records.find((r) => r.id === openId) ?? null;
 
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 40;
 
   const submitters = Array.from(new Set(records.map((r) => r.created_by))).sort();
 
@@ -61,6 +61,38 @@ function AllRecordsPage() {
       setter(v);
       setPage(1); // при смене любого фильтра начинаем заново с первой страницы
     };
+
+  const goToPage = (next: number) => {
+    setPage(Math.min(totalPages, Math.max(1, next)));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const Pagination = () => (
+    <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <span>
+        Показано {filtered.length === 0 ? 0 : pageStart + 1}–
+        {Math.min(pageStart + PAGE_SIZE, filtered.length)} из {filtered.length} записей
+      </span>
+      <span className="flex items-center gap-2">
+        <button
+          onClick={() => goToPage(currentPage - 1)}
+          disabled={currentPage <= 1}
+          className="rounded-lg border border-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          ←
+        </button>
+        Страница <span className="font-semibold text-foreground">{currentPage}</span> из{" "}
+        {totalPages}
+        <button
+          onClick={() => goToPage(currentPage + 1)}
+          disabled={currentPage >= totalPages}
+          className="rounded-lg border border-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          →
+        </button>
+      </span>
+    </div>
+  );
 
   return (
     <AppShell>
@@ -157,29 +189,8 @@ function AllRecordsPage() {
           </label>
         </div>
 
-        <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            Показано {filtered.length === 0 ? 0 : pageStart + 1}–
-            {Math.min(pageStart + PAGE_SIZE, filtered.length)} из {filtered.length} записей
-          </span>
-          <span className="flex items-center gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage <= 1}
-              className="rounded-lg border border-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              ←
-            </button>
-            Страница <span className="font-semibold text-foreground">{currentPage}</span> из{" "}
-            {totalPages}
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage >= totalPages}
-              className="rounded-lg border border-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              →
-            </button>
-          </span>
+        <div className="mt-4">
+          <Pagination />
         </div>
 
         <div className="mt-3 hidden grid-cols-[2.5fr_1.2fr_1.2fr_1fr_1fr_1.2fr] gap-3 rounded-t-2xl border border-border bg-card px-4 py-3 lg:grid">
@@ -280,6 +291,12 @@ function AllRecordsPage() {
           );
         })}
       </div>
+
+      {filtered.length > 0 && (
+        <div className="mt-4">
+          <Pagination />
+        </div>
+      )}
 
       {openRecord && <RecordDetail record={openRecord} onClose={() => setOpenId(null)} />}
     </AppShell>
