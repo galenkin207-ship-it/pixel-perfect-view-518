@@ -64,6 +64,10 @@ function AllRecordsPage() {
 
   const goToPage = (next: number) => {
     setPage(Math.min(totalPages, Math.max(1, next)));
+    const scrollContainer = document.getElementById("app-scroll-container");
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: 0, behavior: "smooth" });
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 

@@ -159,7 +159,10 @@ export function AppShell({
         </aside>
 
         {/* Content */}
-        <main className="relative min-w-0 flex-1 bg-background pb-28 md:overflow-y-auto md:pb-0">
+        <main
+          id="app-scroll-container"
+          className="relative min-w-0 flex-1 bg-background pb-28 md:overflow-y-auto md:pb-0"
+        >
           <PullToRefresh onRefresh={refreshData}>
             {/* Mobile top bar */}
             <div className="flex items-center justify-between gap-2 px-2 pt-4 md:hidden">
