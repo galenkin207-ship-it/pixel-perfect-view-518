@@ -4,6 +4,7 @@ import {
   Building2,
   ClipboardList,
   FileBarChart,
+  HardHat,
   Inbox,
   ListChecks,
   MessageSquare,
@@ -107,7 +108,7 @@ export function AppShell({
           <Link
             to="/notifications"
             className={cn(
-              "mb-5 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted",
+              "mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted",
               isActive("/notifications") && "bg-accent font-semibold text-accent-foreground",
             )}
           >
@@ -118,6 +119,17 @@ export function AppShell({
             {notificationsCount > 0 && (
               <span className="text-xs font-semibold text-primary">{notificationsCount}</span>
             )}
+          </Link>
+
+          <Link
+            to="/brigades"
+            className={cn(
+              "mb-5 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted",
+              isActive("/brigades") && "bg-accent font-semibold text-accent-foreground",
+            )}
+          >
+            <HardHat className="size-4 text-muted-foreground" />
+            Бригады
           </Link>
 
           {isAdminLike && <NavGroup title="Главная" items={home} isActive={isActive} />}

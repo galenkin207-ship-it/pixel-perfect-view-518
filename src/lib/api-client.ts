@@ -1,5 +1,6 @@
 import type {
   AppUser,
+  Brigade,
   Role,
   WorkItem,
   WorkObject,
@@ -391,6 +392,33 @@ export const api = {
 
   async unpinObject(id: string): Promise<void> {
     await request<{ ok: true }>(`/pinned-objects/${id}`, { method: "DELETE" });
+  },
+
+  // ---- Бригады: личный справочник текущего пользователя (см. brigades.js на backend) ----
+
+  async listBrigades(): Promise<Brigade[]> {
+    const rows = await request<{ id: number; name: string; members: string[] }[]>("/brigades");
+    return rows.map((b) => ({ id: String(b.id), name: b.name, members: b.members ?? [] }));
+  },
+
+  async createBrigade(input: { name: string; members: string[] }): Promise<Brigade> {
+    const row = await request<{ id: number; name: string; members: string[] }>("/brigades", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return { id: String(row.id), name: row.name, members: row.members ?? [] };
+  },
+
+  async updateBrigade(id: string, input: { name: string; members: string[] }): Promise<Brigade> {
+    const row = await request<{ id: number; name: string; members: string[] }>(`/brigades/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    });
+    return { id: String(row.id), name: row.name, members: row.members ?? [] };
+  },
+
+  async deleteBrigade(id: string): Promise<void> {
+    await request<{ deleted: number }>(`/brigades/${id}`, { method: "DELETE" });
   },
 
   async listUsers(): Promise<AppUser[]> {

@@ -260,6 +260,19 @@ function ProfilePage() {
         </div>
       </section>
 
+      <section className="mt-4 rounded-2xl border border-border bg-card p-4">
+        <h2 className="font-semibold">Мои бригады</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Личные наборы сотрудников для быстрого заполнения состава записи — видны только вам.
+        </p>
+        <Link
+          to="/brigades"
+          className="mt-3 block rounded-xl bg-surface px-4 py-3 text-sm font-semibold transition-colors hover:bg-muted"
+        >
+          Управление бригадами
+        </Link>
+      </section>
+
       {(isAdmin || role === "curator") && (
         <section className="mt-4 rounded-2xl border border-border bg-card p-4">
           <h2 className="font-semibold">История изменений</h2>

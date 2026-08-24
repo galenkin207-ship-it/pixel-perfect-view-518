@@ -14,6 +14,12 @@ export type WorkObject = {
   archived_at: string | null;
 };
 
+// Личная "бригада" пользователя — именованный набор сотрудников для
+// быстрого заполнения состава записи. Хранится и редактируется на backend
+// (см. /api/brigades), видна только тому, кто её создал. На сами записи не
+// влияет — там всегда обычный список сотрудников по фамилиям.
+export type Brigade = { id: string; name: string; members: string[] };
+
 export type EmployeeQty = { employee: string; qty: number };
 
 export type WorkItem = {

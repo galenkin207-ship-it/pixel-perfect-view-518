@@ -12,7 +12,7 @@ import { itemQty, recordTotal, round2, syncItem } from "@/lib/record-utils";
 import { smartFilter } from "@/lib/smart-search";
 import { api } from "@/lib/api-client";
 import { clearQuickDraftId } from "@/lib/quick-draft";
-import type { ExecutionType, WorkItem, WorkRecord } from "@/data/mock";
+import type { WorkItem, WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
 function toIso(ru?: string) {
@@ -51,17 +51,9 @@ export function RecordForm({
   const isAdmin = role === "admin";
 
   const [objectId, setObjectId] = useState(record?.object_id ?? defaultObjectId ?? "");
-  const [executionType, setExecutionType] = useState<ExecutionType>(
-    record?.execution_type ?? "employee",
-  );
   const [items, setItems] = useState<WorkItem[]>(record?.items ?? []);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [selectedEmployees, setSelectedEmployees] = useState<string[]>(
-    record?.execution_type === "brigade"
-      ? (record.brigade_members ?? [])
-      : (record?.employees ?? []),
-  );
-  const [brigadeName, setBrigadeName] = useState(record?.brigade_name ?? brigades[0]!.name);
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>(record?.employees ?? []);
   const [comment, setComment] = useState(record?.comment ?? "");
   const [photos, setPhotos] = useState<string[]>(record?.photos ?? []); // уже загруженные (URL с сервера)
   const [pendingFiles, setPendingFiles] = useState<File[]>([]); // выбраны, но ещё не отправлены
@@ -127,32 +119,15 @@ export function RecordForm({
       autoSaveTimerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    objectId,
-    dateIso,
-    executionType,
-    brigadeName,
-    items,
-    comment,
-    photos,
-    pendingFiles,
-    selectedEmployees,
-    isDraftEditable,
-  ]);
+  }, [objectId, dateIso, items, comment, photos, pendingFiles, selectedEmployees, isDraftEditable]);
 
   const buildPayload = (status: "draft" | "done"): WorkRecord => {
     const now = new Date();
     return {
       id: draftRecordIdRef.current ?? record?.id ?? `r${Date.now()}`,
       object_id: objectId,
-      execution_type: executionType,
-      employees: executionType === "employee" ? selectedEmployees : [],
-      ...(executionType === "brigade"
-        ? {
-            brigade_name: brigadeName,
-            brigade_members: brigades.find((b) => b.name === brigadeName)?.members ?? [],
-          }
-        : {}),
+      execution_type: "employee",
+      employees: selectedEmployees,
       date: fromIso(dateIso) || new Intl.DateTimeFormat("ru-RU").format(now),
       time:
         record?.time ??
@@ -219,10 +194,20 @@ export function RecordForm({
     setItems((prev) => prev.map((it) => syncItem(it, next)));
   };
 
-  const crew =
-    executionType === "brigade"
-      ? (brigades.find((b) => b.name === brigadeName)?.members ?? [])
-      : selectedEmployees;
+  const crew = selectedEmployees;
+
+  // Заполнить состав записи из сохранённой бригады пользователя — просто
+  // удобный способ быстро добавить нескольких сотрудников разом, ничего не
+  // сохраняет отдельно: запись как обычно хранит employees по фамилиям.
+  const fillFromBrigade = (brigadeId: string) => {
+    const brigade = brigades.find((b) => b.id === brigadeId);
+    if (!brigade) return;
+    const merged = [...selectedEmployees];
+    for (const name of brigade.members) {
+      if (!merged.includes(name)) merged.push(name);
+    }
+    applyCrew(merged);
+  };
 
   const setItemCrew = (idx: number, next: string[]) =>
     setItems((prev) => prev.map((it, i) => (i === idx ? syncItem(it, next) : it)));
@@ -375,42 +360,28 @@ export function RecordForm({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface p-1">
-          {(["employee", "brigade"] as ExecutionType[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setExecutionType(t)}
-              className={cn(
-                "rounded-lg py-2.5 text-sm font-semibold transition-colors",
-                executionType === t ? "bg-primary text-primary-foreground" : "text-foreground",
-              )}
-            >
-              {t === "employee" ? "По сотруднику" : "По бригаде"}
-            </button>
-          ))}
-        </div>
-
         <div>
-          <FieldLabel>{executionType === "employee" ? "Состав записи" : "Бригада"}</FieldLabel>
-          {executionType === "employee" ? (
-            <div className="mt-1">
-              <EmployeeSelect all={employees} value={selectedEmployees} onChange={applyCrew} />
+          <FieldLabel>Состав записи</FieldLabel>
+          <div className="mt-1">
+            <EmployeeSelect all={employees} value={selectedEmployees} onChange={applyCrew} />
+          </div>
+          {brigades.length > 0 && (
+            <div className="mt-2">
+              <select
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) fillFromBrigade(e.target.value);
+                }}
+                className="w-full rounded-xl border border-dashed border-border bg-surface px-4 py-2.5 text-sm text-muted-foreground"
+              >
+                <option value="">Заполнить из бригады...</option>
+                {brigades.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} — {b.members.join(", ")}
+                  </option>
+                ))}
+              </select>
             </div>
-          ) : (
-            <select
-              value={brigadeName}
-              onChange={(e) => {
-                setBrigadeName(e.target.value);
-                applyCrew(brigades.find((b) => b.name === e.target.value)?.members ?? []);
-              }}
-              className="mt-1 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm"
-            >
-              {brigades.map((b) => (
-                <option key={b.name} value={b.name}>
-                  {b.name} — {b.members.join(", ")}
-                </option>
-              ))}
-            </select>
           )}
         </div>
 

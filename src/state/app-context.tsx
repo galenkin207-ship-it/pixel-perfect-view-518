@@ -3,15 +3,15 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ClipboardList, Inbox, MessageSquare, Trash2 } from "lucide-react";
 import { AppContext, type AppState, type NotificationSettings, type ThemeMode } from "./use-app";
-import {
-  brigades as mockBrigades,
-  type AppUser,
-  type Role,
-  type WorkObject,
-  type WorkRecord,
-  type WorkRequest,
-  type WorkType,
-  type RequestComment,
+import type {
+  AppUser,
+  Brigade,
+  Role,
+  WorkObject,
+  WorkRecord,
+  WorkRequest,
+  WorkType,
+  RequestComment,
 } from "@/data/mock";
 import { api, ApiError } from "@/lib/api-client";
 import { playNotificationChime } from "@/lib/notification-sound";
@@ -50,6 +50,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [employees, setEmployees] = useState<string[]>([]);
   const [units, setUnits] = useState<string[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [brigades, setBrigades] = useState<Brigade[]>([]);
   const [pinnedObjectIds, setPinnedObjectIds] = useState<string[]>([]);
   const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(new Set());
 
@@ -77,7 +78,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // входе, и фоновым автообновлением, и pull-to-refresh на телефоне.
   const loadAppData = useCallback(async () => {
     if (!sessionUser) return;
-    const [objs, emps, uns, types, recs, reqs, usrs, pinned, readIds] = await Promise.all([
+    const [objs, emps, uns, types, recs, reqs, usrs, pinned, readIds, brgs] = await Promise.all([
       api.listObjects(),
       api.listEmployees(),
       api.listUnits(),
@@ -87,6 +88,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       sessionUser.role === "admin" ? api.listUsers() : Promise.resolve([]),
       api.listPinnedObjects(),
       api.listReadNotificationIds().catch(() => [] as string[]),
+      api.listBrigades(),
     ]);
     setObjects(objs);
     setEmployees(emps);
@@ -97,6 +99,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (usrs.length) setUsers(usrs);
     setPinnedObjectIds(pinned);
     setReadNotificationIds(new Set(readIds));
+    setBrigades(brgs);
   }, [sessionUser]);
 
   // Как только знаем, что пользователь авторизован — подгружаем справочники и записи.
@@ -706,6 +709,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Бригады — личный справочник текущего пользователя. Не влияют на сами
+  // записи (там всегда обычный employees: string[]) — только на скорость
+  // заполнения формы записи.
+  const addBrigade = async (input: { name: string; members: string[] }): Promise<Brigade> => {
+    try {
+      const created = await api.createBrigade(input);
+      setBrigades((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name, "ru")));
+      return created;
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to create brigade");
+    }
+  };
+
+  const updateBrigade = async (
+    id: string,
+    input: { name: string; members: string[] },
+  ): Promise<Brigade> => {
+    try {
+      const saved = await api.updateBrigade(id, input);
+      setBrigades((prev) =>
+        prev
+          .map((b) => (b.id === saved.id ? saved : b))
+          .sort((a, b) => a.name.localeCompare(b.name, "ru")),
+      );
+      return saved;
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to update brigade");
+    }
+  };
+
+  const deleteBrigade = async (id: string): Promise<void> => {
+    try {
+      await api.deleteBrigade(id);
+      setBrigades((prev) => prev.filter((b) => b.id !== id));
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to delete brigade");
+    }
+  };
+
   const value: AppState = {
     role,
     currentUser,
@@ -754,7 +796,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUsers,
     addUser,
     updateUser,
-    brigades: mockBrigades,
+    brigades,
+    addBrigade,
+    updateBrigade,
+    deleteBrigade,
     notificationsCount,
     notificationItems,
     readNotificationIds,

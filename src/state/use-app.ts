@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type {
   AppUser,
+  Brigade,
   Role,
   WorkObject,
   WorkRecord,
@@ -85,7 +86,11 @@ export type AppState = {
     id: string,
     input: { full_name?: string; role?: Role; active?: boolean; password?: string },
   ) => Promise<AppUser>;
-  brigades: { name: string; members: string[] }[];
+  /** Личные бригады текущего пользователя — видны и редактируются только им. */
+  brigades: Brigade[];
+  addBrigade: (input: { name: string; members: string[] }) => Promise<Brigade>;
+  updateBrigade: (id: string, input: { name: string; members: string[] }) => Promise<Brigade>;
+  deleteBrigade: (id: string) => Promise<void>;
   notificationsCount: number;
   notificationItems: NotificationItem[];
   /** id уведомлений, которые текущий пользователь уже открыл/просмотрел. */
