@@ -41,6 +41,14 @@ export type AppState = {
   addRecord: (r: WorkRecord) => Promise<WorkRecord>;
   updateRecord: (r: WorkRecord) => Promise<WorkRecord>;
   deleteRecord: (id: string) => Promise<void>;
+  /**
+   * Обновляет photos записи прямо в общем кэше (без похода на сервер).
+   * Нужна, потому что фото загружаются отдельным запросом ПОСЛЕ создания/
+   * обновления записи — без этого addRecord/updateRecord уже успели положить
+   * в стейт версию записи с пустыми photos, и она значилась бы без фото до
+   * следующей полной синхронизации.
+   */
+  setRecordPhotos: (id: string, photos: string[]) => void;
   requests: WorkRequest[];
   setRequests: React.Dispatch<React.SetStateAction<WorkRequest[]>>;
   createRequest: (text: string) => Promise<WorkRequest>;

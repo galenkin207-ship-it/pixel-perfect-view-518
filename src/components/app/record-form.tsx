@@ -103,6 +103,7 @@ export function RecordForm({
     addRecord,
     updateRecord,
     deleteRecord,
+    setRecordPhotos,
     createRequest,
     currentUser,
   } = useApp();
@@ -238,7 +239,7 @@ export function RecordForm({
       if (pendingFiles.length > 0) {
         try {
           const uploaded = await api.uploadPhotos(saved.id, pendingFiles);
-          commitUploadedPhotos(uploaded);
+          commitUploadedPhotos(saved.id, uploaded);
         } catch {
           // тихая ошибка — фото можно будет добавить при следующем сохранении
         }
@@ -334,7 +335,7 @@ export function RecordForm({
       if (pendingFiles.length > 0) {
         try {
           const uploaded = await api.uploadPhotos(saved.id, pendingFiles);
-          commitUploadedPhotos(uploaded);
+          commitUploadedPhotos(saved.id, uploaded);
         } catch {
           toast.error(
             "Запись сохранена, но фото загрузить не удалось — попробуйте добавить их ещё раз",
@@ -430,10 +431,17 @@ export function RecordForm({
   };
 
   // После успешной загрузки на сервер переносим фото из "ожидающих" в
-  // "уже сохранённые" и чистим pendingFiles — иначе следующее автосохранение
-  // отправило бы те же файлы повторно, плодя дубликаты вплоть до лимита.
-  const commitUploadedPhotos = (uploadedUrls: string[]) => {
-    setPhotos((prev) => [...prev, ...uploadedUrls]);
+  // "уже сохранённые", чистим pendingFiles (иначе следующее автосохранение
+  // отправило бы те же файлы повторно) и обновляем ГЛОБАЛЬНЫЙ кэш записей —
+  // addRecord/updateRecord кладёт в стейт версию записи ДО загрузки фото
+  // (фото грузятся отдельным запросом following), так что без этого сохранённая
+  // запись выглядела бы без фото на других экранах до следующей синхронизации.
+  const commitUploadedPhotos = (recordId: string, uploadedUrls: string[]) => {
+    setPhotos((prev) => {
+      const next = [...prev, ...uploadedUrls];
+      setRecordPhotos(recordId, next);
+      return next;
+    });
     setPendingFiles([]);
     setPendingPreviews((prev) => {
       prev.forEach((p) => URL.revokeObjectURL(p));

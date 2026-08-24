@@ -432,6 +432,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setRecordPhotos = (id: string, photos: string[]) => {
+    setRecords((prev) => prev.map((r) => (r.id === id ? { ...r, photos } : r)));
+  };
+
   const createRequest = async (text: string): Promise<WorkRequest> => {
     try {
       const created = await api.createRequest(text);
@@ -771,6 +775,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addRecord,
     updateRecord,
     deleteRecord,
+    setRecordPhotos,
     requests,
     setRequests,
     createRequest,
