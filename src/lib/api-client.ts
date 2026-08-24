@@ -654,6 +654,50 @@ export const api = {
     if (ids.length === 0) return;
     await request("/notification-reads", { method: "POST", body: JSON.stringify({ ids }) });
   },
+
+  async listAuditLog(params: {
+    entity_type?: "record" | "request";
+    entity_id?: string;
+    actor?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ entries: AuditLogEntry[]; total: number; offset: number; has_more: boolean }> {
+    const qs = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== "") qs.set(key, String(value));
+    }
+    const query = qs.toString();
+    return request(`/audit-log${query ? `?${query}` : ""}`);
+  },
+
+  async getAuditLogEntry(id: string): Promise<AuditLogEntryFull> {
+    return request(`/audit-log/${id}`);
+  },
+
+  async restoreAuditLogEntry(id: string): Promise<{ restored: true }> {
+    return request(`/audit-log/${id}/restore`, { method: "POST" });
+  },
+};
+
+export type AuditLogEntry = {
+  id: number;
+  entity_type: "record" | "request";
+  entity_id: number;
+  action: "create" | "update" | "delete" | "restore";
+  actor_user_id: number | null;
+  actor_name: string;
+  has_before: boolean;
+  has_after: boolean;
+  restored_at: string | null;
+  restored_by_name: string | null;
+  created_at: string;
+};
+
+export type AuditLogEntryFull = Omit<AuditLogEntry, "has_before" | "has_after"> & {
+  before_data: Record<string, unknown> | null;
+  after_data: Record<string, unknown> | null;
 };
 
 export { ApiError };

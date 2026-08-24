@@ -10,11 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuditLogRouteImport } from './routes/audit-log'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as WorkTypesRouteImport } from './routes/work-types'
 import { Route as ObjectsIdRouteImport } from './routes/objects.$id'
+import { Route as ObjectsArchiveRouteImport } from './routes/objects.archive'
 import { Route as ProfileIndexRouteImport } from './routes/profile.index'
 import { Route as RecordsIdRouteImport } from './routes/records.$id'
 import { Route as RecordsNewRouteImport } from './routes/records.new'
@@ -26,6 +28,11 @@ import { Route as ProfileManageSectionRouteImport } from './routes/profile.manag
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuditLogRoute = AuditLogRouteImport.update({
+  id: '/audit-log',
+  path: '/audit-log',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -51,6 +58,11 @@ const WorkTypesRoute = WorkTypesRouteImport.update({
 const ObjectsIdRoute = ObjectsIdRouteImport.update({
   id: '/objects/$id',
   path: '/objects/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ObjectsArchiveRoute = ObjectsArchiveRouteImport.update({
+  id: '/objects/archive',
+  path: '/objects/archive',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileIndexRoute = ProfileIndexRouteImport.update({
@@ -91,11 +103,13 @@ const ProfileManageSectionRoute = ProfileManageSectionRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/audit-log': typeof AuditLogRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/notifications': typeof NotificationsRoute
   '/work-types': typeof WorkTypesRoute
   '/objects/$id': typeof ObjectsIdRoute
+  '/objects/archive': typeof ObjectsArchiveRoute
   '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
   '/reports/all': typeof ReportsAllRoute
@@ -106,11 +120,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/audit-log': typeof AuditLogRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/notifications': typeof NotificationsRoute
   '/work-types': typeof WorkTypesRoute
   '/objects/$id': typeof ObjectsIdRoute
+  '/objects/archive': typeof ObjectsArchiveRoute
   '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
   '/reports/all': typeof ReportsAllRoute
@@ -122,11 +138,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/audit-log': typeof AuditLogRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/notifications': typeof NotificationsRoute
   '/work-types': typeof WorkTypesRoute
   '/objects/$id': typeof ObjectsIdRoute
+  '/objects/archive': typeof ObjectsArchiveRoute
   '/records/$id': typeof RecordsIdRoute
   '/records/new': typeof RecordsNewRoute
   '/reports/all': typeof ReportsAllRoute
@@ -139,11 +157,13 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/audit-log'
     | '/login'
     | '/messages'
     | '/notifications'
     | '/work-types'
     | '/objects/$id'
+    | '/objects/archive'
     | '/records/$id'
     | '/records/new'
     | '/reports/all'
@@ -154,11 +174,13 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/audit-log'
     | '/login'
     | '/messages'
     | '/notifications'
     | '/work-types'
     | '/objects/$id'
+    | '/objects/archive'
     | '/records/$id'
     | '/records/new'
     | '/reports/all'
@@ -169,11 +191,13 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/audit-log'
     | '/login'
     | '/messages'
     | '/notifications'
     | '/work-types'
     | '/objects/$id'
+    | '/objects/archive'
     | '/records/$id'
     | '/records/new'
     | '/reports/all'
@@ -185,11 +209,13 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuditLogRoute: typeof AuditLogRoute
   LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRoute
   NotificationsRoute: typeof NotificationsRoute
   WorkTypesRoute: typeof WorkTypesRoute
   ObjectsIdRoute: typeof ObjectsIdRoute
+  ObjectsArchiveRoute: typeof ObjectsArchiveRoute
   RecordsIdRoute: typeof RecordsIdRoute
   RecordsNewRoute: typeof RecordsNewRoute
   ReportsAllRoute: typeof ReportsAllRoute
@@ -206,6 +232,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/audit-log': {
+      id: '/audit-log'
+      path: '/audit-log'
+      fullPath: '/audit-log'
+      preLoaderRoute: typeof AuditLogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -241,6 +274,13 @@ declare module '@tanstack/react-router' {
       path: '/objects/$id'
       fullPath: '/objects/$id'
       preLoaderRoute: typeof ObjectsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/objects/archive': {
+      id: '/objects/archive'
+      path: '/objects/archive'
+      fullPath: '/objects/archive'
+      preLoaderRoute: typeof ObjectsArchiveRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile/': {
@@ -297,11 +337,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuditLogRoute: AuditLogRoute,
   LoginRoute: LoginRoute,
   MessagesRoute: MessagesRoute,
   NotificationsRoute: NotificationsRoute,
   WorkTypesRoute: WorkTypesRoute,
   ObjectsIdRoute: ObjectsIdRoute,
+  ObjectsArchiveRoute: ObjectsArchiveRoute,
   RecordsIdRoute: RecordsIdRoute,
   RecordsNewRoute: RecordsNewRoute,
   ReportsAllRoute: ReportsAllRoute,

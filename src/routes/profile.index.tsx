@@ -260,6 +260,21 @@ function ProfilePage() {
         </div>
       </section>
 
+      {(isAdmin || role === "curator") && (
+        <section className="mt-4 rounded-2xl border border-border bg-card p-4">
+          <h2 className="font-semibold">История изменений</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Кто и когда менял записи и заявки{isAdmin ? " — с возможностью восстановления." : "."}
+          </p>
+          <Link
+            to="/audit-log"
+            className="mt-3 block rounded-xl bg-surface px-4 py-3 text-sm font-semibold transition-colors hover:bg-muted"
+          >
+            Открыть историю изменений
+          </Link>
+        </section>
+      )}
+
       {isAdmin && (
         <section className="mt-4 rounded-2xl border border-border bg-card p-4">
           <h2 className="font-semibold">Управление</h2>
