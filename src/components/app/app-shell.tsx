@@ -74,6 +74,7 @@ export function AppShell({
     { to: "/messages", label: "Заявки на согласование", icon: Inbox, badge: pending },
   ];
   const manage: NavItem[] = [
+    { to: "/brigades", label: "Бригады", icon: HardHat },
     { to: "/profile/manage/work-types", label: "Виды работ", icon: ClipboardList },
     { to: "/profile/manage/objects", label: "Объекты", icon: Building2 },
     { to: "/profile/manage/employees", label: "Сотрудники", icon: Users },
@@ -108,7 +109,7 @@ export function AppShell({
           <Link
             to="/notifications"
             className={cn(
-              "mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted",
+              "mb-5 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted",
               isActive("/notifications") && "bg-accent font-semibold text-accent-foreground",
             )}
           >
@@ -119,17 +120,6 @@ export function AppShell({
             {notificationsCount > 0 && (
               <span className="text-xs font-semibold text-primary">{notificationsCount}</span>
             )}
-          </Link>
-
-          <Link
-            to="/brigades"
-            className={cn(
-              "mb-5 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted",
-              isActive("/brigades") && "bg-accent font-semibold text-accent-foreground",
-            )}
-          >
-            <HardHat className="size-4 text-muted-foreground" />
-            Бригады
           </Link>
 
           {isAdminLike && <NavGroup title="Главная" items={home} isActive={isActive} />}
@@ -144,6 +134,7 @@ export function AppShell({
                     tabs[0]!,
                     { to: "/reports/all", label: "Все записи", icon: ListChecks },
                     { to: "/work-types", label: "Все виды работ", icon: ClipboardList },
+                    { to: "/brigades", label: "Бригады", icon: HardHat },
                     tabs[2]!,
                     tabs[3]!,
                   ]
