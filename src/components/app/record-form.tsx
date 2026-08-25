@@ -140,7 +140,6 @@ export function RecordForm({
   // сохранённого ранее черновика. Короткая пауза нужна только чтобы не слать запрос
   // на каждое нажатие клавиши.
   const AUTO_SAVE_DEBOUNCE_MS = 1200;
-  const [autoSaving, setAutoSaving] = useState(false);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSaveInFlightRef = useRef(false);
   const cancelledRef = useRef(false);
@@ -227,7 +226,6 @@ export function RecordForm({
     if (!hasEnteredData()) return;
 
     autoSaveInFlightRef.current = true;
-    setAutoSaving(true);
     const existingId = draftRecordIdRef.current;
     const filesToUpload = pendingFiles;
     const payload = buildPayload("draft");
@@ -270,7 +268,6 @@ export function RecordForm({
       toast.error("Не удалось автоматически сохранить черновик");
     } finally {
       autoSaveInFlightRef.current = false;
-      setAutoSaving(false);
     }
   };
 
@@ -784,8 +781,6 @@ export function RecordForm({
             <span className="font-mono text-lg font-bold">{total.toLocaleString("ru-RU")} ₽</span>
           </div>
         )}
-
-        {autoSaving && <p className="text-xs text-muted-foreground">Автосохранение черновика...</p>}
 
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
