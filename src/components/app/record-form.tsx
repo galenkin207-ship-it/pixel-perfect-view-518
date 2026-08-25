@@ -497,20 +497,18 @@ export function RecordForm({
   // отдельным запросом following), так что без этого сохранённая запись
   // выглядела бы без фото на других экранах до следующей синхронизации.
   //
-  // Важно: убираем из pendingFiles/pendingPreviews ИМЕННО те файлы, что были
-  // в этом конкретном запросе (uploadedFiles), а не весь список подчистую —
-  // иначе если пользователь успел добавить ещё одно фото, пока шла загрузка
-  // предыдущего, оно бы стёрлось вместе с уже отправленными.
+  // ВАЖНО: бэкенд в ответ на загрузку присылает ПОЛНЫЙ список фото записи
+  // (все существующие + только что добавленные), а не только новые — так
+  // авторитетнее для клиента. Поэтому здесь именно ЗАМЕНЯЕМ photos этим
+  // списком, а не добавляем поверх текущего — иначе каждая следующая
+  // загрузка задваивала/затраивала все предыдущие фото.
   const commitUploadedPhotos = (
     recordId: string,
     uploadedFiles: File[],
-    uploadedUrls: string[],
+    fullPhotosList: string[],
   ) => {
-    setPhotos((prev) => {
-      const next = [...prev, ...uploadedUrls];
-      setRecordPhotos(recordId, next);
-      return next;
-    });
+    setPhotos(fullPhotosList);
+    setRecordPhotos(recordId, fullPhotosList);
     let removedIndices: number[] = [];
     setPendingFiles((prevFiles) => {
       const next: File[] = [];
