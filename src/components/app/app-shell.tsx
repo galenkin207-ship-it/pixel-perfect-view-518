@@ -41,7 +41,7 @@ const mobileTabs = (role: Role): NavItem[] => [
   role === "admin"
     ? { to: "/messages", label: "Заявки", icon: Inbox }
     : { to: "/messages", label: "Переписка", icon: MessageSquare },
-  role === "user"
+  role === "user" || role === "admin"
     ? { to: "/work-types", label: "Все виды работ", icon: ClipboardList }
     : { to: "/profile", label: "Профиль", icon: User },
 ];
@@ -173,7 +173,7 @@ export function AppShell({
                 Учёт работ
               </Link>
               <div className="flex items-center gap-2">
-                {role === "user" && (
+                {(role === "user" || role === "admin") && (
                   <Link
                     to="/profile"
                     aria-label="Профиль"
