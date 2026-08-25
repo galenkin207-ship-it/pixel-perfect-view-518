@@ -116,7 +116,7 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
 
         {record.comment && (
           <div className="mt-4">
-            <FieldLabel>Комментарий прораба</FieldLabel>
+            <FieldLabel>Комментарий</FieldLabel>
             <p className="mt-1 text-sm break-words">{record.comment}</p>
           </div>
         )}
