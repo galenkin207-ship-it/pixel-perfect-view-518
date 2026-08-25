@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -62,6 +63,12 @@ function MessagesPage() {
   const isForeman = role === "user";
   const [selected, setSelected] = useState<string[]>([]);
   const [draft, setDraft] = useState<Record<string, string>>({});
+  // Свёрнутость блока переписки по каждой заявке. По умолчанию свёрнуто в
+  // общем списке — разворачивается по тапу. При открытии заявки из
+  // уведомления (диалог) переписка всегда показывается развёрнутой,
+  // независимо от этого состояния.
+  const [expandedChats, setExpandedChats] = useState<Record<string, boolean>>({});
+  const toggleChat = (id: string) => setExpandedChats((s) => ({ ...s, [id]: !(s[id] ?? false) }));
   const [resolve, setResolve] = useState<
     Record<string, { name: string; unit: string; price: string }>
   >({});
@@ -223,64 +230,93 @@ function MessagesPage() {
           </div>
         )}
 
-        <div className="mt-3 space-y-2">
-          {r.comments.map((c) => {
-            const own = c.author === currentUser.full_name;
-            return (
-              <div key={c.id} className={cn("flex", own ? "justify-end" : "justify-start")}>
-                <span
+        {(() => {
+          const canComment = role !== "curator" && r.status !== "deleted";
+          const chatExpanded = inDialog || !!expandedChats[r.id];
+          return (
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => toggleChat(r.id)}
+                className="flex w-full items-center justify-between gap-2 rounded-lg py-1 text-left text-xs font-semibold tracking-[0.02em] text-muted-foreground"
+              >
+                <span>Переписка{r.comments.length > 0 ? ` · ${r.comments.length}` : ""}</span>
+                <ChevronDown
                   className={cn(
-                    "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
-                    own ? "bg-primary text-primary-foreground" : "bg-surface",
+                    "size-4 shrink-0 transition-transform",
+                    chatExpanded && "rotate-180",
                   )}
-                >
-                  {c.text}
-                  <span
-                    className={cn(
-                      "mt-1 block text-[10px]",
-                      own ? "text-primary-foreground/70" : "text-muted-foreground",
-                    )}
-                  >
-                    {c.author} · {c.time}
-                  </span>
-                </span>
-              </div>
-            );
-          })}
-        </div>
+                />
+              </button>
 
-        {role !== "curator" && r.status !== "deleted" && (
-          <div className="mt-3 flex items-end gap-2">
-            <textarea
-              ref={(el) => {
-                commentRefs.current[r.id] = el;
-                autoResizeTextarea(el);
-              }}
-              value={draft[r.id] ?? ""}
-              onChange={(e) => {
-                setDraft((d) => ({ ...d, [r.id]: e.target.value }));
-                autoResizeTextarea(e.target);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void sendComment(r.id);
-                }
-              }}
-              disabled={sendingComment === r.id}
-              placeholder="Сообщение..."
-              rows={1}
-              className="max-h-40 min-h-10 flex-1 resize-none overflow-y-auto rounded-xl border border-border bg-surface px-3 py-2 text-sm leading-normal disabled:opacity-60"
-            />
-            <button
-              onClick={() => void sendComment(r.id)}
-              disabled={sendingComment === r.id || !(draft[r.id] ?? "").trim()}
-              className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-            >
-              Отправить
-            </button>
-          </div>
-        )}
+              {chatExpanded && (
+                <>
+                  <div className="mt-2 space-y-2">
+                    {r.comments.map((c) => {
+                      const own = c.author === currentUser.full_name;
+                      return (
+                        <div
+                          key={c.id}
+                          className={cn("flex", own ? "justify-end" : "justify-start")}
+                        >
+                          <span
+                            className={cn(
+                              "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
+                              own ? "bg-primary text-primary-foreground" : "bg-surface",
+                            )}
+                          >
+                            {c.text}
+                            <span
+                              className={cn(
+                                "mt-1 block text-[10px]",
+                                own ? "text-primary-foreground/70" : "text-muted-foreground",
+                              )}
+                            >
+                              {c.author} · {c.time}
+                            </span>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {canComment && (
+                    <div className="mt-3 flex items-end gap-2">
+                      <textarea
+                        ref={(el) => {
+                          commentRefs.current[r.id] = el;
+                          autoResizeTextarea(el);
+                        }}
+                        value={draft[r.id] ?? ""}
+                        onChange={(e) => {
+                          setDraft((d) => ({ ...d, [r.id]: e.target.value }));
+                          autoResizeTextarea(e.target);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            void sendComment(r.id);
+                          }
+                        }}
+                        disabled={sendingComment === r.id}
+                        placeholder="Сообщение..."
+                        rows={1}
+                        className="max-h-40 min-h-10 flex-1 resize-none overflow-y-auto rounded-xl border border-border bg-surface px-3 py-2 text-sm leading-normal disabled:opacity-60"
+                      />
+                      <button
+                        onClick={() => void sendComment(r.id)}
+                        disabled={sendingComment === r.id || !(draft[r.id] ?? "").trim()}
+                        className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                      >
+                        Отправить
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {isAdmin && r.status === "pending" && (
           <div className="mt-3 space-y-2 rounded-xl bg-surface p-3">
