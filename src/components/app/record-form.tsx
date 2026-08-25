@@ -142,6 +142,7 @@ export function RecordForm({
   const AUTO_SAVE_DEBOUNCE_MS = 1200;
   const [autoSaving, setAutoSaving] = useState(false);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSaveInFlightRef = useRef(false);
   const cancelledRef = useRef(false);
   // id черновика, автоматически созданного/обновляемого в этой сессии
   const draftRecordIdRef = useRef<string | undefined>(record?.id);
@@ -183,8 +184,14 @@ export function RecordForm({
       clearTimeout(timer);
       autoSaveTimerRef.current = null;
     };
+    // `photos` намеренно НЕ в зависимостях: это состояние, которое сама же
+    // автосохранение обновляет после успешной загрузки фото (см.
+    // commitUploadedPhotos). Если держать его в deps, каждое успешное
+    // автосохранение тут же планирует СЛЕДУЮЩЕЕ — и так до бесконечности,
+    // пока в форме есть хоть что-то (это и порождало "лишние" срабатывания
+    // и дублирующиеся превью при добавлении следующих фото).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [objectId, dateIso, items, comment, photos, pendingFiles, selectedEmployees, isDraftEditable]);
+  }, [objectId, dateIso, items, comment, pendingFiles, selectedEmployees, isDraftEditable]);
 
   const buildPayload = (status: "draft" | "done"): WorkRecord => {
     const now = new Date();
@@ -214,12 +221,15 @@ export function RecordForm({
 
   const autoSaveDraft = async () => {
     if (cancelledRef.current || !isDraftEditable) return;
+    if (autoSaveInFlightRef.current) return; // предыдущее автосохранение ещё не завершилось
     if (compressionPromiseRef.current) await compressionPromiseRef.current;
     if (cancelledRef.current) return;
     if (!hasEnteredData()) return;
 
+    autoSaveInFlightRef.current = true;
     setAutoSaving(true);
     const existingId = draftRecordIdRef.current;
+    const filesToUpload = pendingFiles;
     const payload = buildPayload("draft");
     try {
       const saved = existingId ? await updateRecord(payload) : await addRecord(payload);
@@ -239,10 +249,10 @@ export function RecordForm({
       draftRecordIdRef.current = saved.id;
       if (!existingId) createdDraftInSessionRef.current = true;
 
-      if (pendingFiles.length > 0) {
+      if (filesToUpload.length > 0) {
         try {
-          const uploaded = await api.uploadPhotos(saved.id, pendingFiles);
-          commitUploadedPhotos(saved.id, uploaded);
+          const uploaded = await api.uploadPhotos(saved.id, filesToUpload);
+          commitUploadedPhotos(saved.id, filesToUpload, uploaded);
         } catch (photoErr) {
           console.error("Автосохранение: не удалось загрузить фото:", photoErr);
           const detail = photoErr instanceof Error ? photoErr.message : String(photoErr);
@@ -250,11 +260,16 @@ export function RecordForm({
         }
       }
 
-      toast.success("Черновик сохранён автоматически");
+      // Тост "черновик сохранён" — только при первом автосохранении (создании
+      // записи). При дальнейшем редактировании сохранение идёт молча.
+      if (!existingId) {
+        toast.success("Черновик сохранён автоматически");
+      }
     } catch (err) {
       console.error("Автосохранение черновика не удалось:", err);
       toast.error("Не удалось автоматически сохранить черновик");
     } finally {
+      autoSaveInFlightRef.current = false;
       setAutoSaving(false);
     }
   };
@@ -338,18 +353,10 @@ export function RecordForm({
       // "Все виды работ" больше не должны молча дописывать в неё позиции
       clearQuickDraftId(saved.id);
 
-      if (pendingFiles.length === 0 && pendingPreviews.length > 0) {
-        // Диагностика: превью выбранных фото видны на экране, а список файлов
-        // на отправку почему-то пуст — рассинхронизация состояния, а не сбой сети.
-        toast.error(
-          `Диагностика: превью фото есть (${pendingPreviews.length}), но файлов на отправку 0 — сообщите об этом разработчику`,
-        );
-      }
-
       if (pendingFiles.length > 0) {
         try {
           const uploaded = await api.uploadPhotos(saved.id, pendingFiles);
-          commitUploadedPhotos(saved.id, uploaded);
+          commitUploadedPhotos(saved.id, pendingFiles, uploaded);
         } catch (photoErr) {
           console.error("Не удалось загрузить фото:", photoErr);
           const detail = photoErr instanceof Error ? photoErr.message : String(photoErr);
@@ -485,21 +492,42 @@ export function RecordForm({
   };
 
   // После успешной загрузки на сервер переносим фото из "ожидающих" в
-  // "уже сохранённые", чистим pendingFiles (иначе следующее автосохранение
-  // отправило бы те же файлы повторно) и обновляем ГЛОБАЛЬНЫЙ кэш записей —
-  // addRecord/updateRecord кладёт в стейт версию записи ДО загрузки фото
-  // (фото грузятся отдельным запросом following), так что без этого сохранённая
-  // запись выглядела бы без фото на других экранах до следующей синхронизации.
-  const commitUploadedPhotos = (recordId: string, uploadedUrls: string[]) => {
+  // "уже сохранённые" и обновляем ГЛОБАЛЬНЫЙ кэш записей — addRecord/
+  // updateRecord кладёт в стейт версию записи ДО загрузки фото (фото грузятся
+  // отдельным запросом following), так что без этого сохранённая запись
+  // выглядела бы без фото на других экранах до следующей синхронизации.
+  //
+  // Важно: убираем из pendingFiles/pendingPreviews ИМЕННО те файлы, что были
+  // в этом конкретном запросе (uploadedFiles), а не весь список подчистую —
+  // иначе если пользователь успел добавить ещё одно фото, пока шла загрузка
+  // предыдущего, оно бы стёрлось вместе с уже отправленными.
+  const commitUploadedPhotos = (
+    recordId: string,
+    uploadedFiles: File[],
+    uploadedUrls: string[],
+  ) => {
     setPhotos((prev) => {
       const next = [...prev, ...uploadedUrls];
       setRecordPhotos(recordId, next);
       return next;
     });
-    setPendingFiles([]);
-    setPendingPreviews((prev) => {
-      prev.forEach((p) => URL.revokeObjectURL(p));
-      return [];
+    let removedIndices: number[] = [];
+    setPendingFiles((prevFiles) => {
+      const next: File[] = [];
+      removedIndices = [];
+      prevFiles.forEach((f, i) => {
+        if (uploadedFiles.includes(f)) removedIndices.push(i);
+        else next.push(f);
+      });
+      return next;
+    });
+    setPendingPreviews((prevPreviews) => {
+      const next: string[] = [];
+      prevPreviews.forEach((url, i) => {
+        if (removedIndices.includes(i)) URL.revokeObjectURL(url);
+        else next.push(url);
+      });
+      return next;
     });
   };
 
