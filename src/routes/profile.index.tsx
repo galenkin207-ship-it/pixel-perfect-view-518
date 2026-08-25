@@ -4,6 +4,16 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar, PageHeading } from "@/components/app/bits";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { roleLabels, type Role } from "@/data/mock";
 import { useApp } from "@/state/use-app";
@@ -87,6 +97,7 @@ function ProfilePage() {
 
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
 
   useEffect(() => {
     if (!isPushSupported()) return;
@@ -132,12 +143,28 @@ function ProfilePage() {
         </div>
         <button
           type="button"
-          onClick={() => void logout()}
+          onClick={() => setConfirmLogoutOpen(true)}
           className="shrink-0 rounded-xl border border-border bg-surface px-3 py-2 text-sm font-semibold"
         >
           Выйти
         </button>
       </div>
+
+      <AlertDialog open={confirmLogoutOpen} onOpenChange={setConfirmLogoutOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Выйти из аккаунта?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Потребуется снова войти по логину и паролю, чтобы продолжить пользоваться приложением
+              на этом устройстве.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void logout()}>Выйти</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <section className="mt-4 rounded-2xl border border-border bg-card p-4">
         <h2 className="font-semibold">Оформление</h2>

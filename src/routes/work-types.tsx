@@ -1,11 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Plus, Search } from "lucide-react";
+import { FilePlus2, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
 import { SwipeToAddRow } from "@/components/app/swipe-to-add-row";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { smartFilter } from "@/lib/smart-search";
 import { getQuickDraftId, setQuickDraftId } from "@/lib/quick-draft";
 import type { WorkItem, WorkType } from "@/data/mock";
@@ -27,11 +28,32 @@ export const Route = createFileRoute("/work-types")({
 const PER_PAGE = 30;
 
 function WorkTypesPage() {
-  const { workTypes, role, records, addRecord, updateRecord, currentUser } = useApp();
+  const { workTypes, role, records, addRecord, updateRecord, currentUser, createRequest } =
+    useApp();
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
   const isAdminLike = role === "admin" || role === "curator";
+
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [requestText, setRequestText] = useState("");
+  const [sendingRequest, setSendingRequest] = useState(false);
+
+  const sendRequest = async () => {
+    const text = requestText.trim();
+    if (!text) return;
+    setSendingRequest(true);
+    try {
+      await createRequest(text);
+      toast.success("Заявка отправлена администратору");
+      setRequestText("");
+      setRequestOpen(false);
+    } catch {
+      toast.error("Не удалось отправить заявку, попробуйте ещё раз");
+    } finally {
+      setSendingRequest(false);
+    }
+  };
 
   const filtered = useMemo(() => smartFilter(workTypes, q, (w) => w.name), [workTypes, q]);
   const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
@@ -89,7 +111,17 @@ function WorkTypesPage() {
 
   return (
     <AppShell>
-      <PageHeading context={`Справочник · ${workTypes.length} позиций`} title="Все виды работ" />
+      <div className="flex items-start justify-between gap-3">
+        <PageHeading context={`Справочник · ${workTypes.length} позиций`} title="Все виды работ" />
+        <button
+          type="button"
+          onClick={() => setRequestOpen(true)}
+          className="mt-1 flex shrink-0 items-center gap-1.5 rounded-xl border border-dashed border-primary/50 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
+        >
+          <FilePlus2 className="size-4" />
+          Заявка
+        </button>
+      </div>
 
       <div className="relative mt-4 w-full max-w-xl lg:max-w-2xl xl:max-w-3xl">
         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -165,6 +197,40 @@ function WorkTypesPage() {
           </button>
         </div>
       )}
+      <Dialog open={requestOpen} onOpenChange={(open) => !open && setRequestOpen(false)}>
+        <DialogContent className="max-h-[85vh] w-[calc(100%-2rem)] overflow-y-auto sm:max-w-md">
+          <DialogTitle>Заявка на новый вид работы</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Не нашли нужную позицию в справочнике? Опишите, что нужно добавить — заявку рассмотрит
+            администратор.
+          </p>
+          <textarea
+            rows={4}
+            autoFocus
+            value={requestText}
+            onChange={(e) => setRequestText(e.target.value)}
+            placeholder="Опишите недостающие позиции, по одной на строку"
+            className="mt-3 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm"
+          />
+          <div className="mt-4 flex gap-3">
+            <button
+              type="button"
+              onClick={() => setRequestOpen(false)}
+              className="flex-1 rounded-xl border border-border bg-surface py-3 text-sm font-semibold"
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              onClick={() => void sendRequest()}
+              disabled={sendingRequest || !requestText.trim()}
+              className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            >
+              {sendingRequest ? "Отправка..." : "Отправить заявку"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
