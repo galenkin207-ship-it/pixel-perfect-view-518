@@ -327,6 +327,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const theme = themeMode === "system" ? systemTheme : themeMode;
 
+  // Класс "dark" нужен не только на обёртке внутри React-дерева, но и на
+  // <html>: всплывающие окна (Dialog, AlertDialog, Sheet, выпадающие списки)
+  // рендерятся через Portal прямо в document.body, минуя обёртку — без этого
+  // они всегда оставались светлыми даже при включённой тёмной теме.
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+  }, [theme]);
+
   const objectNameById = useMemo(() => new Map(objects.map((o) => [o.id, o.name])), [objects]);
 
   // Считаем по-настоящему непрочитанные (то, чего ещё нет в notification_reads
