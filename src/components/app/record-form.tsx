@@ -120,7 +120,10 @@ export function RecordForm({
   const [pendingPreviews, setPendingPreviews] = useState<string[]>([]);
   const [compressingPhotos, setCompressingPhotos] = useState(false);
   const compressionPromiseRef = useRef<Promise<void> | null>(null);
+  const lastAddSignatureRef = useRef<string | null>(null);
+  const lastAddTimeRef = useRef(0);
   const [saving, setSaving] = useState(false);
+  const [deletingPhoto, setDeletingPhoto] = useState<string | null>(null);
   const [dateIso, setDateIso] = useState(() => toIso(record?.date));
 
   const object = objects.find((o) => o.id === objectId) ?? null;
@@ -398,6 +401,20 @@ export function RecordForm({
   const addFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const arr = Array.from(files);
+
+    // iOS Safari при capture="environment" + multiple иногда стреляет
+    // событием change ДВАЖДЫ подряд для одного и того же снятого фото —
+    // из-за этого в черновике появлялись два одинаковых превью. Если тот же
+    // набор файлов (по имени+размеру) прилетел повторно в течение 1.5 сек —
+    // считаем это дублирующим событием и игнорируем.
+    const signature = arr.map((f) => `${f.name}:${f.size}`).join("|");
+    const now = Date.now();
+    if (signature === lastAddSignatureRef.current && now - lastAddTimeRef.current < 1500) {
+      return;
+    }
+    lastAddSignatureRef.current = signature;
+    lastAddTimeRef.current = now;
+
     const rejected: string[] = [];
     const toProcess: File[] = [];
     for (const f of arr) {
@@ -441,6 +458,30 @@ export function RecordForm({
       URL.revokeObjectURL(prev[idx]!);
       return prev.filter((_, i) => i !== idx);
     });
+  };
+
+  // Удаление уже загруженного на сервер фото (актуально на этапе черновика —
+  // фото могло попасть на сервер через автосохранение ещё до финального
+  // сохранения записи). Бьём в бэкенд сразу, а не только локально, иначе
+  // фото вернётся после следующей синхронизации/обновления страницы.
+  const removeUploadedPhoto = async (photoUrlToDelete: string) => {
+    const recordId = draftRecordIdRef.current ?? record?.id;
+    if (!recordId) return;
+    setDeletingPhoto(photoUrlToDelete);
+    try {
+      await api.deletePhoto(recordId, photoUrlToDelete);
+      setPhotos((prev) => {
+        const next = prev.filter((p) => p !== photoUrlToDelete);
+        setRecordPhotos(recordId, next);
+        return next;
+      });
+    } catch (err) {
+      console.error("Не удалось удалить фото:", err);
+      const detail = err instanceof Error ? err.message : String(err);
+      toast.error(`Не удалось удалить фото: ${detail}`);
+    } finally {
+      setDeletingPhoto(null);
+    }
   };
 
   // После успешной загрузки на сервер переносим фото из "ожидающих" в
@@ -674,12 +715,25 @@ export function RecordForm({
           {(photos.length > 0 || pendingPreviews.length > 0) && (
             <div className="mt-2 flex flex-wrap gap-2">
               {photos.map((p) => (
-                <img
-                  key={p}
-                  src={p}
-                  alt="Фото к записи"
-                  className="size-16 rounded-lg object-cover"
-                />
+                <div key={p} className="relative size-16">
+                  <img
+                    src={p}
+                    alt="Фото к записи"
+                    className={cn(
+                      "size-16 rounded-lg object-cover",
+                      deletingPhoto === p && "opacity-40",
+                    )}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeUploadedPhoto(p)}
+                    disabled={deletingPhoto === p}
+                    aria-label="Удалить фото"
+                    className="absolute -top-1.5 -right-1.5 rounded-full bg-black/70 p-0.5 disabled:opacity-60"
+                  >
+                    <X className="size-3 text-white" />
+                  </button>
+                </div>
               ))}
               {pendingPreviews.map((p, idx) => (
                 <div key={p} className="relative size-16">

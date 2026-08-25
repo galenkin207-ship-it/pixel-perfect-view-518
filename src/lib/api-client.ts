@@ -659,6 +659,16 @@ export const api = {
     return result.photos.map(photoUrl);
   },
 
+  async deletePhoto(recordId: string, photoUrlToDelete: string): Promise<void> {
+    // Фото хранятся как полный URL вида /api/records/{id}/photos/{filename} —
+    // бэкенду для удаления нужно только имя файла из конца этого пути.
+    const filename = photoUrlToDelete.split("/").pop();
+    await request<{ deleted: string }>(
+      `/records/${recordId}/photos/${encodeURIComponent(filename ?? "")}`,
+      { method: "DELETE" },
+    );
+  },
+
   async getPushVapidPublicKey(): Promise<{ enabled: boolean; publicKey: string | null }> {
     return request<{ enabled: boolean; publicKey: string | null }>("/push/vapid-public-key");
   },
