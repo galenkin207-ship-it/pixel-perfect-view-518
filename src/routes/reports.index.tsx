@@ -1018,8 +1018,8 @@ function ReportsPage() {
 
           {statsOpen && (
             <>
-              <div className="mt-3 flex flex-wrap items-end gap-3">
-                <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface p-1 sm:w-64">
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
+                <div className="col-span-2 grid grid-cols-2 gap-1 rounded-xl bg-surface p-1 sm:w-64">
                   {(["employees", "objects"] as const).map((g) => (
                     <button
                       key={g}
@@ -1040,7 +1040,7 @@ function ReportsPage() {
                     type="date"
                     value={statsFrom}
                     onChange={(e) => setStatsFrom(e.target.value)}
-                    className="mt-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm sm:w-auto"
                   />
                 </div>
                 <div>
@@ -1049,7 +1049,7 @@ function ReportsPage() {
                     type="date"
                     value={statsTo}
                     onChange={(e) => setStatsTo(e.target.value)}
-                    className="mt-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm sm:w-auto"
                   />
                 </div>
               </div>
