@@ -652,6 +652,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Показать/скрыть объект на главном экране — единая точка входа, которая
+  // всегда приводит ОБА флага (pinned/hidden) в согласованное состояние.
+  // Нужна из-за того, что "есть ли у объекта записи" считается по-разному на
+  // разных экранах (на главной — только записи текущего пользователя для
+  // роли "Кто подал", на странице объекта — все записи): если раньше решение
+  // "открепить через unpin" или "открепить через hide" принималось по этому
+  // расходящемуся признаку, объект мог получить противоречивую комбинацию
+  // pinned=true + hidden=true, и повторный клик "закрепить" на самом деле
+  // просто ещё раз проставлял уже стоящий pin, не снимая hidden — кнопка
+  // выглядела нерабочей. Теперь "показать" всегда снимает hidden и на
+  // всякий случай проставляет pin, а "скрыть" всегда снимает pin и
+  // проставляет hidden — независимо от того, есть ли у объекта записи.
+  const showObjectOnHome = async (id: string): Promise<void> => {
+    const results = await Promise.allSettled([pinObject(id), unhideObject(id)]);
+    const failed = results.find((r) => r.status === "rejected");
+    if (failed && failed.status === "rejected") {
+      throw failed.reason instanceof Error
+        ? failed.reason
+        : new Error("failed to show object on home");
+    }
+  };
+
+  const hideObjectFromHome = async (id: string): Promise<void> => {
+    const results = await Promise.allSettled([unpinObject(id), hideObject(id)]);
+    const failed = results.find((r) => r.status === "rejected");
+    if (failed && failed.status === "rejected") {
+      throw failed.reason instanceof Error
+        ? failed.reason
+        : new Error("failed to hide object from home");
+    }
+  };
+
   const addWorkType = async (input: {
     name: string;
     unit: string;
@@ -807,6 +839,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     hiddenObjectIds,
     hideObject,
     unhideObject,
+    showObjectOnHome,
+    hideObjectFromHome,
     records,
     addRecord,
     updateRecord,

@@ -60,9 +60,8 @@ function ObjectsPage() {
     role,
     currentUser,
     pinnedObjectIds,
-    unpinObject,
     hiddenObjectIds,
-    hideObject,
+    hideObjectFromHome,
   } = useApp();
   const [query, setQuery] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -176,7 +175,6 @@ function ObjectsPage() {
 
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {filtered.map((o) => {
-          const pinnedOnly = pinnedSet.has(o.id) && !objectIdsWithRecords.has(o.id);
           const stats = objectStats.get(o.id);
           const recordsToday = stats?.today ?? 0;
           const isActive = stats?.active ?? false;
@@ -213,45 +211,22 @@ function ObjectsPage() {
                   </span>
                 </div>
               </Link>
-              {pinnedOnly ? (
-                <button
-                  type="button"
-                  aria-label="Открепить объект"
-                  title="Открепить от главного экрана"
-                  onClick={async () => {
-                    try {
-                      await unpinObject(o.id);
-                      toast.success("Объект откреплён");
-                    } catch (err) {
-                      toast.error(
-                        err instanceof Error ? err.message : "Не удалось открепить объект",
-                      );
-                    }
-                  }}
-                  className="absolute right-3 bottom-3 flex size-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-status-rejected"
-                >
-                  <Pin className="size-3.5 fill-primary text-primary" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  aria-label="Открепить объект с главного экрана"
-                  title="Открепить с главного экрана"
-                  onClick={async () => {
-                    try {
-                      await hideObject(o.id);
-                      toast.success("Объект откреплён от главного экрана");
-                    } catch (err) {
-                      toast.error(
-                        err instanceof Error ? err.message : "Не удалось открепить объект",
-                      );
-                    }
-                  }}
-                  className="absolute right-3 bottom-3 flex size-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-status-rejected"
-                >
-                  <PinOff className="size-3.5" />
-                </button>
-              )}
+              <button
+                type="button"
+                aria-label="Открепить объект с главного экрана"
+                title="Открепить с главного экрана"
+                onClick={async () => {
+                  try {
+                    await hideObjectFromHome(o.id);
+                    toast.success("Объект откреплён от главного экрана");
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Не удалось открепить объект");
+                  }
+                }}
+                className="absolute right-3 bottom-3 flex size-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-status-rejected"
+              >
+                <PinOff className="size-3.5" />
+              </button>
             </div>
           );
         })}
@@ -281,7 +256,7 @@ function ObjectPickerDialog({
   hiddenSet: Set<string>;
   objectIdsWithRecords: Set<string>;
 }) {
-  const { objects, pinObject, unpinObject, hideObject, unhideObject } = useApp();
+  const { objects, showObjectOnHome, hideObjectFromHome } = useApp();
   const [q, setQ] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -296,22 +271,13 @@ function ObjectPickerDialog({
     !hiddenSet.has(o.id) && (objectIdsWithRecords.has(o.id) || pinnedSet.has(o.id));
 
   const toggle = async (o: { id: string }) => {
-    const hasRecords = objectIdsWithRecords.has(o.id);
     const shown = isShown(o);
     setBusyId(o.id);
     try {
-      if (hasRecords) {
-        // Объект с записями скрывают/возвращают через личный список
-        // открепления, не трогая закрепление.
-        if (shown) {
-          await hideObject(o.id);
-        } else {
-          await unhideObject(o.id);
-        }
-      } else if (shown) {
-        await unpinObject(o.id);
+      if (shown) {
+        await hideObjectFromHome(o.id);
       } else {
-        await pinObject(o.id);
+        await showObjectOnHome(o.id);
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Не удалось изменить видимость объекта");

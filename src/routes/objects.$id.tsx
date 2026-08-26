@@ -44,14 +44,13 @@ function ObjectRecordsPage() {
     objects,
     records,
     role,
+    currentUser,
     archiveObject,
     restoreObject,
     pinnedObjectIds,
-    pinObject,
-    unpinObject,
     hiddenObjectIds,
-    hideObject,
-    unhideObject,
+    showObjectOnHome,
+    hideObjectFromHome,
   } = useApp();
   const object = objects.find((o) => o.id === id);
   const list = records.filter((r) => r.object_id === id);
@@ -61,6 +60,7 @@ function ObjectRecordsPage() {
   const [pinBusy, setPinBusy] = useState(false);
   const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false);
   const canManage = role === "curator" || role === "admin";
+  const isForeman = role === "user";
 
   if (!object) {
     return (
@@ -74,7 +74,13 @@ function ObjectRecordsPage() {
   }
 
   const isArchived = object.status === "archived";
-  const hasRecords = list.length > 0;
+  // Признак "есть записи" считаем так же, как на главной: у "Кто подал" —
+  // только свои записи, иначе — все. Иначе кнопка на этой странице и на
+  // главной экране будет решать по-разному, есть ли у объекта записи, и
+  // состояние "закреплён/скрыт" разъедется.
+  const hasRecords = isForeman
+    ? list.some((r) => r.created_by === currentUser.full_name)
+    : list.length > 0;
   const isPinned = pinnedObjectIds.includes(object.id);
   const isHidden = hiddenObjectIds.includes(object.id);
   // Показан ли объект сейчас на главном экране — та же логика, что и на
@@ -84,20 +90,12 @@ function ObjectRecordsPage() {
   const toggleHome = async () => {
     setPinBusy(true);
     try {
-      if (hasRecords) {
-        if (shownOnHome) {
-          await hideObject(object.id);
-          toast.success("Объект откреплён от главного экрана");
-        } else {
-          await unhideObject(object.id);
-          toast.success("Объект возвращён на главный экран");
-        }
-      } else if (shownOnHome) {
-        await unpinObject(object.id);
-        toast.success("Объект откреплён");
+      if (shownOnHome) {
+        await hideObjectFromHome(object.id);
+        toast.success("Объект откреплён от главного экрана");
       } else {
-        await pinObject(object.id);
-        toast.success("Объект закреплён на главном экране");
+        await showObjectOnHome(object.id);
+        toast.success("Объект возвращён на главный экран");
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Не удалось изменить видимость объекта");

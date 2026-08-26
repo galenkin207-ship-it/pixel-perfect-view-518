@@ -40,6 +40,8 @@ export type AppState = {
   hiddenObjectIds: string[];
   hideObject: (id: string) => Promise<void>;
   unhideObject: (id: string) => Promise<void>;
+  showObjectOnHome: (id: string) => Promise<void>;
+  hideObjectFromHome: (id: string) => Promise<void>;
   records: WorkRecord[];
   addRecord: (r: WorkRecord) => Promise<WorkRecord>;
   updateRecord: (r: WorkRecord) => Promise<WorkRecord>;
