@@ -52,6 +52,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [brigades, setBrigades] = useState<Brigade[]>([]);
   const [pinnedObjectIds, setPinnedObjectIds] = useState<string[]>([]);
+  const [hiddenObjectIds, setHiddenObjectIds] = useState<string[]>([]);
   const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(new Set());
 
   // Проверяем сессию один раз при загрузке приложения.
@@ -78,18 +79,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // входе, и фоновым автообновлением, и pull-to-refresh на телефоне.
   const loadAppData = useCallback(async () => {
     if (!sessionUser) return;
-    const [objs, emps, uns, types, recs, reqs, usrs, pinned, readIds, brgs] = await Promise.all([
-      api.listObjects(),
-      api.listEmployees(),
-      api.listUnits(),
-      api.listWorkTypes(),
-      api.listRecords(),
-      api.listRequests(),
-      sessionUser.role === "admin" ? api.listUsers() : Promise.resolve([]),
-      api.listPinnedObjects(),
-      api.listReadNotificationIds().catch(() => [] as string[]),
-      api.listBrigades(),
-    ]);
+    const [objs, emps, uns, types, recs, reqs, usrs, pinned, hidden, readIds, brgs] =
+      await Promise.all([
+        api.listObjects(),
+        api.listEmployees(),
+        api.listUnits(),
+        api.listWorkTypes(),
+        api.listRecords(),
+        api.listRequests(),
+        sessionUser.role === "admin" ? api.listUsers() : Promise.resolve([]),
+        api.listPinnedObjects(),
+        api.listHiddenObjects(),
+        api.listReadNotificationIds().catch(() => [] as string[]),
+        api.listBrigades(),
+      ]);
     setObjects(objs);
     setEmployees(emps);
     setUnits(uns);
@@ -98,6 +101,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRequests(reqs);
     if (usrs.length) setUsers(usrs);
     setPinnedObjectIds(pinned);
+    setHiddenObjectIds(hidden);
     setReadNotificationIds(new Set(readIds));
     setBrigades(brgs);
   }, [sessionUser]);
@@ -627,6 +631,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const hideObject = async (id: string): Promise<void> => {
+    setHiddenObjectIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    try {
+      await api.hideObject(id);
+    } catch (err) {
+      setHiddenObjectIds((prev) => prev.filter((x) => x !== id)); // откатываем оптимистичное обновление
+      throw err instanceof ApiError ? err : new Error("failed to hide object");
+    }
+  };
+
+  const unhideObject = async (id: string): Promise<void> => {
+    const had = hiddenObjectIds.includes(id);
+    setHiddenObjectIds((prev) => prev.filter((x) => x !== id));
+    try {
+      await api.unhideObject(id);
+    } catch (err) {
+      if (had) setHiddenObjectIds((prev) => (prev.includes(id) ? prev : [...prev, id])); // откат
+      throw err instanceof ApiError ? err : new Error("failed to unhide object");
+    }
+  };
+
   const addWorkType = async (input: {
     name: string;
     unit: string;
@@ -779,6 +804,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     pinnedObjectIds,
     pinObject,
     unpinObject,
+    hiddenObjectIds,
+    hideObject,
+    unhideObject,
     records,
     addRecord,
     updateRecord,

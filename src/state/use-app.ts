@@ -37,6 +37,9 @@ export type AppState = {
   pinnedObjectIds: string[];
   pinObject: (id: string) => Promise<void>;
   unpinObject: (id: string) => Promise<void>;
+  hiddenObjectIds: string[];
+  hideObject: (id: string) => Promise<void>;
+  unhideObject: (id: string) => Promise<void>;
   records: WorkRecord[];
   addRecord: (r: WorkRecord) => Promise<WorkRecord>;
   updateRecord: (r: WorkRecord) => Promise<WorkRecord>;

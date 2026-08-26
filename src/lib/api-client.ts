@@ -394,6 +394,19 @@ export const api = {
     await request<{ ok: true }>(`/pinned-objects/${id}`, { method: "DELETE" });
   },
 
+  async listHiddenObjects(): Promise<string[]> {
+    const rows = await request<(number | string)[]>("/hidden-objects");
+    return rows.map(String);
+  },
+
+  async hideObject(id: string): Promise<void> {
+    await request<{ ok: true }>(`/hidden-objects/${id}`, { method: "POST" });
+  },
+
+  async unhideObject(id: string): Promise<void> {
+    await request<{ ok: true }>(`/hidden-objects/${id}`, { method: "DELETE" });
+  },
+
   // ---- Бригады: личный справочник текущего пользователя (см. brigades.js на backend) ----
 
   async listBrigades(): Promise<Brigade[]> {

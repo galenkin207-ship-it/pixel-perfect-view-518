@@ -54,7 +54,16 @@ function pluralizeRecords(n: number): string {
 const ACTIVE_WINDOW_DAYS = 15;
 
 function ObjectsPage() {
-  const { objects, records, role, currentUser, pinnedObjectIds, unpinObject } = useApp();
+  const {
+    objects,
+    records,
+    role,
+    currentUser,
+    pinnedObjectIds,
+    unpinObject,
+    hiddenObjectIds,
+    hideObject,
+  } = useApp();
   const [query, setQuery] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const isForeman = role === "user";
@@ -99,13 +108,21 @@ function ObjectsPage() {
   }, [relevantRecords]);
 
   const pinnedSet = useMemo(() => new Set(pinnedObjectIds), [pinnedObjectIds]);
+  const hiddenSet = useMemo(() => new Set(hiddenObjectIds), [hiddenObjectIds]);
 
+  // Объект показывается на главном экране, если по нему есть записи (или он
+  // закреплён вручную) и пользователь его не открепил. Открепление — личная
+  // настройка: объект не архивируется и остаётся доступен через поиск в
+  // "Управление -> Объекты" и в сheete "Добавить объект" ниже.
   const visibleObjects = useMemo(
     () =>
       objects.filter(
-        (o) => o.status !== "archived" && (objectIdsWithRecords.has(o.id) || pinnedSet.has(o.id)),
+        (o) =>
+          o.status !== "archived" &&
+          !hiddenSet.has(o.id) &&
+          (objectIdsWithRecords.has(o.id) || pinnedSet.has(o.id)),
       ),
-    [objects, objectIdsWithRecords, pinnedSet],
+    [objects, objectIdsWithRecords, pinnedSet, hiddenSet],
   );
 
   const filtered = visibleObjects.filter(
@@ -196,7 +213,7 @@ function ObjectsPage() {
                   </span>
                 </div>
               </Link>
-              {pinnedOnly && (
+              {pinnedOnly ? (
                 <button
                   type="button"
                   aria-label="Открепить объект"
@@ -215,13 +232,38 @@ function ObjectsPage() {
                 >
                   <Pin className="size-3.5 fill-primary text-primary" />
                 </button>
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Открепить объект с главного экрана"
+                  title="Открепить с главного экрана"
+                  onClick={async () => {
+                    try {
+                      await hideObject(o.id);
+                      toast.success("Объект откреплён от главного экрана");
+                    } catch (err) {
+                      toast.error(
+                        err instanceof Error ? err.message : "Не удалось открепить объект",
+                      );
+                    }
+                  }}
+                  className="absolute top-3 right-3 flex size-6 items-center justify-center rounded-full bg-card text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-status-rejected"
+                >
+                  <PinOff className="size-3.5" />
+                </button>
               )}
             </div>
           );
         })}
       </div>
 
-      <ObjectPickerDialog open={pickerOpen} onOpenChange={setPickerOpen} pinnedSet={pinnedSet} />
+      <ObjectPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        pinnedSet={pinnedSet}
+        hiddenSet={hiddenSet}
+        objectIdsWithRecords={objectIdsWithRecords}
+      />
     </AppShell>
   );
 }
@@ -230,12 +272,16 @@ function ObjectPickerDialog({
   open,
   onOpenChange,
   pinnedSet,
+  hiddenSet,
+  objectIdsWithRecords,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   pinnedSet: Set<string>;
+  hiddenSet: Set<string>;
+  objectIdsWithRecords: Set<string>;
 }) {
-  const { objects, pinObject, unpinObject } = useApp();
+  const { objects, pinObject, unpinObject, hideObject, unhideObject } = useApp();
   const [q, setQ] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -243,16 +289,32 @@ function ObjectPickerDialog({
     .filter((o) => o.status !== "archived")
     .filter((o) => o.name.toLowerCase().includes(q.trim().toLowerCase()));
 
-  const toggle = async (id: string, pinned: boolean) => {
-    setBusyId(id);
+  // Показан ли объект сейчас на главном экране: если по нему есть записи —
+  // достаточно, что он не откреплён вручную; если записей нет — только если
+  // закреплён вручную.
+  const isShown = (o: { id: string }) =>
+    !hiddenSet.has(o.id) && (objectIdsWithRecords.has(o.id) || pinnedSet.has(o.id));
+
+  const toggle = async (o: { id: string }) => {
+    const hasRecords = objectIdsWithRecords.has(o.id);
+    const shown = isShown(o);
+    setBusyId(o.id);
     try {
-      if (pinned) {
-        await unpinObject(id);
+      if (hasRecords) {
+        // Объект с записями скрывают/возвращают через личный список
+        // открепления, не трогая закрепление.
+        if (shown) {
+          await hideObject(o.id);
+        } else {
+          await unhideObject(o.id);
+        }
+      } else if (shown) {
+        await unpinObject(o.id);
       } else {
-        await pinObject(id);
+        await pinObject(o.id);
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось изменить закрепление");
+      toast.error(err instanceof Error ? err.message : "Не удалось изменить видимость объекта");
     } finally {
       setBusyId(null);
     }
@@ -262,9 +324,10 @@ function ObjectPickerDialog({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="mx-auto max-w-lg sm:max-w-lg">
         <SheetHeader className="shrink-0 text-left">
-          <SheetTitle>Добавить объект на главный экран</SheetTitle>
+          <SheetTitle>Объекты на главном экране</SheetTitle>
           <SheetDescription>
-            Закреплённый объект будет показываться среди объектов, даже если на нём ещё нет записей.
+            Здесь можно закрепить объект без записей или вернуть на главный экран объект, который вы
+            ранее открепили.
           </SheetDescription>
         </SheetHeader>
         <input
@@ -275,7 +338,7 @@ function ObjectPickerDialog({
         />
         <ul className="-mx-6 min-h-0 flex-1 divide-y divide-border overflow-y-auto border-t border-border px-6">
           {filtered.map((o) => {
-            const pinned = pinnedSet.has(o.id);
+            const shown = isShown(o);
             return (
               <li key={o.id} className="flex items-center justify-between gap-3 py-2.5">
                 <div className="min-w-0">
@@ -285,15 +348,15 @@ function ObjectPickerDialog({
                 <button
                   type="button"
                   disabled={busyId === o.id}
-                  onClick={() => toggle(o.id, pinned)}
+                  onClick={() => toggle(o)}
                   className={
-                    pinned
+                    shown
                       ? "flex shrink-0 items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary disabled:opacity-60"
                       : "flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
                   }
                 >
-                  {pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-                  {pinned ? "Открепить" : "Закрепить"}
+                  {shown ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+                  {shown ? "Открепить" : "Закрепить"}
                 </button>
               </li>
             );
