@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Building2, Check, ClipboardList, Ruler, Trash2, Users, UserCog } from "lucide-react";
+import { Building2, Check, ClipboardList, Copy, Ruler, Trash2, Users, UserCog } from "lucide-react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
@@ -1172,6 +1172,26 @@ function generatePassword() {
   return out;
 }
 
+// Текст для передачи учётных данных пользователю — единым куском, чтобы
+// администратор мог одним кликом скопировать и вставить в мессенджер/SMS.
+function buildCredentialsText(fullName: string, login: string, password: string) {
+  return [
+    `Вход в приложение "Учёт работ" для пользователя: ${fullName}`,
+    `Логин: ${login}`,
+    `Пароль: ${password}`,
+  ].join("\n");
+}
+
+async function copyCredentials(fullName: string, login: string, password: string) {
+  const text = buildCredentialsText(fullName, login, password);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success("Данные для входа скопированы");
+  } catch {
+    toast.error("Не удалось скопировать — скопируйте вручную");
+  }
+}
+
 function UsersSection() {
   const { users, addUser, updateUser } = useApp();
   const [form, setForm] = useState({
@@ -1212,6 +1232,23 @@ function UsersSection() {
               >
                 Сгенерировать
               </button>
+              {form.password.trim() && (
+                <button
+                  type="button"
+                  title="Скопировать данные для входа"
+                  aria-label="Скопировать данные для входа"
+                  className={cn(ghostBtn, "shrink-0 px-2.5")}
+                  onClick={() =>
+                    void copyCredentials(
+                      form.full_name.trim() || "—",
+                      form.login.trim() || "—",
+                      form.password,
+                    )
+                  }
+                >
+                  <Copy className="size-3.5" />
+                </button>
+              )}
             </div>
           </label>
           <label className="block">
@@ -1360,6 +1397,23 @@ function UsersSection() {
                       >
                         Сгенерировать
                       </button>
+                      {draft.newPassword.trim() && (
+                        <button
+                          type="button"
+                          title="Скопировать данные для входа"
+                          aria-label="Скопировать данные для входа"
+                          className={cn(ghostBtn, "shrink-0 px-2.5")}
+                          onClick={() =>
+                            void copyCredentials(
+                              draft.full_name.trim() || u.full_name,
+                              u.login,
+                              draft.newPassword,
+                            )
+                          }
+                        >
+                          <Copy className="size-3.5" />
+                        </button>
+                      )}
                     </div>
                   </label>
                   <button
