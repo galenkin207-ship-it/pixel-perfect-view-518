@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { Archive, ArchiveRestore, ImageIcon } from "lucide-react";
+import { Archive, ArchiveRestore, ImageIcon, Pin, PinOff } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -40,12 +40,25 @@ export const Route = createFileRoute("/objects/$id")({
 
 function ObjectRecordsPage() {
   const { id } = useParams({ from: "/objects/$id" });
-  const { objects, records, role, archiveObject, restoreObject } = useApp();
+  const {
+    objects,
+    records,
+    role,
+    archiveObject,
+    restoreObject,
+    pinnedObjectIds,
+    pinObject,
+    unpinObject,
+    hiddenObjectIds,
+    hideObject,
+    unhideObject,
+  } = useApp();
   const object = objects.find((o) => o.id === id);
   const list = records.filter((r) => r.object_id === id);
   const [openId, setOpenId] = useState<string | null>(null);
   const openRecord = records.find((r) => r.id === openId) ?? null;
   const [busy, setBusy] = useState(false);
+  const [pinBusy, setPinBusy] = useState(false);
   const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false);
   const canManage = role === "curator" || role === "admin";
 
@@ -61,6 +74,37 @@ function ObjectRecordsPage() {
   }
 
   const isArchived = object.status === "archived";
+  const hasRecords = list.length > 0;
+  const isPinned = pinnedObjectIds.includes(object.id);
+  const isHidden = hiddenObjectIds.includes(object.id);
+  // Показан ли объект сейчас на главном экране — та же логика, что и на
+  // самой главной странице и в шторке "Добавить объект".
+  const shownOnHome = !isHidden && (hasRecords || isPinned);
+
+  const toggleHome = async () => {
+    setPinBusy(true);
+    try {
+      if (hasRecords) {
+        if (shownOnHome) {
+          await hideObject(object.id);
+          toast.success("Объект откреплён от главного экрана");
+        } else {
+          await unhideObject(object.id);
+          toast.success("Объект возвращён на главный экран");
+        }
+      } else if (shownOnHome) {
+        await unpinObject(object.id);
+        toast.success("Объект откреплён");
+      } else {
+        await pinObject(object.id);
+        toast.success("Объект закреплён на главном экране");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Не удалось изменить видимость объекта");
+    } finally {
+      setPinBusy(false);
+    }
+  };
 
   const runArchive = async () => {
     setBusy(true);
@@ -92,32 +136,54 @@ function ObjectRecordsPage() {
       <div className="bg-background pt-5 pb-3 md:sticky md:top-0 md:z-20 md:border-b md:border-border md:pt-6 md:shadow-[0_8px_12px_-10px_rgba(15,23,42,0.35)] xl:pt-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <PageHeading context={object.address} title={object.name} />
-          {canManage && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                if (isArchived) {
-                  void runRestore();
-                } else {
-                  setConfirmArchiveOpen(true);
-                }
-              }}
-              className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
-            >
-              {isArchived ? (
-                <>
-                  <ArchiveRestore className="size-3.5" />
-                  {busy ? "..." : "Вернуть из архива"}
-                </>
-              ) : (
-                <>
-                  <Archive className="size-3.5" />
-                  {busy ? "..." : "Завершить объект"}
-                </>
-              )}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {!isArchived && (
+              <button
+                type="button"
+                disabled={pinBusy}
+                onClick={() => void toggleHome()}
+                className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
+              >
+                {shownOnHome ? (
+                  <>
+                    <PinOff className="size-3.5" />
+                    {pinBusy ? "..." : "Открепить"}
+                  </>
+                ) : (
+                  <>
+                    <Pin className="size-3.5" />
+                    {pinBusy ? "..." : "Показать на главном"}
+                  </>
+                )}
+              </button>
+            )}
+            {canManage && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  if (isArchived) {
+                    void runRestore();
+                  } else {
+                    setConfirmArchiveOpen(true);
+                  }
+                }}
+                className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
+              >
+                {isArchived ? (
+                  <>
+                    <ArchiveRestore className="size-3.5" />
+                    {busy ? "..." : "Вернуть из архива"}
+                  </>
+                ) : (
+                  <>
+                    <Archive className="size-3.5" />
+                    {busy ? "..." : "Завершить объект"}
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {isArchived && (

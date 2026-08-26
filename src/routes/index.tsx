@@ -228,7 +228,7 @@ function ObjectsPage() {
                       );
                     }
                   }}
-                  className="absolute top-3 right-3 flex size-6 items-center justify-center rounded-full bg-card text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-status-rejected"
+                  className="absolute right-3 bottom-3 flex size-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-status-rejected"
                 >
                   <Pin className="size-3.5 fill-primary text-primary" />
                 </button>
@@ -247,7 +247,7 @@ function ObjectsPage() {
                       );
                     }
                   }}
-                  className="absolute top-3 right-3 flex size-6 items-center justify-center rounded-full bg-card text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-status-rejected"
+                  className="absolute right-3 bottom-3 flex size-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-status-rejected"
                 >
                   <PinOff className="size-3.5" />
                 </button>
