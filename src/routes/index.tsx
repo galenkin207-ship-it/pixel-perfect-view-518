@@ -179,7 +179,7 @@ function ObjectsPage() {
           const recordsToday = stats?.today ?? 0;
           const isActive = stats?.active ?? false;
           return (
-            <div key={o.id} className="group relative">
+            <div key={o.id} className="group relative min-h-20">
               <Link
                 to="/objects/$id"
                 params={{ id: o.id }}
@@ -211,6 +211,9 @@ function ObjectsPage() {
                   </span>
                 </div>
               </Link>
+              {/* Кнопка стоит строго под бейджем, в его же правой колонке —
+                  слева там текст названия/адреса, поэтому пересечься с ними
+                  она не может независимо от длины адреса или высоты карточки. */}
               <button
                 type="button"
                 aria-label="Открепить объект с главного экрана"
@@ -223,7 +226,7 @@ function ObjectsPage() {
                     toast.error(err instanceof Error ? err.message : "Не удалось открепить объект");
                   }
                 }}
-                className="absolute right-3 bottom-3 flex size-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-status-rejected"
+                className="absolute top-11 right-3 flex size-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-status-rejected"
               >
                 <PinOff className="size-3.5" />
               </button>
