@@ -3,6 +3,16 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Building2, Check, ClipboardList, Copy, Ruler, Trash2, Users, UserCog } from "lucide-react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
 import { cn } from "@/lib/utils";
@@ -1204,6 +1214,23 @@ function UsersSection() {
   const [editId, setEditId] = useState("");
   const [draft, setDraft] = useState({ full_name: "", role: "user" as Role, newPassword: "" });
   const [savingEdit, setSavingEdit] = useState(false);
+  const [confirmDisableId, setConfirmDisableId] = useState<string | null>(null);
+  const [disabling, setDisabling] = useState(false);
+  const confirmDisableUser = users.find((u) => u.id === confirmDisableId) ?? null;
+
+  const runDisable = async () => {
+    if (!confirmDisableUser) return;
+    setDisabling(true);
+    try {
+      await updateUser(confirmDisableUser.id, { active: false });
+      toast.success("Пользователь отключён");
+      setConfirmDisableId(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Не удалось изменить статус");
+    } finally {
+      setDisabling(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -1338,15 +1365,17 @@ function UsersSection() {
                     type="button"
                     className={cn(ghostBtn, u.active === false ? "" : "text-status-rejected")}
                     onClick={async () => {
-                      try {
-                        await updateUser(u.id, { active: u.active === false });
-                        toast.success(
-                          u.active === false ? "Пользователь включён" : "Пользователь отключён",
-                        );
-                      } catch (err) {
-                        toast.error(
-                          err instanceof Error ? err.message : "Не удалось изменить статус",
-                        );
+                      if (u.active === false) {
+                        try {
+                          await updateUser(u.id, { active: true });
+                          toast.success("Пользователь включён");
+                        } catch (err) {
+                          toast.error(
+                            err instanceof Error ? err.message : "Не удалось изменить статус",
+                          );
+                        }
+                      } else {
+                        setConfirmDisableId(u.id);
                       }
                     }}
                   >
@@ -1450,6 +1479,29 @@ function UsersSection() {
           ))}
         </ul>
       </Card>
+
+      <AlertDialog
+        open={confirmDisableId !== null}
+        onOpenChange={(open) => !disabling && !open && setConfirmDisableId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Отключить пользователя «{confirmDisableUser?.full_name}»?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Пользователь не сможет войти в приложение, пока вы не включите его обратно. Все его
+              записи и история сохранятся без изменений.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={disabling}>Отмена</AlertDialogCancel>
+            <AlertDialogAction disabled={disabling} onClick={() => void runDisable()}>
+              {disabling ? "Отключаем…" : "Отключить"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
