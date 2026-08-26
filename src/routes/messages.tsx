@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import ExcelJS from "exceljs";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -80,6 +81,90 @@ function MessagesPage() {
   const visible = isForeman ? requests.filter((r) => r.author === currentUser.full_name) : requests;
   const pending = visible.filter((r) => r.status === "pending");
   const history = visible.filter((r) => r.status !== "pending");
+
+  const [exportingPending, setExportingPending] = useState(false);
+
+  const exportPendingToExcel = async () => {
+    if (pending.length === 0) {
+      toast.error("Нет заявок на рассмотрении");
+      return;
+    }
+    setExportingPending(true);
+    try {
+      const NAVY = "FF2E4A6B";
+      const ORANGE = "FFE0611C";
+      const GRAY_TXT = "FF6B665E";
+      const LIGHT_BEIGE = "FFF2EFE7";
+      const WHITE = "FFFFFFFF";
+      const DARK_TXT = "FF1F2933";
+      const BORDER_CLR = "FFD8D1C2";
+
+      const fill = (argb: string) => ({
+        type: "pattern" as const,
+        pattern: "solid" as const,
+        fgColor: { argb },
+      });
+      const border = {
+        top: { style: "thin" as const, color: { argb: BORDER_CLR } },
+        bottom: { style: "thin" as const, color: { argb: BORDER_CLR } },
+        left: { style: "thin" as const, color: { argb: BORDER_CLR } },
+        right: { style: "thin" as const, color: { argb: BORDER_CLR } },
+      };
+
+      const wb = new ExcelJS.Workbook();
+      wb.creator = "Учёт работ";
+      wb.created = new Date();
+
+      const sheet = wb.addWorksheet("Заявки", {
+        views: [{ state: "frozen", ySplit: 4 }],
+      });
+      sheet.columns = [{ width: 40 }, { width: 22 }, { width: 16 }];
+
+      const titleRow = sheet.addRow(["ЗАЯВКИ НА РАССМОТРЕНИИ"]);
+      sheet.mergeCells(titleRow.number, 1, titleRow.number, 3);
+      titleRow.height = 24;
+      titleRow.getCell(1).font = { size: 14, bold: true, color: { argb: WHITE } };
+      titleRow.getCell(1).fill = fill(ORANGE);
+      titleRow.getCell(1).alignment = { vertical: "middle" };
+
+      const subRow = sheet.addRow([`Всего: ${pending.length}`]);
+      sheet.mergeCells(subRow.number, 1, subRow.number, 3);
+      subRow.getCell(1).font = { italic: true, color: { argb: GRAY_TXT } };
+
+      sheet.addRow([]);
+
+      const headRow = sheet.addRow(["Название", "Подал", "Дата подачи"]);
+      headRow.height = 20;
+      headRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: WHITE } };
+        cell.fill = fill(NAVY);
+        cell.alignment = { vertical: "middle", wrapText: true };
+      });
+
+      pending.forEach((r, idx) => {
+        const row = sheet.addRow([r.requested_text, r.author, r.created_at]);
+        row.eachCell((cell) => {
+          cell.font = { color: { argb: DARK_TXT } };
+          cell.fill = fill(idx % 2 === 0 ? WHITE : LIGHT_BEIGE);
+          cell.border = border;
+        });
+      });
+
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const today = new Date().toISOString().slice(0, 10);
+      a.download = `Заявки_на_рассмотрении_${today}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Не удалось сформировать файл, попробуйте ещё раз");
+    } finally {
+      setExportingPending(false);
+    }
+  };
 
   // Заявка, открытая из уведомления — показываем её отдельным окном поверх
   // списка (акцентированный переход), а не просто подсветкой карточки в
@@ -423,7 +508,18 @@ function MessagesPage() {
       )}
 
       <section className="mt-5">
-        <h2 className="label-caps">На рассмотрении</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="label-caps">На рассмотрении</h2>
+          {!isForeman && (
+            <button
+              onClick={() => void exportPendingToExcel()}
+              disabled={exportingPending}
+              className="text-sm font-semibold text-primary disabled:opacity-60"
+            >
+              {exportingPending ? "Формирование..." : "Экспорт в Excel"}
+            </button>
+          )}
+        </div>
         <div className="mt-3 grid gap-4 xl:grid-cols-2">
           {pending.map((r) => renderCard(r, "pending"))}
         </div>
