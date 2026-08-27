@@ -41,10 +41,21 @@ export function PullToRefresh({
       setPull(v);
     };
 
+    // Полноэкранные диалоги (выбор вида работ, Radix Dialog и т.п.) рисуются
+    // поверх страницы, но лежат в том же DOM-дереве — без этой проверки
+    // свайп внутри их собственного списка воспринимается глобальным
+    // обработчиком как pull-to-refresh фоновой страницы, потому что
+    // window.scrollY фона остаётся равным 0.
+    const isInsideOverlay = (target: EventTarget | null): boolean => {
+      if (!(target instanceof Element)) return false;
+      return !!target.closest('[role="dialog"], [data-pull-refresh-ignore]');
+    };
+
     const onTouchStart = (e: TouchEvent) => {
       if (refreshingRef.current) return;
       if (window.scrollY > 0) return;
       if (e.touches.length !== 1) return;
+      if (isInsideOverlay(e.target)) return;
       startYRef.current = e.touches[0]!.clientY;
       trackingRef.current = true;
     };
