@@ -366,8 +366,14 @@ function WorkTypesSection() {
                       <input
                         value={draft.unit}
                         onChange={(e) => setDraft((d) => ({ ...d, unit: e.target.value }))}
+                        list="units-list-edit"
                         className={cn(input, "mt-1 bg-card")}
                       />
+                      <datalist id="units-list-edit">
+                        {units.map((u) => (
+                          <option key={u} value={u} />
+                        ))}
+                      </datalist>
                     </label>
                     <label className="block">
                       <span className="label-caps">Цена, руб./ед.</span>
@@ -462,7 +468,7 @@ function WorkTypesSection() {
 }
 
 function WorkTypesList() {
-  const { workTypes, updateWorkType, deleteWorkType } = useApp();
+  const { workTypes, units, updateWorkType, deleteWorkType } = useApp();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
   const [openId, setOpenId] = useState("");
@@ -550,8 +556,14 @@ function WorkTypesList() {
                     <input
                       value={draft.unit}
                       onChange={(e) => setDraft((d) => ({ ...d, unit: e.target.value }))}
+                      list="units-list-row"
                       className={cn(input, "mt-1")}
                     />
+                    <datalist id="units-list-row">
+                      {units.map((u) => (
+                        <option key={u} value={u} />
+                      ))}
+                    </datalist>
                   </label>
                   <label className="block">
                     <span className="label-caps">Цена, руб./ед.</span>
