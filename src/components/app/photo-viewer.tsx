@@ -100,6 +100,21 @@ export function PhotoViewer({
     };
   }, []);
 
+  // Дополнительная страховка от системного жеста iOS "смахнуть от края экрана
+  // назад": пока внутри просмотрщика идёт активное перетаскивание пальцем,
+  // явно гасим touchmove (non-passive), как это уже сделано для
+  // pull-to-refresh — это единственный способ реально повлиять на подобные
+  // жесты на уровне WebKit, в отличие от preventDefault на pointer-событиях.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onTouchMove = (e: TouchEvent) => {
+      if (isInteracting.current) e.preventDefault();
+    };
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => el.removeEventListener("touchmove", onTouchMove);
+  }, []);
+
   const handleTapOrDoubleTap = (x: number, y: number, pointerType: string) => {
     if (pointerType !== "touch") return;
     const now = Date.now();
@@ -246,7 +261,7 @@ export function PhotoViewer({
 
       <div
         ref={containerRef}
-        className="relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden px-2 md:px-16"
+        className="relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden px-6 md:px-16"
         onClick={handleContainerClick}
         onDoubleClick={handleDoubleClick}
         onWheel={handleWheel}
