@@ -31,6 +31,10 @@ export function PhotoViewer({
   const lastTap = useRef<{ time: number; x: number; y: number } | null>(null);
   const didPan = useRef(false);
   const isInteracting = useRef(false);
+  // true всякий раз, когда во время жеста был реальный сдвиг пальца (пан/свайп) —
+  // используется, чтобы фантомный "click" в конце свайпа/пана не закрывал просмотрщик,
+  // даже если палец в момент отпускания оказался за пределами <img> (леттербокс).
+  const wasGesture = useRef(false);
 
   const count = photos.length;
   const canNavigate = count > 1;
@@ -111,22 +115,39 @@ export function PhotoViewer({
     }
   };
 
-  const handleDoubleClick = (e: React.MouseEvent<HTMLImageElement>) => {
+  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     zoomAt(e.clientX, e.clientY, transform.scale > 1 ? 1 : DOUBLE_TAP_SCALE);
   };
 
-  const handleWheel = (e: React.WheelEvent<HTMLImageElement>) => {
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     const factor = e.deltaY < 0 ? WHEEL_ZOOM_FACTOR : 1 / WHEEL_ZOOM_FACTOR;
     zoomAt(e.clientX, e.clientY, transform.scale * factor);
   };
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLImageElement>) => {
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Если только что был реальный свайп/пан — это фантомный click, который браузер
+    // может сгенерировать в точке, куда уехал палец (например, в леттербокс за
+    // пределами <img>). Гасим его в любом случае, чтобы просмотрщик не закрывался.
+    if (wasGesture.current) {
+      e.stopPropagation();
+      wasGesture.current = false;
+      return;
+    }
+    // Клик по самому фото (или другому дочернему элементу) — не закрываем.
+    // Клик по пустому полю вокруг фото (леттербокс) — даём всплыть и закрыться.
+    if (e.target !== e.currentTarget) {
+      e.stopPropagation();
+    }
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     didPan.current = false;
+    wasGesture.current = false;
     isInteracting.current = true;
 
     if (pointers.current.size === 1) {
@@ -144,7 +165,7 @@ export function PhotoViewer({
     }
   };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLImageElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
@@ -173,7 +194,7 @@ export function PhotoViewer({
     }
   };
 
-  const handlePointerUp = (e: React.PointerEvent<HTMLImageElement>) => {
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const wasSwipe = swipeStart.current;
     pointers.current.delete(e.pointerId);
 
@@ -181,8 +202,11 @@ export function PhotoViewer({
 
     if (pointers.current.size === 0) {
       isInteracting.current = false;
+      if (didPan.current) wasGesture.current = true;
       if (wasSwipe && !didPan.current) {
         const dx = e.clientX - wasSwipe.x;
+        const dy = e.clientY - wasSwipe.y;
+        if (Math.hypot(dx, dy) > 10) wasGesture.current = true;
         if (Math.abs(dx) > 50) {
           if (dx > 0) goPrev();
           else goNext();
@@ -222,7 +246,14 @@ export function PhotoViewer({
 
       <div
         ref={containerRef}
-        className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-2 md:px-16"
+        className="relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden px-2 md:px-16"
+        onClick={handleContainerClick}
+        onDoubleClick={handleDoubleClick}
+        onWheel={handleWheel}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
       >
         {canNavigate && (
           <button
@@ -230,6 +261,7 @@ export function PhotoViewer({
               e.stopPropagation();
               goPrev();
             }}
+            onPointerDown={(e) => e.stopPropagation()}
             aria-label="Предыдущее фото"
             className="absolute left-2 top-1/2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 md:left-4 md:size-12"
           >
@@ -242,20 +274,13 @@ export function PhotoViewer({
           alt="Фото к записи, полный размер"
           draggable={false}
           className={cn(
-            "max-h-[75vh] max-w-full touch-none rounded-xl object-contain select-none md:max-h-[82vh] md:max-w-[90vw] lg:max-w-[85vw]",
+            "max-h-[75vh] max-w-full rounded-xl object-contain select-none md:max-h-[82vh] md:max-w-[90vw] lg:max-w-[85vw]",
             zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in",
           )}
           style={{
             transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
             transition: isInteracting.current ? "none" : "transform 0.15s ease-out",
           }}
-          onClick={(e) => e.stopPropagation()}
-          onDoubleClick={handleDoubleClick}
-          onWheel={handleWheel}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
         />
 
         {canNavigate && (
@@ -264,6 +289,7 @@ export function PhotoViewer({
               e.stopPropagation();
               goNext();
             }}
+            onPointerDown={(e) => e.stopPropagation()}
             aria-label="Следующее фото"
             className="absolute right-2 top-1/2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 md:right-4 md:size-12"
           >
@@ -274,6 +300,7 @@ export function PhotoViewer({
         <div
           className="absolute right-2 bottom-2 z-10 flex items-center gap-1 rounded-full bg-white/10 p-1 md:right-4 md:bottom-4"
           onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
         >
           <button
             onClick={() => zoomByButton(1 / BUTTON_ZOOM_FACTOR)}
