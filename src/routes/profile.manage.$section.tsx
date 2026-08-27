@@ -1,7 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Building2, Check, ClipboardList, Copy, Ruler, Trash2, Users, UserCog } from "lucide-react";
+import {
+  Building2,
+  Check,
+  ChevronDown,
+  ClipboardList,
+  Copy,
+  Ruler,
+  Trash2,
+  Users,
+  UserCog,
+} from "lucide-react";
 
 import {
   AlertDialog,
@@ -54,6 +64,49 @@ const primaryBtn =
   "rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90";
 const ghostBtn =
   "rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted";
+
+/** Выпадающий список единиц измерения из справочника (units).
+ * Нативный <select> (не кастомный Radix Select): на iOS Safari/PWA
+ * кастомные попап-компоненты капризно открываются из-за особенностей touch/portal,
+ * а нативный select гарантированно работает на любом устройстве — на iPhone
+ * открывается колесо выбора, на Android — обычный список. */
+function UnitSelect({
+  value,
+  onChange,
+  units,
+  className,
+  placeholder = "Выберите ед. изм.",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  units: string[];
+  className?: string;
+  placeholder?: string;
+}) {
+  // Если у позиции уже стоит единица, которой почему-то нет в справочнике
+  // (старые/легаси данные), всё равно показываем её как выбранную опцию.
+  const options = value && !units.includes(value) ? [value, ...units] : units;
+
+  return (
+    <div className="relative mt-1">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(input, "mt-0 appearance-none pr-8", className)}
+      >
+        <option value="" disabled>
+          {placeholder}
+        </option>
+        {options.map((u) => (
+          <option key={u} value={u}>
+            {u}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
+    </div>
+  );
+}
 
 function Card({
   title,
@@ -287,21 +340,10 @@ function WorkTypesSection() {
                 />
               </label>
               <div className="grid grid-cols-2 gap-3">
-                <label className="block">
+                <div className="block">
                   <span className="label-caps">Ед. изм.</span>
-                  <input
-                    value={unit}
-                    onChange={(e) => setUnit(e.target.value)}
-                    list="units-list"
-                    placeholder="м², м.п, шт"
-                    className={cn(input, "mt-1")}
-                  />
-                  <datalist id="units-list">
-                    {units.map((u) => (
-                      <option key={u} value={u} />
-                    ))}
-                  </datalist>
-                </label>
+                  <UnitSelect value={unit} onChange={setUnit} units={units} />
+                </div>
                 <label className="block">
                   <span className="label-caps">Цена, руб./ед.</span>
                   <input
@@ -361,20 +403,15 @@ function WorkTypesSection() {
                     />
                   </label>
                   <div className="grid grid-cols-2 gap-3">
-                    <label className="block">
+                    <div className="block">
                       <span className="label-caps">Ед. изм.</span>
-                      <input
+                      <UnitSelect
                         value={draft.unit}
-                        onChange={(e) => setDraft((d) => ({ ...d, unit: e.target.value }))}
-                        list="units-list-edit"
-                        className={cn(input, "mt-1 bg-card")}
+                        onChange={(v) => setDraft((d) => ({ ...d, unit: v }))}
+                        units={units}
+                        className="bg-card"
                       />
-                      <datalist id="units-list-edit">
-                        {units.map((u) => (
-                          <option key={u} value={u} />
-                        ))}
-                      </datalist>
-                    </label>
+                    </div>
                     <label className="block">
                       <span className="label-caps">Цена, руб./ед.</span>
                       <input
@@ -551,20 +588,14 @@ function WorkTypesList() {
                   />
                 </label>
                 <div className="grid grid-cols-2 gap-3">
-                  <label className="block">
+                  <div className="block">
                     <span className="label-caps">Ед. изм.</span>
-                    <input
+                    <UnitSelect
                       value={draft.unit}
-                      onChange={(e) => setDraft((d) => ({ ...d, unit: e.target.value }))}
-                      list="units-list-row"
-                      className={cn(input, "mt-1")}
+                      onChange={(v) => setDraft((d) => ({ ...d, unit: v }))}
+                      units={units}
                     />
-                    <datalist id="units-list-row">
-                      {units.map((u) => (
-                        <option key={u} value={u} />
-                      ))}
-                    </datalist>
-                  </label>
+                  </div>
                   <label className="block">
                     <span className="label-caps">Цена, руб./ед.</span>
                     <input
