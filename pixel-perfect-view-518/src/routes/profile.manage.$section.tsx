@@ -1,7 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Building2, Check, ClipboardList, Copy, Ruler, Trash2, Users, UserCog } from "lucide-react";
+import {
+  Building2,
+  Check,
+  ChevronDown,
+  ClipboardList,
+  Copy,
+  Ruler,
+  Trash2,
+  Users,
+  UserCog,
+} from "lucide-react";
 
 import {
   AlertDialog,
@@ -15,13 +25,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api-client";
 import { smartFilter } from "@/lib/smart-search";
@@ -63,8 +66,10 @@ const ghostBtn =
   "rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted";
 
 /** Выпадающий список единиц измерения из справочника (units).
- * Заменяет старый <input list=""> + <datalist> — нативный datalist
- * плохо/непредсказуемо открывается на мобильных браузерах. */
+ * Нативный <select> (не кастомный Radix Select): на iOS Safari/PWA
+ * кастомные попап-компоненты капризно открываются из-за особенностей touch/portal,
+ * а нативный select гарантированно работает на любом устройстве — на iPhone
+ * открывается колесо выбора, на Android — обычный список. */
 function UnitSelect({
   value,
   onChange,
@@ -83,21 +88,23 @@ function UnitSelect({
   const options = value && !units.includes(value) ? [value, ...units] : units;
 
   return (
-    <Select {...(value ? { value } : {})} onValueChange={onChange}>
-      <SelectTrigger className={cn(input, "mt-1 h-auto justify-between", className)}>
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
+    <div className="relative mt-1">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(input, "mt-0 appearance-none pr-8", className)}
+      >
+        <option value="" disabled>
+          {placeholder}
+        </option>
         {options.map((u) => (
-          <SelectItem key={u} value={u}>
+          <option key={u} value={u}>
             {u}
-          </SelectItem>
+          </option>
         ))}
-        {!options.length && (
-          <div className="px-2 py-1.5 text-sm text-muted-foreground">Справочник единиц пуст</div>
-        )}
-      </SelectContent>
-    </Select>
+      </select>
+      <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
+    </div>
   );
 }
 
