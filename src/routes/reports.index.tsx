@@ -1014,150 +1014,154 @@ function ReportsPage() {
       <section className="mt-8">
         <h2 className="text-lg font-bold">Подробные отчёты</h2>
 
-        <div className="mt-3 rounded-2xl border border-border bg-card p-4">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="font-semibold">Статистика за период</h3>
-            <button
-              type="button"
-              onClick={() => setStatsOpen((v) => !v)}
-              className="shrink-0 text-sm font-semibold text-primary"
-            >
-              {statsOpen ? "Свернуть статистику" : "Показать статистику"}
-            </button>
-          </div>
+        {isAdmin && (
+          <div className="mt-3 rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-semibold">Статистика за период</h3>
+              <button
+                type="button"
+                onClick={() => setStatsOpen((v) => !v)}
+                className="shrink-0 text-sm font-semibold text-primary"
+              >
+                {statsOpen ? "Свернуть статистику" : "Показать статистику"}
+              </button>
+            </div>
 
-          {statsOpen && (
-            <>
-              <div className="mt-3 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
-                <div className="col-span-2 grid grid-cols-2 gap-1 rounded-xl bg-surface p-1 sm:w-64">
-                  {(["employees", "objects"] as const).map((g) => (
-                    <button
-                      key={g}
-                      type="button"
-                      onClick={() => setGrouping(g)}
-                      className={cn(
-                        "rounded-lg py-2 text-xs font-semibold",
-                        grouping === g ? "bg-primary text-primary-foreground" : "text-foreground",
-                      )}
-                    >
-                      {g === "employees" ? "Сотрудники" : "Объекты"}
-                    </button>
-                  ))}
-                </div>
-                <div>
-                  <FieldLabel>С даты</FieldLabel>
-                  <input
-                    type="date"
-                    value={statsFrom}
-                    onChange={(e) => setStatsFrom(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm sm:w-auto"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>По дату</FieldLabel>
-                  <input
-                    type="date"
-                    value={statsTo}
-                    onChange={(e) => setStatsTo(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm sm:w-auto"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <div className="rounded-xl bg-surface p-3">
-                  <p className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-                    Записей за период
-                  </p>
-                  <p className="mt-1 text-2xl font-bold">{statsInRange.length}</p>
-                </div>
-                <div className="rounded-xl bg-surface p-3">
-                  <p className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-                    Позиций всего
-                  </p>
-                  <p className="mt-1 text-2xl font-bold">{statsTotalPositions}</p>
-                </div>
-                <div className="rounded-xl bg-surface p-3">
-                  <p className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-                    Больше всех сделал
-                  </p>
-                  <p className="mt-1 truncate text-lg font-bold">{statsRows[0]?.label ?? "—"}</p>
-                </div>
-              </div>
-
-              <p className="mt-4 label-caps">
-                {grouping === "employees" ? "По сотрудникам" : "По объектам"} — сумма за период, ₽
-              </p>
-              <div className="mt-2 divide-y divide-border">
-                {statsRows.map((row, i) => {
-                  const expanded = expandedStatsKey === row.key;
-                  return (
-                    <div key={row.key} className="py-2">
+            {statsOpen && (
+              <>
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
+                  <div className="col-span-2 grid grid-cols-2 gap-1 rounded-xl bg-surface p-1 sm:w-64">
+                    {(["employees", "objects"] as const).map((g) => (
                       <button
+                        key={g}
                         type="button"
-                        onClick={() => setExpandedStatsKey(expanded ? null : row.key)}
-                        className="flex w-full items-center gap-3 text-left"
+                        onClick={() => setGrouping(g)}
+                        className={cn(
+                          "rounded-lg py-2 text-xs font-semibold",
+                          grouping === g ? "bg-primary text-primary-foreground" : "text-foreground",
+                        )}
                       >
-                        <span className="w-5 shrink-0 text-xs text-muted-foreground">{i + 1}</span>
-                        <span className="min-w-0 flex-1 truncate text-sm">{row.label}</span>
-                        <span className="hidden h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-muted sm:block sm:w-40">
-                          <span
-                            className="block h-full rounded-full bg-primary"
-                            style={{ width: `${(row.totalValue / statsMaxValue) * 100}%` }}
-                          />
-                        </span>
-                        <span className="w-24 shrink-0 text-right text-xs font-bold">
-                          {formatMoney(row.totalValue)}
-                        </span>
-                        <ChevronRight
-                          className={cn(
-                            "size-4 shrink-0 text-muted-foreground transition-transform",
-                            expanded && "rotate-90",
-                          )}
-                        />
+                        {g === "employees" ? "Сотрудники" : "Объекты"}
                       </button>
-                      {expanded && (
-                        <div className="mt-2 ml-8 space-y-1.5">
-                          {row.items.map((it) => (
-                            <div
-                              key={`${it.name}-${it.unit}`}
-                              className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm"
-                            >
-                              <span className="text-muted-foreground break-words">{it.name}</span>
-                              <span className="shrink-0 font-mono font-semibold tabular-nums text-primary">
-                                — {formatQty(it.qty)} {it.unit}
-                              </span>
-                              {isAdmin && (
-                                <>
-                                  <span className="shrink-0 font-mono tabular-nums text-status-review">
-                                    × {formatMoney(it.price)}
-                                  </span>
-                                  <span className="shrink-0 font-mono font-semibold tabular-nums text-status-done">
-                                    = {formatMoney(it.sum)}
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          ))}
-                          {isAdmin && (
-                            <p className="pt-1 text-xs text-muted-foreground">
-                              Сумма: {Math.round(row.totalValue).toLocaleString("ru-RU")} ₽
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                {statsRows.length === 0 && (
-                  <p className="py-4 text-sm text-muted-foreground">
-                    Нет данных за выбранный период.
-                  </p>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+                    ))}
+                  </div>
+                  <div>
+                    <FieldLabel>С даты</FieldLabel>
+                    <input
+                      type="date"
+                      value={statsFrom}
+                      onChange={(e) => setStatsFrom(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm sm:w-auto"
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>По дату</FieldLabel>
+                    <input
+                      type="date"
+                      value={statsTo}
+                      onChange={(e) => setStatsTo(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm sm:w-auto"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <div className="rounded-xl bg-surface p-3">
+                    <p className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+                      Записей за период
+                    </p>
+                    <p className="mt-1 text-2xl font-bold">{statsInRange.length}</p>
+                  </div>
+                  <div className="rounded-xl bg-surface p-3">
+                    <p className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+                      Позиций всего
+                    </p>
+                    <p className="mt-1 text-2xl font-bold">{statsTotalPositions}</p>
+                  </div>
+                  <div className="rounded-xl bg-surface p-3">
+                    <p className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+                      Больше всех сделал
+                    </p>
+                    <p className="mt-1 truncate text-lg font-bold">{statsRows[0]?.label ?? "—"}</p>
+                  </div>
+                </div>
+
+                <p className="mt-4 label-caps">
+                  {grouping === "employees" ? "По сотрудникам" : "По объектам"} — сумма за период, ₽
+                </p>
+                <div className="mt-2 divide-y divide-border">
+                  {statsRows.map((row, i) => {
+                    const expanded = expandedStatsKey === row.key;
+                    return (
+                      <div key={row.key} className="py-2">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedStatsKey(expanded ? null : row.key)}
+                          className="flex w-full items-center gap-3 text-left"
+                        >
+                          <span className="w-5 shrink-0 text-xs text-muted-foreground">
+                            {i + 1}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm">{row.label}</span>
+                          <span className="hidden h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-muted sm:block sm:w-40">
+                            <span
+                              className="block h-full rounded-full bg-primary"
+                              style={{ width: `${(row.totalValue / statsMaxValue) * 100}%` }}
+                            />
+                          </span>
+                          <span className="w-24 shrink-0 text-right text-xs font-bold">
+                            {formatMoney(row.totalValue)}
+                          </span>
+                          <ChevronRight
+                            className={cn(
+                              "size-4 shrink-0 text-muted-foreground transition-transform",
+                              expanded && "rotate-90",
+                            )}
+                          />
+                        </button>
+                        {expanded && (
+                          <div className="mt-2 ml-8 space-y-1.5">
+                            {row.items.map((it) => (
+                              <div
+                                key={`${it.name}-${it.unit}`}
+                                className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm"
+                              >
+                                <span className="text-muted-foreground break-words">{it.name}</span>
+                                <span className="shrink-0 font-mono font-semibold tabular-nums text-primary">
+                                  — {formatQty(it.qty)} {it.unit}
+                                </span>
+                                {isAdmin && (
+                                  <>
+                                    <span className="shrink-0 font-mono tabular-nums text-status-review">
+                                      × {formatMoney(it.price)}
+                                    </span>
+                                    <span className="shrink-0 font-mono font-semibold tabular-nums text-status-done">
+                                      = {formatMoney(it.sum)}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            ))}
+                            {isAdmin && (
+                              <p className="pt-1 text-xs text-muted-foreground">
+                                Сумма: {Math.round(row.totalValue).toLocaleString("ru-RU")} ₽
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {statsRows.length === 0 && (
+                    <p className="py-4 text-sm text-muted-foreground">
+                      Нет данных за выбранный период.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
           <div className="rounded-2xl border border-border bg-card p-4">
