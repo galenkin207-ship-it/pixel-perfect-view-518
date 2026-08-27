@@ -7,6 +7,7 @@ import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { EmployeeSelect } from "@/components/app/employee-select";
 import { NumberField } from "@/components/app/number-field";
 import { ObjectSelect } from "@/components/app/object-select";
+import { useBlurOnScroll } from "@/hooks/use-blur-on-scroll";
 import { cn } from "@/lib/utils";
 import { itemQty, recordTotal, round2, syncItem } from "@/lib/record-utils";
 import { smartFilter } from "@/lib/smart-search";
@@ -854,6 +855,11 @@ function WorkTypePicker({
   const [custom, setCustom] = useState("");
   const filtered = smartFilter(types, query, (t) => t.name);
 
+  // Сворачиваем клавиатуру, как только начинается скролл списка видов
+  // работ — иначе она закрывает часть карточек и мешает выбору.
+  const listRef = useRef<HTMLDivElement>(null);
+  useBlurOnScroll(listRef);
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 md:items-center md:p-4">
       <div className="flex max-h-[95vh] w-full max-w-6xl 2xl:max-w-[1600px] flex-col rounded-t-3xl bg-card shadow-2xl md:rounded-3xl">
@@ -893,7 +899,7 @@ function WorkTypePicker({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5 md:px-10 md:py-7">
+        <div ref={listRef} className="flex-1 overflow-y-auto px-6 py-5 md:px-10 md:py-7">
           {filtered.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-surface p-8 text-center">
               <p className="text-base text-muted-foreground">Ничего не найдено</p>

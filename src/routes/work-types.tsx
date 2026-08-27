@@ -7,6 +7,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
 import { SwipeToAddRow } from "@/components/app/swipe-to-add-row";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useBlurOnScroll } from "@/hooks/use-blur-on-scroll";
 import { smartFilter } from "@/lib/smart-search";
 import { getQuickDraftId, setQuickDraftId } from "@/lib/quick-draft";
 import type { WorkItem, WorkType } from "@/data/mock";
@@ -38,6 +39,10 @@ function WorkTypesPage() {
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestText, setRequestText] = useState("");
   const [sendingRequest, setSendingRequest] = useState(false);
+
+  // Сворачиваем клавиатуру, как только начинается скролл списка — иначе
+  // она закрывает часть позиций и мешает выбирать вид работы.
+  useBlurOnScroll("app-scroll-container");
 
   const sendRequest = async () => {
     const text = requestText.trim();
