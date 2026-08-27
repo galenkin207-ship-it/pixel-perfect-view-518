@@ -333,10 +333,10 @@ function WorkTypesSection() {
                 />
               </label>
               <div className="grid grid-cols-2 gap-3">
-                <label className="block">
+                <div className="block">
                   <span className="label-caps">Ед. изм.</span>
                   <UnitSelect value={unit} onChange={setUnit} units={units} />
-                </label>
+                </div>
                 <label className="block">
                   <span className="label-caps">Цена, руб./ед.</span>
                   <input
@@ -396,7 +396,7 @@ function WorkTypesSection() {
                     />
                   </label>
                   <div className="grid grid-cols-2 gap-3">
-                    <label className="block">
+                    <div className="block">
                       <span className="label-caps">Ед. изм.</span>
                       <UnitSelect
                         value={draft.unit}
@@ -404,7 +404,7 @@ function WorkTypesSection() {
                         units={units}
                         className="bg-card"
                       />
-                    </label>
+                    </div>
                     <label className="block">
                       <span className="label-caps">Цена, руб./ед.</span>
                       <input
@@ -581,14 +581,14 @@ function WorkTypesList() {
                   />
                 </label>
                 <div className="grid grid-cols-2 gap-3">
-                  <label className="block">
+                  <div className="block">
                     <span className="label-caps">Ед. изм.</span>
                     <UnitSelect
                       value={draft.unit}
                       onChange={(v) => setDraft((d) => ({ ...d, unit: v }))}
                       units={units}
                     />
-                  </label>
+                  </div>
                   <label className="block">
                     <span className="label-caps">Цена, руб./ед.</span>
                     <input
