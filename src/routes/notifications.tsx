@@ -59,7 +59,7 @@ function NotificationsPage() {
             <li key={n.id}>
               <Link
                 to="/messages"
-                search={{ request: n.requestId }}
+                search={{ request: n.requestId, from: "notifications" }}
                 onClick={() => markNotificationsRead([n.id])}
                 className={cn(
                   "flex items-start gap-3 rounded-2xl border bg-card p-4 transition-colors hover:bg-muted",

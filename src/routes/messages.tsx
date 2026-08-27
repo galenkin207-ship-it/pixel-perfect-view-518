@@ -13,9 +13,12 @@ import { roleLabels, type WorkRequest } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 import { notificationIdsForRequest } from "@/lib/notification-items";
 
+type MessagesSearch = { request?: string | undefined; from?: "notifications" | undefined };
+
 export const Route = createFileRoute("/messages")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): MessagesSearch => ({
     request: typeof search["request"] === "string" ? (search["request"] as string) : undefined,
+    from: search["from"] === "notifications" ? "notifications" : undefined,
   }),
   head: () => ({
     meta: [
@@ -56,7 +59,7 @@ function MessagesPage() {
     units,
     markNotificationsRead,
   } = useApp();
-  const { request: focusId } = Route.useSearch();
+  const { request: focusId, from } = Route.useSearch();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -171,7 +174,12 @@ function MessagesPage() {
   // общем списке. Открытие автоматически помечает прочитанным всё, что
   // относится к этой заявке (саму заявку и все сообщения переписки).
   const dialogRequest = focusId ? visible.find((r) => r.id === focusId) : undefined;
-  const closeDialog = () => void navigate({ to: "/messages", search: { request: undefined } });
+  const closeDialog = () =>
+    void navigate(
+      from === "notifications"
+        ? { to: "/notifications" }
+        : { to: "/messages", search: { request: undefined } },
+    );
 
   useEffect(() => {
     if (!dialogRequest) return;
