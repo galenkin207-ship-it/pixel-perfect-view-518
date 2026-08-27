@@ -911,7 +911,7 @@ function ReportsPage() {
     .map((o) => ({ ...o, count: periodRecords.filter((r) => r.object_id === o.id).length }))
     .sort((a, b) => b.count - a.count);
   const maxCount = Math.max(1, ...perObject.map((p) => p.count));
-  const volume = periodRecords.reduce((s, r) => s + r.items.reduce((a, i) => a + i.qty, 0), 0);
+  const revenue = periodRecords.reduce((s, r) => s + r.total, 0);
   const activeEmployees = new Set(
     periodRecords.flatMap((r) =>
       r.execution_type === "brigade" ? (r.brigade_members ?? []) : r.employees,
@@ -964,7 +964,12 @@ function ReportsPage() {
         ))}
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4 2xl:gap-4">
+      <div
+        className={cn(
+          "mt-4 grid grid-cols-2 gap-3 2xl:gap-4",
+          isAdmin ? "lg:grid-cols-4" : "lg:grid-cols-3",
+        )}
+      >
         <Metric
           value={String(periodRecords.length)}
           label={period === "Месяц" ? "записей за месяц" : "записей за неделю"}
@@ -974,7 +979,12 @@ function ReportsPage() {
           value={String(perObject.filter((o) => o.count > 0).length)}
           label="активных объектов"
         />
-        <Metric value={`${Math.round(volume)}`} label="суммарный объём (ед.)" />
+        {isAdmin && (
+          <Metric
+            value={`${Math.round(revenue).toLocaleString("ru-RU")} ₽`}
+            label="сумма выполненных работ"
+          />
+        )}
         <Metric value={String(activeEmployees)} label="сотрудников вышло" />
       </div>
 
