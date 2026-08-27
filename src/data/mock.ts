@@ -29,6 +29,10 @@ export type WorkItem = {
   price: number;
   allocations?: EmployeeQty[];
   manual?: boolean;
+  // Связь с видом работы в справочнике: если задана, при изменении цены/
+  // названия/единицы этого вида работы позиция (и сумма записи) будет
+  // пересчитана автоматически — в т.ч. в уже завершённых записях.
+  work_type_id?: string;
 };
 
 export type WorkRecord = {

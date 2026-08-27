@@ -918,7 +918,15 @@ function WorkTypePicker({
               {filtered.map((t) => (
                 <li key={t.id}>
                   <button
-                    onClick={() => onPick({ name: t.name, unit: t.unit, qty: 0, price: t.price })}
+                    onClick={() =>
+                      onPick({
+                        name: t.name,
+                        unit: t.unit,
+                        qty: 0,
+                        price: t.price,
+                        work_type_id: t.id,
+                      })
+                    }
                     className="group flex h-full w-full flex-col items-start justify-between gap-4 rounded-2xl border border-border bg-surface p-5 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
                   >
                     <span className="block text-base font-semibold leading-snug break-words whitespace-normal group-hover:text-primary">

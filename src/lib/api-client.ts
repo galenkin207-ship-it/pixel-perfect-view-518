@@ -76,6 +76,7 @@ type ApiItem = {
   qty: string | number;
   price: string | number;
   manual: boolean;
+  work_type_id: number | null;
   shares: { employee_name: string; qty: string | number }[];
 };
 
@@ -110,6 +111,7 @@ function apiRecordToWorkRecord(r: ApiRecord): WorkRecord {
     price: Number(it.price),
     manual: it.manual,
     allocations: it.shares.map((s) => ({ employee: s.employee_name, qty: Number(s.qty) })),
+    ...(it.work_type_id != null ? { work_type_id: String(it.work_type_id) } : {}),
   }));
   const updatedAt = formatDateTime(r.modified_at);
   return {
@@ -144,6 +146,7 @@ function workRecordToApiPayload(r: WorkRecord) {
       qty: it.qty,
       price: it.price,
       manual: it.manual ?? false,
+      work_type_id: it.work_type_id ? Number(it.work_type_id) : null,
       shares: (it.allocations ?? []).map((a) => ({ employee: a.employee, qty: a.qty })),
     })),
   };

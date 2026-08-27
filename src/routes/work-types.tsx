@@ -72,7 +72,13 @@ function WorkTypesPage() {
   const goToRecord = (id: string) => navigate({ to: "/records/$id", params: { id } });
 
   const handleAddToRecord = async (type: WorkType) => {
-    const newItem: WorkItem = { name: type.name, unit: type.unit, qty: 0, price: type.price };
+    const newItem: WorkItem = {
+      name: type.name,
+      unit: type.unit,
+      qty: 0,
+      price: type.price,
+      work_type_id: type.id,
+    };
     const existingDraftId = getQuickDraftId();
     const existingDraft = existingDraftId
       ? (records.find((r) => r.id === existingDraftId && r.status === "draft") ?? null)
