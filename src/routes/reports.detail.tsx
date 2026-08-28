@@ -735,6 +735,7 @@ function ReportDetailPage() {
 
             {days.map((day) => {
               const open = openDays.includes(day.date);
+              const dayPhotoCount = day.records.reduce((s, r) => s + r.photos.length, 0);
               return (
                 <div
                   key={day.date}
@@ -759,6 +760,12 @@ function ReportDetailPage() {
                     <span className="flex-1 font-semibold">
                       {weekday(day.date)}, {day.date}
                     </span>
+                    {dayPhotoCount > 0 && (
+                      <span className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                        <ImageIcon className="size-3.5" />
+                        {dayPhotoCount}
+                      </span>
+                    )}
                     <span className="rounded-full bg-surface px-3 py-1 text-xs font-semibold">
                       {day.records.length} записей
                     </span>
