@@ -190,12 +190,13 @@ function ObjectRecordsPage() {
           </p>
         )}
 
-        <div className="mt-5 hidden grid-cols-[2.6fr_1.1fr_1.2fr_1.1fr_1fr] gap-3 rounded-t-2xl border border-border bg-card px-4 py-3 lg:grid">
+        <div className="mt-5 hidden grid-cols-[2.4fr_1.1fr_1.2fr_1.1fr_1fr_1.2fr] gap-3 rounded-t-2xl border border-border bg-card px-4 py-3 lg:grid">
           <span className="label-caps">Вид работы</span>
           <span className="label-caps">Кто подал</span>
           <span className="label-caps">Сотрудник / Бригада</span>
           <span className="label-caps">Дата</span>
           <span className="label-caps">Статус</span>
+          <span className="label-caps">Изменено</span>
         </div>
       </div>
 
@@ -207,7 +208,7 @@ function ObjectRecordsPage() {
             <div key={r.id} className="border-b border-border last:border-0">
               <button
                 onClick={() => setOpenId(r.id)}
-                className="grid h-auto w-full auto-rows-min grid-cols-1 gap-2 px-4 py-3 text-left hover:bg-muted/40 lg:grid-cols-[2.6fr_1.1fr_1.2fr_1.1fr_1fr] lg:items-start lg:gap-3"
+                className="grid h-auto w-full auto-rows-min grid-cols-1 gap-2 px-4 py-3 text-left hover:bg-muted/40 lg:grid-cols-[2.4fr_1.1fr_1.2fr_1.1fr_1fr_1.2fr] lg:items-start lg:gap-3"
               >
                 <span className="flex flex-col gap-1">
                   {r.items.map((item, i) => (
@@ -245,6 +246,16 @@ function ObjectRecordsPage() {
                 </span>
                 <span className="flex items-center gap-2">
                   <StatusBadge status={r.status} />
+                </span>
+                <span className="text-xs text-muted-foreground break-words">
+                  {r.updated_by ? (
+                    <>
+                      <span className="font-semibold text-foreground">{r.updated_by}</span>
+                      {r.updated_at ? <> · {r.updated_at}</> : null}
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </span>
               </button>
             </div>
