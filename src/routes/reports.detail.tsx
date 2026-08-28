@@ -740,7 +740,7 @@ function ReportDetailPage() {
                     onClick={() =>
                       isMobile ? setMobileDay(day.date) : toggle(openDays, setOpenDays, day.date)
                     }
-                    className="flex w-full items-center gap-3 p-4 text-left"
+                    className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-surface/60"
                   >
                     {isMobile ? (
                       <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
@@ -773,7 +773,7 @@ function ReportDetailPage() {
                           <div key={r.id} className="rounded-xl border border-border bg-card">
                             <button
                               onClick={() => toggle(openRecords, setOpenRecords, r.id)}
-                              className="flex w-full items-start gap-3 p-4 text-left"
+                              className="flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-surface/60"
                             >
                               <ChevronDown
                                 className={cn(
@@ -831,7 +831,10 @@ function ReportDetailPage() {
                   </thead>
                   <tbody>
                     {summary.map((s) => (
-                      <tr key={`${s.name}-${s.unit}`} className="border-t border-border">
+                      <tr
+                        key={`${s.name}-${s.unit}`}
+                        className="border-t border-border transition-colors hover:bg-surface/60"
+                      >
                         <td className="px-4 py-2.5 font-medium break-words">{s.name}</td>
                         <td className="px-4 py-2.5 text-right font-mono font-bold whitespace-nowrap">
                           {s.qty} {s.unit}
