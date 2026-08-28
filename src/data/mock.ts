@@ -78,6 +78,16 @@ export type WorkRequest = {
   resolved_unit?: string;
   resolved_price?: number;
   reject_reason?: string;
+  // Кто и когда одобрил/отклонил заявку — нужно для уведомления автора
+  // заявки ("Одобрено"/"Отклонено" в разделе "Уведомления") и чтобы не
+  // показывать это уведомление как непрочитанное самому куратору/админу,
+  // который принял решение.
+  resolved_by?: string;
+  resolved_date?: string;
+  resolved_time?: string;
+  rejected_by?: string;
+  rejected_date?: string;
+  rejected_time?: string;
   created_at: string;
   // Время подачи заявки (чч:мм) — отдельно от даты, нужно для правильной
   // сортировки в уведомлениях, пока у заявки ещё нет ни одного сообщения.

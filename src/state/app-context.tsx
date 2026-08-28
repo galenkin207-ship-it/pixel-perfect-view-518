@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { ClipboardList, Inbox, MessageSquare, Trash2 } from "lucide-react";
+import { CheckCircle2, ClipboardList, Inbox, MessageSquare, Trash2, XCircle } from "lucide-react";
 import { AppContext, type AppState, type NotificationSettings, type ThemeMode } from "./use-app";
 import type {
   AppUser,
@@ -210,11 +210,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     const seen = seenNotificationIdsRef.current;
-    const kindIcon = { request: Inbox, comment: MessageSquare, deleted: Trash2 } as const;
+    const kindIcon = {
+      request: Inbox,
+      comment: MessageSquare,
+      deleted: Trash2,
+      approved: CheckCircle2,
+      rejected: XCircle,
+    } as const;
     const kindLabel = {
       request: "Новая заявка",
       comment: "Новое сообщение",
       deleted: "Заявка удалена",
+      approved: "Заявка одобрена",
+      rejected: "Заявка отклонена",
     } as const;
 
     for (const item of items) {

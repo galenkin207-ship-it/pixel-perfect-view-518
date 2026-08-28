@@ -1,6 +1,6 @@
 import type { WorkRequest } from "@/data/mock";
 
-export type NotificationKind = "request" | "comment" | "deleted";
+export type NotificationKind = "request" | "comment" | "deleted" | "approved" | "rejected";
 
 export type NotificationItem = {
   id: string;
@@ -56,6 +56,35 @@ export function buildNotificationItems(
           time: "—",
         });
       }
+      // Одобрение/отклонение — отдельное уведомление для автора заявки.
+      // Автором события ставим того, кто принял решение (куратора/админа), а
+      // не автора заявки: так фильтр "непрочитанные" сработает правильно —
+      // сам принявший решение не увидит это как непрочитанное у себя, а вот
+      // автор заявки (обычно другой человек) увидит.
+      if (r.status === "approved") {
+        items.push({
+          id: `${r.id}-approved`,
+          requestId: r.id,
+          kind: "approved",
+          author: r.resolved_by || r.author,
+          title: "Заявка одобрена",
+          text: r.requested_text,
+          date: r.resolved_date ?? r.created_at,
+          time: r.resolved_time ?? "—",
+        });
+      }
+      if (r.status === "rejected") {
+        items.push({
+          id: `${r.id}-rejected`,
+          requestId: r.id,
+          kind: "rejected",
+          author: r.rejected_by || r.author,
+          title: "Заявка отклонена",
+          text: r.reject_reason || r.requested_text,
+          date: r.rejected_date ?? r.created_at,
+          time: r.rejected_time ?? "—",
+        });
+      }
     }
     if (includeMessages) {
       for (const c of r.comments) {
@@ -95,6 +124,8 @@ export function sortNotificationItems(items: NotificationItem[]): NotificationIt
 export function notificationIdsForRequest(r: WorkRequest): string[] {
   const ids = [`${r.id}-new`];
   if (r.status === "deleted") ids.push(`${r.id}-deleted`);
+  if (r.status === "approved") ids.push(`${r.id}-approved`);
+  if (r.status === "rejected") ids.push(`${r.id}-rejected`);
   for (const c of r.comments) ids.push(c.id);
   return ids;
 }

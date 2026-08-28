@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { Inbox, MessageSquare, Trash2 } from "lucide-react";
+import { CheckCircle2, Inbox, MessageSquare, Trash2, XCircle } from "lucide-react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar, PageHeading } from "@/components/app/bits";
@@ -82,11 +82,17 @@ function NotificationsPage() {
                       {n.kind === "comment" && <MessageSquare className="size-3" />}
                       {n.kind === "request" && <Inbox className="size-3" />}
                       {n.kind === "deleted" && <Trash2 className="size-3" />}
+                      {n.kind === "approved" && <CheckCircle2 className="size-3" />}
+                      {n.kind === "rejected" && <XCircle className="size-3" />}
                       {n.kind === "comment"
                         ? "Сообщение"
                         : n.kind === "deleted"
                           ? "Удалена"
-                          : "Заявка"}
+                          : n.kind === "approved"
+                            ? "Одобрено"
+                            : n.kind === "rejected"
+                              ? "Отклонено"
+                              : "Заявка"}
                     </span>
                   </span>
                   <span className="mt-0.5 block text-sm break-words whitespace-normal">

@@ -509,6 +509,10 @@ export const api = {
         resolved_unit: string | null;
         resolved_price: number | string | null;
         reject_reason: string | null;
+        resolved_by: string | null;
+        resolved_at: string | null;
+        rejected_by: string | null;
+        rejected_at: string | null;
         created_at: string;
         comments: { id: number; author: string; text: string; created_at: string }[];
       }[]
@@ -522,6 +526,14 @@ export const api = {
       ...(r.resolved_unit != null ? { resolved_unit: r.resolved_unit } : {}),
       ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
       ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
+      ...(r.resolved_by != null ? { resolved_by: r.resolved_by } : {}),
+      ...(r.resolved_at != null
+        ? { resolved_date: isoToRu(r.resolved_at), resolved_time: formatTime(r.resolved_at) }
+        : {}),
+      ...(r.rejected_by != null ? { rejected_by: r.rejected_by } : {}),
+      ...(r.rejected_at != null
+        ? { rejected_date: isoToRu(r.rejected_at), rejected_time: formatTime(r.rejected_at) }
+        : {}),
       created_at: isoToRu(r.created_at),
       created_time: formatTime(r.created_at),
       comments: r.comments.map((c) => ({
@@ -621,6 +633,10 @@ export const api = {
       resolved_unit: string | null;
       resolved_price: number | string | null;
       reject_reason: string | null;
+      resolved_by: string | null;
+      resolved_at: string | null;
+      rejected_by: string | null;
+      rejected_at: string | null;
       created_at: string;
     }>(`/requests/${id}`, { method: "PUT", body: JSON.stringify(input) });
     return {
@@ -632,6 +648,14 @@ export const api = {
       ...(r.resolved_unit != null ? { resolved_unit: r.resolved_unit } : {}),
       ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
       ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
+      ...(r.resolved_by != null ? { resolved_by: r.resolved_by } : {}),
+      ...(r.resolved_at != null
+        ? { resolved_date: isoToRu(r.resolved_at), resolved_time: formatTime(r.resolved_at) }
+        : {}),
+      ...(r.rejected_by != null ? { rejected_by: r.rejected_by } : {}),
+      ...(r.rejected_at != null
+        ? { rejected_date: isoToRu(r.rejected_at), rejected_time: formatTime(r.rejected_at) }
+        : {}),
       created_at: isoToRu(r.created_at),
       created_time: formatTime(r.created_at),
       comments: [],
