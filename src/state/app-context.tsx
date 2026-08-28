@@ -372,6 +372,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [notificationsCount]);
 
+  // На Android значок на иконке приложения у многих лаунчеров (Samsung, Pixel
+  // и др.) считается не по Badging API, а по числу активных системных
+  // уведомлений в шторке. Push-уведомления остаются в шторке, пока их не
+  // смахнут или не тапнут вручную, поэтому после прочтения сообщений внутри
+  // приложения значок продолжал висеть. Когда непрочитанных не осталось —
+  // закрываем все показанные этим приложением системные уведомления.
+  useEffect(() => {
+    if (notificationsCount > 0) return;
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.ready
+      .then((registration) => registration.getNotifications())
+      .then((list) => list.forEach((n) => n.close()))
+      .catch(() => {});
+  }, [notificationsCount]);
+
   const markNotificationsRead = useCallback(
     (ids: string[]) => {
       const fresh = ids.filter((id) => !readNotificationIds.has(id));
