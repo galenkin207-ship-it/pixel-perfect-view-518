@@ -211,6 +211,10 @@ function ReportDetailPage() {
       pattern: "solid" as const,
       fgColor: { argb },
     });
+    // Для целых значений объёма используем формат без десятичных знаков,
+    // иначе Excel иногда рисует "пустую" запятую после числа (например, "40,")
+    // из-за формата "#,##0.###", применённого к значению без дробной части.
+    const qtyNumFmt = (v: number) => (Math.abs(v - Math.round(v)) < 1e-9 ? "#,##0" : "#,##0.##");
 
     const wb = new ExcelJS.Workbook();
     wb.creator = "Учёт работ";
@@ -331,7 +335,7 @@ function ReportDetailPage() {
             } else if (colNum === 5 || (isAdmin && colNum === 7)) {
               cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: "FF1F2933" } };
               cell.alignment = { vertical: "middle", horizontal: "right" };
-              cell.numFmt = colNum === 5 ? "#,##0.###" : '#,##0" ₽"';
+              cell.numFmt = colNum === 5 ? qtyNumFmt(qty) : '#,##0" ₽"';
             } else {
               cell.font = { name: "Calibri", size: 11, color: { argb: "FF1F2933" } };
               cell.alignment = { vertical: "middle", horizontal: colNum === 3 ? "left" : "center" };
@@ -351,7 +355,7 @@ function ReportDetailPage() {
                 cell.alignment = { vertical: "middle", horizontal: "left", indent: 3 };
               else if (colNum === 5) {
                 cell.alignment = { vertical: "middle", horizontal: "right" };
-                cell.numFmt = "#,##0.###";
+                cell.numFmt = qtyNumFmt(a.qty);
               } else if (isAdmin && colNum === 7) {
                 cell.alignment = { vertical: "middle", horizontal: "right" };
                 cell.numFmt = '#,##0" ₽"';
@@ -464,7 +468,7 @@ function ReportDetailPage() {
           vertical: "middle",
           horizontal: colNum === 1 ? "left" : colNum === 2 ? "center" : "right",
         };
-        if (colNum === 3) cell.numFmt = "#,##0.###";
+        if (colNum === 3) cell.numFmt = qtyNumFmt(s.qty);
         if (colNum === 5) cell.numFmt = '#,##0" ₽"';
       });
     });
