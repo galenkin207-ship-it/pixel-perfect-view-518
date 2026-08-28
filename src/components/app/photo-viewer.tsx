@@ -247,6 +247,30 @@ export function PhotoViewer({
         ) : (
           <span />
         )}
+
+        <div
+          className="hidden items-center gap-1 rounded-full bg-white/10 p-1 md:flex"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => zoomByButton(1 / BUTTON_ZOOM_FACTOR)}
+            disabled={transform.scale <= MIN_SCALE}
+            aria-label="Уменьшить"
+            className="flex size-9 items-center justify-center rounded-full text-white transition hover:bg-white/20 disabled:opacity-30"
+          >
+            <ZoomOut className="size-5" />
+          </button>
+          <button
+            onClick={() => zoomByButton(BUTTON_ZOOM_FACTOR)}
+            disabled={transform.scale >= MAX_SCALE}
+            aria-label="Увеличить"
+            className="flex size-9 items-center justify-center rounded-full text-white transition hover:bg-white/20 disabled:opacity-30"
+          >
+            <ZoomIn className="size-5" />
+          </button>
+        </div>
+
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -313,7 +337,7 @@ export function PhotoViewer({
         )}
 
         <div
-          className="absolute right-2 bottom-2 z-10 flex items-center gap-1 rounded-full bg-white/10 p-1 md:right-4 md:bottom-4"
+          className="absolute right-2 bottom-2 z-10 flex items-center gap-1 rounded-full bg-white/10 p-1 md:hidden"
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
         >
@@ -321,17 +345,17 @@ export function PhotoViewer({
             onClick={() => zoomByButton(1 / BUTTON_ZOOM_FACTOR)}
             disabled={transform.scale <= MIN_SCALE}
             aria-label="Уменьшить"
-            className="flex size-8 items-center justify-center rounded-full text-white transition hover:bg-white/20 disabled:opacity-30 md:size-9"
+            className="flex size-8 items-center justify-center rounded-full text-white transition hover:bg-white/20 disabled:opacity-30"
           >
-            <ZoomOut className="size-4 md:size-5" />
+            <ZoomOut className="size-4" />
           </button>
           <button
             onClick={() => zoomByButton(BUTTON_ZOOM_FACTOR)}
             disabled={transform.scale >= MAX_SCALE}
             aria-label="Увеличить"
-            className="flex size-8 items-center justify-center rounded-full text-white transition hover:bg-white/20 disabled:opacity-30 md:size-9"
+            className="flex size-8 items-center justify-center rounded-full text-white transition hover:bg-white/20 disabled:opacity-30"
           >
-            <ZoomIn className="size-4 md:size-5" />
+            <ZoomIn className="size-4" />
           </button>
         </div>
       </div>
