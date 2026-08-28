@@ -24,6 +24,7 @@ export function PhotoViewer({
   const [transform, setTransform] = useState<Transform>({ scale: 1, x: 0, y: 0 });
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const panStart = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
   const pinchDist = useRef<number | null>(null);
@@ -131,6 +132,12 @@ export function PhotoViewer({
   };
 
   const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Двойной клик засчитываем только по самой картинке. Иначе два быстрых
+    // одиночных клика подряд по кнопке "вперёд/назад" (например, при быстром
+    // пролистывании фото) браузер иногда распознаёт как нативный dblclick,
+    // который всплывает сюда и включает зум с привязкой к точке клика —
+    // из-за этого фото резко увеличивалось и "уезжало" к краю экрана.
+    if (e.target !== imgRef.current) return;
     zoomAt(e.clientX, e.clientY, transform.scale > 1 ? 1 : DOUBLE_TAP_SCALE);
   };
 
@@ -309,6 +316,7 @@ export function PhotoViewer({
         )}
 
         <img
+          ref={imgRef}
           src={photos[index]}
           alt="Фото к записи, полный размер"
           draggable={false}
