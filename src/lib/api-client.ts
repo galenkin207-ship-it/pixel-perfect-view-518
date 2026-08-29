@@ -733,6 +733,15 @@ export const api = {
     await request("/notification-reads", { method: "POST", body: JSON.stringify({ ids }) });
   },
 
+  async listHiddenNotificationIds(): Promise<string[]> {
+    return request<string[]>("/notification-hides");
+  },
+
+  async hideNotifications(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await request("/notification-hides", { method: "POST", body: JSON.stringify({ ids }) });
+  },
+
   async listAuditLog(params: {
     entity_type?: "record" | "request";
     entity_id?: string;

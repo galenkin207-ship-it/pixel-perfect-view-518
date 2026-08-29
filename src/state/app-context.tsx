@@ -54,6 +54,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [pinnedObjectIds, setPinnedObjectIds] = useState<string[]>([]);
   const [hiddenObjectIds, setHiddenObjectIds] = useState<string[]>([]);
   const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(new Set());
+  const [hiddenNotificationIds, setHiddenNotificationIds] = useState<Set<string>>(new Set());
 
   // Проверяем сессию один раз при загрузке приложения.
   useEffect(() => {
@@ -79,20 +80,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // входе, и фоновым автообновлением, и pull-to-refresh на телефоне.
   const loadAppData = useCallback(async () => {
     if (!sessionUser) return;
-    const [objs, emps, uns, types, recs, reqs, usrs, pinned, hidden, readIds, brgs] =
-      await Promise.all([
-        api.listObjects(),
-        api.listEmployees(),
-        api.listUnits(),
-        api.listWorkTypes(),
-        api.listRecords(),
-        api.listRequests(),
-        sessionUser.role === "admin" ? api.listUsers() : Promise.resolve([]),
-        api.listPinnedObjects(),
-        api.listHiddenObjects(),
-        api.listReadNotificationIds().catch(() => [] as string[]),
-        api.listBrigades(),
-      ]);
+    const [
+      objs,
+      emps,
+      uns,
+      types,
+      recs,
+      reqs,
+      usrs,
+      pinned,
+      hidden,
+      readIds,
+      hiddenNotifIds,
+      brgs,
+    ] = await Promise.all([
+      api.listObjects(),
+      api.listEmployees(),
+      api.listUnits(),
+      api.listWorkTypes(),
+      api.listRecords(),
+      api.listRequests(),
+      sessionUser.role === "admin" ? api.listUsers() : Promise.resolve([]),
+      api.listPinnedObjects(),
+      api.listHiddenObjects(),
+      api.listReadNotificationIds().catch(() => [] as string[]),
+      api.listHiddenNotificationIds().catch(() => [] as string[]),
+      api.listBrigades(),
+    ]);
     setObjects(objs);
     setEmployees(emps);
     setUnits(uns);
@@ -103,6 +117,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPinnedObjectIds(pinned);
     setHiddenObjectIds(hidden);
     setReadNotificationIds(new Set(readIds));
+    setHiddenNotificationIds(new Set(hiddenNotifIds));
     setBrigades(brgs);
   }, [sessionUser]);
 
@@ -354,8 +369,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // заявки, admin/curator — все.
   const notificationItems = useMemo(() => {
     const isForeman = role === "user";
-    return buildNotificationItems(requests, isForeman, currentUser.full_name);
-  }, [requests, role, currentUser.full_name]);
+    const items = buildNotificationItems(requests, isForeman, currentUser.full_name);
+    return items.filter((i) => !hiddenNotificationIds.has(i.id));
+  }, [requests, role, currentUser.full_name, hiddenNotificationIds]);
 
   const notificationsCount = useMemo(() => {
     return notificationItems.filter(
@@ -409,6 +425,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     },
     [readNotificationIds],
+  );
+
+  const hideNotifications = useCallback(
+    (ids: string[]) => {
+      const fresh = ids.filter((id) => !hiddenNotificationIds.has(id));
+      if (fresh.length === 0) return;
+      setHiddenNotificationIds((prev) => {
+        const next = new Set(prev);
+        for (const id of fresh) next.add(id);
+        return next;
+      });
+      void api.hideNotifications(fresh).catch(() => {
+        // не критично — при следующей загрузке уведомление просто снова появится в списке
+      });
+    },
+    [hiddenNotificationIds],
   );
 
   const login = async (loginValue: string, password: string) => {
@@ -902,6 +934,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     notificationItems,
     readNotificationIds,
     markNotificationsRead,
+    hiddenNotificationIds,
+    hideNotifications,
     login,
     logout,
     isAuthenticated: !!sessionUser,
