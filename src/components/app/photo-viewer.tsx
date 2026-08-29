@@ -245,7 +245,11 @@ export function PhotoViewer({
   };
 
   return (
-    <div className="fixed inset-0 z-70 flex flex-col bg-black/90" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-70 flex flex-col bg-black/90"
+      onClick={onClose}
+      data-no-swipe-nav
+    >
       <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4">
         {canNavigate ? (
           <span className="rounded-full bg-white/10 px-3 py-1 font-mono text-xs text-white/80">
