@@ -110,6 +110,10 @@ export type AppState = {
   readNotificationIds: Set<string>;
   /** Помечает уведомления как прочитанные (локально и на сервере). */
   markNotificationsRead: (ids: string[]) => void;
+  /** id уведомлений, которые пользователь скрыл ("удалил") из списка. */
+  hiddenNotificationIds: Set<string>;
+  /** Скрывает уведомления из списка (локально и на сервере). Сами заявки/сообщения не удаляются. */
+  hideNotifications: (ids: string[]) => void;
   login: (login: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
