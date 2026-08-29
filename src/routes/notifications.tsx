@@ -17,7 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { roleLabels } from "@/data/mock";
 import { useApp } from "@/state/use-app";
-import { buildNotificationItems, sortNotificationItems } from "@/lib/notification-items";
+import {
+  buildNotificationItems,
+  sortNotificationItems,
+} from "@/lib/notification-items";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/notifications")({
@@ -57,7 +60,11 @@ function NotificationsPage() {
   const [unreadOnly, setUnreadOnly] = useState(false);
 
   const items = useMemo(() => {
-    const list = buildNotificationItems(requests, isForeman, currentUser.full_name);
+    const list = buildNotificationItems(
+      requests,
+      isForeman,
+      currentUser.full_name,
+    );
     return sortNotificationItems(list);
   }, [requests, isForeman, currentUser.full_name]);
 
@@ -115,7 +122,11 @@ function NotificationsPage() {
       <div className="flex items-start justify-between gap-3">
         <PageHeading context={roleLabels[role]} title="Уведомления" />
         {!selectionMode && items.length > 0 && (
-          <Button variant="outline" size="sm" onClick={() => setSelectionMode(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSelectionMode(true)}
+          >
             Выбрать
           </Button>
         )}
@@ -146,7 +157,9 @@ function NotificationsPage() {
               onCheckedChange={toggleSelectAll}
               aria-label="Выбрать все"
             />
-            <span className="text-sm text-muted-foreground">Выбрано: {selectedIds.size}</span>
+            <span className="text-sm text-muted-foreground">
+              Выбрано: {selectedIds.size}
+            </span>
           </label>
           <div className="flex items-center gap-2">
             <Button
@@ -187,11 +200,19 @@ function NotificationsPage() {
           const inner = (
             <>
               {selectionMode && (
-                <span className="flex shrink-0 items-center self-center">
+                // Увеличенная зона попадания на телефоне: сам чекбокс визуально
+                // маленький, но невидимый отступ вокруг него (-m-2.5 p-2.5)
+                // делает тап-зону ~44x44px — минимум, рекомендуемый для пальца.
+                // pointer-events-none на самом Checkbox отдаёт все клики/тапы
+                // родительской строке (см. ниже) — раньше вложенный <button>
+                // Radix-чекбокса "перехватывал" тач на iOS, из-за чего попадать
+                // приходилось точно в кружок, а не в любое место строки.
+                <span className="-m-2.5 flex shrink-0 items-center self-center p-2.5">
                   <Checkbox
                     checked={selected}
                     onCheckedChange={() => toggleSelected(n.id)}
                     aria-label="Выбрать уведомление"
+                    className="pointer-events-none"
                   />
                 </span>
               )}
@@ -208,10 +229,14 @@ function NotificationsPage() {
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold">{n.author}</span>
                   <span className="flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-                    {n.kind === "comment" && <MessageSquare className="size-3" />}
+                    {n.kind === "comment" && (
+                      <MessageSquare className="size-3" />
+                    )}
                     {n.kind === "request" && <Inbox className="size-3" />}
                     {n.kind === "deleted" && <Trash2 className="size-3" />}
-                    {n.kind === "approved" && <CheckCircle2 className="size-3" />}
+                    {n.kind === "approved" && (
+                      <CheckCircle2 className="size-3" />
+                    )}
                     {n.kind === "rejected" && <XCircle className="size-3" />}
                     {n.kind === "comment"
                       ? "Сообщение"
@@ -239,21 +264,31 @@ function NotificationsPage() {
           );
 
           const itemClassName = cn(
-            "flex w-full items-start gap-3 rounded-2xl border bg-card p-4 text-left transition-colors hover:bg-muted",
+            "flex w-full cursor-pointer items-start gap-3 rounded-2xl border bg-card p-4 text-left transition-colors hover:bg-muted",
             unreadItem ? "border-primary/40 bg-primary/5" : "border-border",
             selected && "border-primary ring-2 ring-primary/50",
           );
 
           if (selectionMode) {
+            // Div, а не <button> — внутри уже есть чекбокс Radix (сам по себе
+            // <button>), а кнопка в кнопке — невалидная вложенность, из-за
+            // которой на телефоне надёжно ловил тап только сам чекбокс.
             return (
               <li key={n.id}>
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => toggleSelected(n.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleSelected(n.id);
+                    }
+                  }}
                   className={itemClassName}
                 >
                   {inner}
-                </button>
+                </div>
               </li>
             );
           }
@@ -273,7 +308,9 @@ function NotificationsPage() {
         })}
         {!visibleItems.length && (
           <li className="rounded-2xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-            {unreadOnly ? "Непрочитанных уведомлений нет." : "Уведомлений пока нет."}
+            {unreadOnly
+              ? "Непрочитанных уведомлений нет."
+              : "Уведомлений пока нет."}
           </li>
         )}
       </ul>
