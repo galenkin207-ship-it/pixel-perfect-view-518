@@ -138,13 +138,15 @@ function ObjectsPage() {
           title={isForeman ? "Мои объекты" : "Объекты"}
         />
         <div className="flex items-center gap-2">
-          <Link
-            to="/objects/archive"
-            className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted"
-          >
-            <Archive className="size-3.5" />
-            Архив
-          </Link>
+          {role === "admin" && (
+            <Link
+              to="/objects/archive"
+              className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted"
+            >
+              <Archive className="size-3.5" />
+              Архив
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => setPickerOpen(true)}

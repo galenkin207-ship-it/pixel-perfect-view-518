@@ -114,7 +114,12 @@ export function AppShell({
             )}
           >
             <span className="flex items-center gap-2">
-              <Bell className="size-4 text-muted-foreground" />
+              <Bell
+                className={cn(
+                  "size-4 text-muted-foreground",
+                  isActive("/notifications") && "text-primary",
+                )}
+              />
               Уведомления
             </span>
             {notificationsCount > 0 && (
@@ -187,7 +192,10 @@ export function AppShell({
                 <Link
                   to="/notifications"
                   aria-label="Уведомления"
-                  className="relative flex size-8 items-center justify-center rounded-full border border-border bg-surface"
+                  className={cn(
+                    "relative flex size-8 items-center justify-center rounded-full border border-border bg-surface",
+                    isActive("/notifications") && "border-primary text-primary",
+                  )}
                 >
                   <Bell className="size-4" />
                   {notificationsCount > 0 && (
