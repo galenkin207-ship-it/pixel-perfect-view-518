@@ -437,11 +437,24 @@ export const api = {
     await request<{ deleted: number }>(`/brigades/${id}`, { method: "DELETE" });
   },
 
+  // Только ФИО пользователей, вручную добавленных в "Кто подал" (флаг
+  // is_submitter) — лёгкий эндпоинт, доступен админу и куратору отдельно от
+  // полного списка пользователей (GET /users, admin-only).
+  async listSubmitterUsers(): Promise<string[]> {
+    return request<string[]>("/users/submitters");
+  },
+
   async listUsers(): Promise<AppUser[]> {
-    const rows =
-      await request<
-        { id: number; login: string; full_name: string; role: Role; active: boolean }[]
-      >("/users");
+    const rows = await request<
+      {
+        id: number;
+        login: string;
+        full_name: string;
+        role: Role;
+        active: boolean;
+        is_submitter?: boolean;
+      }[]
+    >("/users");
     return rows.map((u) => ({
       id: String(u.id),
       login: u.login,
@@ -449,6 +462,7 @@ export const api = {
       full_name: u.full_name,
       role: u.role,
       active: u.active,
+      is_submitter: u.is_submitter ?? false,
     }));
   },
 
@@ -459,14 +473,18 @@ export const api = {
     password: string;
     full_name: string;
     role: Role;
+    is_submitter?: boolean;
   }): Promise<AppUser> {
-    const row = await request<{ id: number; login: string; full_name: string; role: Role }>(
-      "/users",
-      {
-        method: "POST",
-        body: JSON.stringify(input),
-      },
-    );
+    const row = await request<{
+      id: number;
+      login: string;
+      full_name: string;
+      role: Role;
+      is_submitter?: boolean;
+    }>("/users", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
     return {
       id: String(row.id),
       login: row.login,
@@ -474,12 +492,19 @@ export const api = {
       full_name: row.full_name,
       role: row.role,
       active: true,
+      is_submitter: row.is_submitter ?? false,
     };
   },
 
   async updateUser(
     id: string,
-    input: { full_name?: string; role?: Role; active?: boolean; password?: string },
+    input: {
+      full_name?: string;
+      role?: Role;
+      active?: boolean;
+      password?: string;
+      is_submitter?: boolean;
+    },
   ): Promise<AppUser> {
     const row = await request<{
       id: number;
@@ -487,6 +512,7 @@ export const api = {
       full_name: string;
       role: Role;
       active: boolean;
+      is_submitter?: boolean;
     }>(`/users/${id}`, { method: "PUT", body: JSON.stringify(input) });
     return {
       id: String(row.id),
@@ -495,6 +521,7 @@ export const api = {
       full_name: row.full_name,
       role: row.role,
       active: row.active,
+      is_submitter: row.is_submitter ?? false,
     };
   },
 

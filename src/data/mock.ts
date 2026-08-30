@@ -102,6 +102,10 @@ export type AppUser = {
   full_name: string;
   role: Role;
   active?: boolean;
+  // Независимо от роли: пользователь вручную добавлен в список "Кто подал"
+  // на страницах отчётов (используется вместе с реальной историей записей,
+  // а не вместо неё).
+  is_submitter?: boolean;
 };
 
 export type WorkType = { id: string; name: string; unit: string; price: number };

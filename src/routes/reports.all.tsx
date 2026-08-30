@@ -28,7 +28,7 @@ export const Route = createFileRoute("/reports/all")({
 });
 
 function AllRecordsPage() {
-  const { records, objects } = useApp();
+  const { records, objects, submitterNames } = useApp();
   const [objectId, setObjectId] = useState("all");
   const [status, setStatus] = useState<"all" | RecordStatus>("all");
   const [query, setQuery] = useState("");
@@ -40,7 +40,11 @@ function AllRecordsPage() {
 
   const PAGE_SIZE = 40;
 
-  const submitters = Array.from(new Set(records.map((r) => r.created_by))).sort();
+  // Список "Кто подал" — реальные авторы записей + вручную добавленные
+  // пользователи (is_submitter), даже если у них ещё нет ни одной записи.
+  const submitters = Array.from(
+    new Set([...records.map((r) => r.created_by), ...submitterNames]),
+  ).sort();
 
   const filtered = records.filter(
     (r) =>

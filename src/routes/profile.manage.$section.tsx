@@ -1252,10 +1252,16 @@ function UsersSection() {
     password: "",
     full_name: "",
     role: "user" as Role,
+    is_submitter: false,
   });
   const [saving, setSaving] = useState(false);
   const [editId, setEditId] = useState("");
-  const [draft, setDraft] = useState({ full_name: "", role: "user" as Role, newPassword: "" });
+  const [draft, setDraft] = useState({
+    full_name: "",
+    role: "user" as Role,
+    newPassword: "",
+    is_submitter: false,
+  });
   const [savingEdit, setSavingEdit] = useState(false);
   const [confirmDisableId, setConfirmDisableId] = useState<string | null>(null);
   const [disabling, setDisabling] = useState(false);
@@ -1341,6 +1347,15 @@ function UsersSection() {
               <option value="admin">Администратор</option>
             </select>
           </label>
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={form.is_submitter}
+              onChange={(e) => setForm((f) => ({ ...f, is_submitter: e.target.checked }))}
+              className="size-4 rounded border-border"
+            />
+            Показывать в списке «Кто подал»
+          </label>
           <button
             type="button"
             disabled={saving}
@@ -1357,8 +1372,15 @@ function UsersSection() {
                   password: form.password,
                   full_name: form.full_name.trim(),
                   role: form.role,
+                  is_submitter: form.is_submitter,
                 });
-                setForm({ login: "", password: "", full_name: "", role: "user" });
+                setForm({
+                  login: "",
+                  password: "",
+                  full_name: "",
+                  role: "user",
+                  is_submitter: false,
+                });
                 toast.success("Пользователь добавлен");
               } catch (err) {
                 toast.error(
@@ -1390,6 +1412,14 @@ function UsersSection() {
                         Отключён
                       </span>
                     )}
+                    {u.is_submitter && u.role !== "user" && (
+                      <span
+                        className="rounded-md bg-accent px-2 py-0.5 text-[11px] font-semibold text-accent-foreground"
+                        title="Дополнительно показывается в списке «Кто подал» на страницах отчётов"
+                      >
+                        Кто подал
+                      </span>
+                    )}
                   </p>
                   <p className="text-xs text-muted-foreground">{roleLabels[u.role]}</p>
                 </div>
@@ -1399,7 +1429,12 @@ function UsersSection() {
                     className={ghostBtn}
                     onClick={() => {
                       setEditId((e) => (e === u.id ? "" : u.id));
-                      setDraft({ full_name: u.full_name, role: u.role, newPassword: "" });
+                      setDraft({
+                        full_name: u.full_name,
+                        role: u.role,
+                        newPassword: "",
+                        is_submitter: u.is_submitter ?? false,
+                      });
                     }}
                   >
                     Изменить
@@ -1451,6 +1486,15 @@ function UsersSection() {
                       </select>
                     </label>
                   </div>
+                  <label className="flex items-center gap-2 text-sm font-medium">
+                    <input
+                      type="checkbox"
+                      checked={draft.is_submitter}
+                      onChange={(e) => setDraft((d) => ({ ...d, is_submitter: e.target.checked }))}
+                      className="size-4 rounded border-border"
+                    />
+                    Показывать в списке «Кто подал»
+                  </label>
                   <label className="block">
                     <span className="label-caps">
                       Новый пароль (оставьте пустым, чтобы не менять)
@@ -1499,6 +1543,7 @@ function UsersSection() {
                         await updateUser(editId, {
                           full_name: draft.full_name.trim(),
                           role: draft.role,
+                          is_submitter: draft.is_submitter,
                           ...(newPassword ? { password: newPassword } : {}),
                         });
                         toast.success(

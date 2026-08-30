@@ -50,6 +50,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [employees, setEmployees] = useState<string[]>([]);
   const [units, setUnits] = useState<string[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
+  // ФИО пользователей, вручную добавленных в "Кто подал" (независимо от их
+  // роли) — используется вместе с реальной историей записей для построения
+  // списка в фильтрах "Кто подал" на страницах отчётов.
+  const [submitterNames, setSubmitterNames] = useState<string[]>([]);
   const [brigades, setBrigades] = useState<Brigade[]>([]);
   const [pinnedObjectIds, setPinnedObjectIds] = useState<string[]>([]);
   const [hiddenObjectIds, setHiddenObjectIds] = useState<string[]>([]);
@@ -88,6 +92,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       recs,
       reqs,
       usrs,
+      submitterNamesList,
       pinned,
       hidden,
       readIds,
@@ -101,6 +106,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       api.listRecords(),
       api.listRequests(),
       sessionUser.role === "admin" ? api.listUsers() : Promise.resolve([]),
+      sessionUser.role === "admin" || sessionUser.role === "curator"
+        ? api.listSubmitterUsers().catch(() => [] as string[])
+        : Promise.resolve([] as string[]),
       api.listPinnedObjects(),
       api.listHiddenObjects(),
       api.listReadNotificationIds().catch(() => [] as string[]),
@@ -114,6 +122,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRecords(recs);
     setRequests(reqs);
     if (usrs.length) setUsers(usrs);
+    setSubmitterNames(submitterNamesList);
     setPinnedObjectIds(pinned);
     setHiddenObjectIds(hidden);
     setReadNotificationIds(new Set(readIds));
@@ -577,10 +586,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     password: string;
     full_name: string;
     role: Role;
+    is_submitter?: boolean;
   }): Promise<AppUser> => {
     try {
       const created = await api.createUser(input);
       setUsers((prev) => [...prev, created]);
+      // Обновляем локальный список "Кто подал" сразу, не дожидаясь полного
+      // рефреша — иначе новый флаг будет виден только после reload/pull-to-refresh.
+      api
+        .listSubmitterUsers()
+        .then(setSubmitterNames)
+        .catch(() => {});
       return created;
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to create user");
@@ -589,11 +605,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updateUser = async (
     id: string,
-    input: { full_name?: string; role?: Role; active?: boolean; password?: string },
+    input: {
+      full_name?: string;
+      role?: Role;
+      active?: boolean;
+      password?: string;
+      is_submitter?: boolean;
+    },
   ): Promise<AppUser> => {
     try {
       const saved = await api.updateUser(id, input);
       setUsers((prev) => prev.map((u) => (u.id === saved.id ? { ...u, ...saved } : u)));
+      if ("is_submitter" in input || "full_name" in input || "active" in input) {
+        api
+          .listSubmitterUsers()
+          .then(setSubmitterNames)
+          .catch(() => {});
+      }
       return saved;
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to update user");
@@ -924,6 +952,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     deleteUnit,
     users,
     setUsers,
+    submitterNames,
     addUser,
     updateUser,
     brigades,

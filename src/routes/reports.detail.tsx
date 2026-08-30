@@ -84,7 +84,7 @@ function employeeItemQty(item: WorkItem, employeeName: string, crew: string[]) {
 }
 
 function ReportDetailPage() {
-  const { records, objects, employees, role } = useApp();
+  const { records, objects, employees, role, submitterNames } = useApp();
   const isAdmin = role === "admin";
   const isMobile = useIsMobile();
   const search = Route.useSearch();
@@ -119,9 +119,10 @@ function ReportDetailPage() {
   const [mobileDay, setMobileDay] = useState<string | null>(null);
   const [mobileRecord, setMobileRecord] = useState<string | null>(null);
 
+  // Реальные авторы записей + вручную добавленные пользователи (is_submitter).
   const submitters = useMemo(
-    () => Array.from(new Set(records.map((r) => r.created_by))).sort(),
-    [records],
+    () => Array.from(new Set([...records.map((r) => r.created_by), ...submitterNames])).sort(),
+    [records, submitterNames],
   );
 
   const days: DayGroup[] = useMemo(() => {

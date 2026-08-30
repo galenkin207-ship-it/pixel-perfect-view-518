@@ -179,7 +179,7 @@ function buildObjectStats(records: WorkRecord[], objects: WorkObject[]): StatsRo
 }
 
 function ReportsPage() {
-  const { records, objects, role, employees, workTypes } = useApp();
+  const { records, objects, role, employees, workTypes, submitterNames } = useApp();
   const [period, setPeriod] = useState<(typeof periods)[number]>("Эта неделя");
   const [grouping, setGrouping] = useState<"employees" | "objects">("employees");
   const [statsFrom, setStatsFrom] = useState("");
@@ -884,7 +884,10 @@ function ReportsPage() {
     }
   };
 
-  const submitters = Array.from(new Set(records.map((r) => r.created_by))).sort();
+  // Реальные авторы записей + вручную добавленные пользователи (is_submitter).
+  const submitters = Array.from(
+    new Set([...records.map((r) => r.created_by), ...submitterNames]),
+  ).sort();
 
   const periodRecords = records.filter((r) => {
     const d = parseDate(r.date);

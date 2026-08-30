@@ -89,15 +89,25 @@ export type AppState = {
   deleteUnit: (id: string) => Promise<void>;
   users: AppUser[];
   setUsers: React.Dispatch<React.SetStateAction<AppUser[]>>;
+  // ФИО пользователей, вручную добавленных в "Кто подал" (флаг is_submitter),
+  // независимо от их роли — для фильтров "Кто подал" на страницах отчётов.
+  submitterNames: string[];
   addUser: (input: {
     login: string;
     password: string;
     full_name: string;
     role: Role;
+    is_submitter?: boolean;
   }) => Promise<AppUser>;
   updateUser: (
     id: string,
-    input: { full_name?: string; role?: Role; active?: boolean; password?: string },
+    input: {
+      full_name?: string;
+      role?: Role;
+      active?: boolean;
+      password?: string;
+      is_submitter?: boolean;
+    },
   ) => Promise<AppUser>;
   /** Личные бригады текущего пользователя — видны и редактируются только им. */
   brigades: Brigade[];
