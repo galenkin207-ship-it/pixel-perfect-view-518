@@ -78,7 +78,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      {
+        name: "viewport",
+        // interactive-widget=resizes-content — заставляет браузер реально
+        // уменьшать layout viewport (а значит и window.innerHeight/dvh) при
+        // открытии экранной клавиатуры на Android, вместо дефолтного
+        // resizes-visual (когда уменьшается только visualViewport, а
+        // layout viewport остаётся прежним). Именно из-за этого рассинхрона
+        // `position: fixed; bottom: 0` в некоторых сценариях закрытия
+        // клавиатуры (кнопка "назад", автозаполнение, свайп) отрисовывался
+        // в случайном месте экрана — это и была первопричина "плавающего"
+        // нижнего меню, а не отдельный краевой случай.
+        // viewport-fit=cover — обязателен, чтобы env(safe-area-inset-bottom)
+        // в CSS нижнего меню корректно считался на iOS (без него отступ под
+        // "чёлку"/индикатор домой может браться как 0).
+        content:
+          "width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content",
+      },
       { title: "Учёт выполненных работ" },
       {
         name: "description",
