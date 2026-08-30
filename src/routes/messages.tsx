@@ -539,9 +539,6 @@ function MessagesPage() {
       <section className="mt-7">
         <div className="flex items-center justify-between">
           <h2 className="label-caps">История решений</h2>
-          {!isForeman && (
-            <button className="text-sm font-semibold text-primary">Экспорт в Excel</button>
-          )}
         </div>
         <div className="mt-3 grid gap-4 xl:grid-cols-2">
           {history.map((r) => renderCard(r, "history"))}
