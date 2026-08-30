@@ -221,7 +221,16 @@ export function AppShell({
       {/* Mobile bottom tabs */}
       <nav
         className={cn(
-          "fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-panel pt-3 pb-[calc(1.1rem+env(safe-area-inset-bottom))] [transform:translateZ(0)] md:hidden",
+          // pb здесь — это отступ ПОВЕРХ реального safe-area-inset-bottom (а
+          // не вместо него): раньше, без viewport-fit=cover в viewport meta,
+          // env(safe-area-inset-bottom) не применялся браузером и фактически
+          // был равен 0, поэтому базовое значение 1.1rem подбиралось "на
+          // глаз" как единственный отступ. После включения viewport-fit=cover
+          // инсет стал считаться по-настоящему (реальные ~34px на iPhone с
+          // Home Indicator) и складывался поверх старого 1.1rem — отсюда
+          // лишнее пустое место под иконками. 0.35rem — это уже просто
+          // небольшой воздух над самим safe-area, а не его замена.
+          "fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-panel pt-2 pb-[calc(0.35rem+env(safe-area-inset-bottom))] [transform:translateZ(0)] md:hidden",
           hideMobileChrome && "hidden",
         )}
       >
