@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ImageIcon, SlidersHorizontal } from "lucide-react";
+import { ImageIcon, SlidersHorizontal, X } from "lucide-react";
 import { useState } from "react";
 
 import { AppShell } from "@/components/app/app-shell";
@@ -62,6 +62,17 @@ function AllRecordsPage() {
       setPage(1); // при смене любого фильтра начинаем заново с первой страницы
     };
 
+  const hasActiveFilters =
+    objectId !== "all" || status !== "all" || query !== "" || submitter !== "all";
+
+  const clearFilters = () => {
+    setObjectId("all");
+    setStatus("all");
+    setQuery("");
+    setSubmitter("all");
+    setPage(1);
+  };
+
   const goToPage = (next: number) => {
     setPage(Math.min(totalPages, Math.max(1, next)));
     const scrollContainer = document.getElementById("app-scroll-container");
@@ -116,13 +127,24 @@ function AllRecordsPage() {
           </Link>
         </div>
 
-        <button
-          onClick={() => setFiltersOpen((v) => !v)}
-          className="mt-4 flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold md:hidden"
-        >
-          <SlidersHorizontal className="size-4" />
-          {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
-        </button>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setFiltersOpen((v) => !v)}
+            className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold md:hidden"
+          >
+            <SlidersHorizontal className="size-4" />
+            {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
+          </button>
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <X className="size-4" />
+              Очистить
+            </button>
+          )}
+        </div>
 
         <div
           className={cn(
