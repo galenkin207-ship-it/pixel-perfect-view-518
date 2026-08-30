@@ -230,7 +230,17 @@ export function AppShell({
           // Home Indicator) и складывался поверх старого 1.1rem — отсюда
           // лишнее пустое место под иконками. 0.35rem — это уже просто
           // небольшой воздух над самим safe-area, а не его замена.
-          "fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-panel pt-2 pb-[calc(0.35rem+env(safe-area-inset-bottom))] [transform:translateZ(0)] md:hidden",
+          // max(), а не +: берём БОЛЬШЕЕ из двух значений, а не сумму — на
+          // iPhone с Home Indicator реальный safe-area-inset-bottom (~34px)
+          // сам по себе больше 0.25rem, поэтому используется он один, без
+          // добавления сверху (в этом и была причина лишнего пустого места
+          // после включения viewport-fit=cover). На Android/iPhone без
+          // индикатора safe-area-inset-bottom равен 0, и в дело вступает
+          // минимальный отступ 0.25rem, чтобы иконки не липли к краю экрана.
+          // position: fixed при этом не трогаем — статичность меню держится
+          // за счёт interactive-widget в viewport meta, а не за счёт этих
+          // отступов.
+          "fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-panel pt-2 pb-[max(0.25rem,env(safe-area-inset-bottom))] [transform:translateZ(0)] md:hidden",
           hideMobileChrome && "hidden",
         )}
       >
