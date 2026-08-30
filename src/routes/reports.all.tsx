@@ -82,12 +82,21 @@ function AllRecordsPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const Pagination = () => (
-    <div className="flex items-center justify-between text-sm text-muted-foreground">
+  const Pagination = ({ withClear = false }: { withClear?: boolean } = {}) => (
+    <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
       <span>
         Показано {filtered.length === 0 ? 0 : pageStart + 1}–
         {Math.min(pageStart + PAGE_SIZE, filtered.length)} из {filtered.length} записей
       </span>
+      {withClear && hasActiveFilters && (
+        <button
+          onClick={clearFilters}
+          className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <X className="size-3.5" />
+          Очистить
+        </button>
+      )}
       <span className="flex items-center gap-2">
         <button
           onClick={() => goToPage(currentPage - 1)}
@@ -127,24 +136,13 @@ function AllRecordsPage() {
           </Link>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setFiltersOpen((v) => !v)}
-            className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold md:hidden"
-          >
-            <SlidersHorizontal className="size-4" />
-            {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
-          </button>
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <X className="size-4" />
-              Очистить
-            </button>
-          )}
-        </div>
+        <button
+          onClick={() => setFiltersOpen((v) => !v)}
+          className="mt-4 flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold md:hidden"
+        >
+          <SlidersHorizontal className="size-4" />
+          {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
+        </button>
 
         <div
           className={cn(
@@ -216,7 +214,7 @@ function AllRecordsPage() {
         </div>
 
         <div className="mt-4">
-          <Pagination />
+          <Pagination withClear />
         </div>
 
         <div className="mt-3 hidden grid-cols-[2.5fr_1.2fr_1.2fr_1fr_1fr_1.2fr] gap-3 rounded-t-2xl border border-border bg-card px-4 py-3 lg:grid">
