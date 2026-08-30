@@ -98,9 +98,11 @@ export function AppShell({
         {/* Desktop sidebar */}
         <aside className="hidden w-[220px] shrink-0 flex-col overflow-y-auto border-r border-border bg-sidebar p-4 md:flex lg:w-[250px] xl:w-[280px]">
           <Link to="/" className="mb-6 flex items-center gap-2 px-2">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-              У
-            </span>
+            <img
+              src="/icon-192.png"
+              alt="Учёт работ"
+              className="size-8 shrink-0 rounded-lg object-cover"
+            />
             <span className="text-base font-bold">
               Учёт<span className="text-primary">.работ</span>
             </span>
@@ -171,9 +173,11 @@ export function AppShell({
             {/* Mobile top bar */}
             <div className="flex items-center justify-between gap-2 px-2 pt-4 md:hidden">
               <Link to="/" className="flex items-center gap-2 text-sm font-bold">
-                <span className="flex size-6 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground">
-                  У
-                </span>
+                <img
+                  src="/icon-192.png"
+                  alt="Учёт работ"
+                  className="size-6 shrink-0 rounded-md object-cover"
+                />
                 Учёт работ
               </Link>
               <div className="flex items-center gap-2">

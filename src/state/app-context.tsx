@@ -977,12 +977,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-shell">
         <div className="flex flex-col items-center gap-4 animate-in fade-in zoom-in-95 duration-500">
-          <div
-            className="flex size-16 items-center justify-center rounded-2xl bg-primary text-2xl font-bold text-primary-foreground shadow-[0_0_40px_-8px_var(--primary)] animate-pulse"
+          <img
+            src="/icon-192.png"
+            alt="Учёт работ"
+            className="size-16 rounded-2xl object-cover shadow-[0_0_40px_-8px_var(--primary)] animate-pulse"
             style={{ animationDuration: "2s" }}
-          >
-            У
-          </div>
+          />
           <span className="text-sm font-semibold tracking-wide text-white/70">Учёт работ</span>
         </div>
         <div className="flex gap-1.5">
