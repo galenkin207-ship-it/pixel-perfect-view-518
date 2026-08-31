@@ -1332,7 +1332,11 @@ function ReportsPage() {
           )}
         </div>
 
-        <Link to="/reports/all" className="mt-4 inline-block text-sm font-semibold text-primary">
+        <Link
+          to="/reports/all"
+          search={{ object: "all", status: "all", query: "", submitter: "all", page: 1 }}
+          className="mt-4 inline-block text-sm font-semibold text-primary"
+        >
           Все записи — таблица с фильтрами →
         </Link>
       </section>

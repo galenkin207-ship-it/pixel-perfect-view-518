@@ -11,7 +11,21 @@ import { clearQuickDraftId } from "@/lib/quick-draft";
 import type { WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
-export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose: () => void }) {
+export function RecordDetail({
+  record,
+  onClose,
+  editReturnTo,
+  editReturnSearch,
+}: {
+  record: WorkRecord;
+  onClose: () => void;
+  // Необязательный "обратный адрес" для перехода к редактированию: если
+  // задан, страница редактирования после сохранения/отмены/удаления вернёт
+  // сюда (с восстановлением search), а не на страницу объекта по умолчанию —
+  // используется со страницы "Все записи", чтобы не сбрасывать её фильтры.
+  editReturnTo?: string;
+  editReturnSearch?: string;
+}) {
   const { objects, role, currentUser, deleteRecord } = useApp();
   const [photoIndex, setPhotoIndex] = useState<number | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -154,6 +168,14 @@ export function RecordDetail({ record, onClose }: { record: WorkRecord; onClose:
             <Link
               to="/records/$id"
               params={{ id: record.id }}
+              {...(editReturnTo
+                ? {
+                    search: {
+                      returnTo: editReturnTo,
+                      ...(editReturnSearch ? { returnSearch: editReturnSearch } : {}),
+                    },
+                  }
+                : {})}
               className="mt-4 block rounded-xl bg-primary py-3 text-center text-sm font-semibold text-primary-foreground"
             >
               {record.status === "draft" ? "Продолжить заполнение" : "Редактировать запись"}

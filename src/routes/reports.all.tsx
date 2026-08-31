@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ImageIcon, SlidersHorizontal, X } from "lucide-react";
 import { useState } from "react";
 
@@ -11,7 +11,26 @@ import { cn } from "@/lib/utils";
 import { statusLabels, type RecordStatus } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
+// Фильтры и страница пагинации хранятся в URL (а не в локальном useState),
+// чтобы не сбрасываться при переходе на другую страницу (например, при
+// редактировании записи) и обратно — при возврате на /reports/all тот же URL
+// восстанавливает ровно те же фильтры.
+export type ReportsAllSearch = {
+  object: string;
+  status: string;
+  query: string;
+  submitter: string;
+  page: number;
+};
+
 export const Route = createFileRoute("/reports/all")({
+  validateSearch: (search: Record<string, unknown>): ReportsAllSearch => ({
+    object: typeof search["object"] === "string" ? search["object"] : "all",
+    status: typeof search["status"] === "string" ? search["status"] : "all",
+    query: typeof search["query"] === "string" ? search["query"] : "",
+    submitter: typeof search["submitter"] === "string" ? search["submitter"] : "all",
+    page: Number(search["page"]) > 0 ? Number(search["page"]) : 1,
+  }),
   head: () => ({
     meta: [
       { title: "Все записи — Учёт работ" },
@@ -29,13 +48,11 @@ export const Route = createFileRoute("/reports/all")({
 
 function AllRecordsPage() {
   const { records, objects, submitterNames } = useApp();
-  const [objectId, setObjectId] = useState("all");
-  const [status, setStatus] = useState<"all" | RecordStatus>("all");
-  const [query, setQuery] = useState("");
-  const [submitter, setSubmitter] = useState("all");
+  const search = Route.useSearch();
+  const navigate = useNavigate();
+  const { object: objectId, status, query, submitter, page } = search;
   const [openId, setOpenId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [page, setPage] = useState(1);
   const openRecord = records.find((r) => r.id === openId) ?? null;
 
   const PAGE_SIZE = 40;
@@ -59,26 +76,37 @@ function AllRecordsPage() {
   const pageStart = (currentPage - 1) * PAGE_SIZE;
   const paginated = filtered.slice(pageStart, pageStart + PAGE_SIZE);
 
-  const updateFilter =
-    <T,>(setter: (v: T) => void) =>
-    (v: T) => {
-      setter(v);
-      setPage(1); // при смене любого фильтра начинаем заново с первой страницы
-    };
+  // Записываем изменения фильтров прямо в URL (replace — чтобы не засорять
+  // историю переходов отдельной записью на каждое нажатие клавиши/фильтр).
+  // Собираем объект явно из уже типизированного search, а не через
+  // функциональный updater — иначе TanStack выводит тип prev как объединение
+  // search-параметров ВСЕХ роутов приложения и типы перестают сходиться.
+  const updateFilter = (patch: Partial<ReportsAllSearch>) => {
+    void navigate({
+      to: "/reports/all",
+      search: { ...search, ...patch, page: 1 },
+      replace: true,
+    });
+  };
 
   const hasActiveFilters =
     objectId !== "all" || status !== "all" || query !== "" || submitter !== "all";
 
   const clearFilters = () => {
-    setObjectId("all");
-    setStatus("all");
-    setQuery("");
-    setSubmitter("all");
-    setPage(1);
+    void navigate({
+      to: "/reports/all",
+      search: { object: "all", status: "all", query: "", submitter: "all", page: 1 },
+      replace: true,
+    });
   };
 
   const goToPage = (next: number) => {
-    setPage(Math.min(totalPages, Math.max(1, next)));
+    const clamped = Math.min(totalPages, Math.max(1, next));
+    void navigate({
+      to: "/reports/all",
+      search: { ...search, page: clamped },
+      replace: true,
+    });
     const scrollContainer = document.getElementById("app-scroll-container");
     if (scrollContainer) {
       scrollContainer.scrollTo({ top: 0, behavior: "smooth" });
@@ -158,7 +186,7 @@ function AllRecordsPage() {
             <span className="label-caps">Объект</span>
             <select
               value={objectId}
-              onChange={(e) => updateFilter(setObjectId)(e.target.value)}
+              onChange={(e) => updateFilter({ object: e.target.value })}
               className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
             >
               <option value="all">Все объекты</option>
@@ -173,7 +201,7 @@ function AllRecordsPage() {
             <span className="label-caps">Поиск по работе</span>
             <input
               value={query}
-              onChange={(e) => updateFilter(setQuery)(e.target.value)}
+              onChange={(e) => updateFilter({ query: e.target.value })}
               placeholder="Вид работы..."
               className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
             />
@@ -182,7 +210,7 @@ function AllRecordsPage() {
             <span className="label-caps">Кто подал</span>
             <select
               value={submitter}
-              onChange={(e) => updateFilter(setSubmitter)(e.target.value)}
+              onChange={(e) => updateFilter({ submitter: e.target.value })}
               className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
             >
               <option value="all">Все</option>
@@ -204,7 +232,7 @@ function AllRecordsPage() {
             <span className="label-caps">Статус</span>
             <select
               value={status}
-              onChange={(e) => updateFilter(setStatus)(e.target.value as "all" | RecordStatus)}
+              onChange={(e) => updateFilter({ status: e.target.value })}
               className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
             >
               <option value="all">Все</option>
@@ -326,7 +354,14 @@ function AllRecordsPage() {
         </div>
       )}
 
-      {openRecord && <RecordDetail record={openRecord} onClose={() => setOpenId(null)} />}
+      {openRecord && (
+        <RecordDetail
+          record={openRecord}
+          onClose={() => setOpenId(null)}
+          editReturnTo="reports-all"
+          editReturnSearch={JSON.stringify(search)}
+        />
+      )}
     </AppShell>
   );
 }

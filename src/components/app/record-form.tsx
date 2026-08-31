@@ -90,9 +90,17 @@ function fromIso(iso: string) {
 export function RecordForm({
   record,
   defaultObjectId,
+  returnTo,
+  returnSearch,
 }: {
   record?: WorkRecord;
   defaultObjectId?: string;
+  // См. records.$id.tsx — необязательный "обратный адрес" после сохранения/
+  // отмены/удаления записи, чтобы вернуться туда, откуда открыли
+  // редактирование (сейчас — /reports/all с восстановлением её фильтров),
+  // а не на страницу объекта по умолчанию.
+  returnTo?: string;
+  returnSearch?: string;
 }) {
   const navigate = useNavigate();
   const {
@@ -325,6 +333,30 @@ export function RecordForm({
       }),
     );
 
+  // Куда переходить после сохранения/отмены/удаления записи. Если форма была
+  // открыта с явным "обратным адресом" (returnTo, сейчас — только со страницы
+  // "Все записи") — возвращаемся туда с восстановлением её фильтров вместо
+  // перехода на страницу объекта. Иначе — прежнее поведение по умолчанию.
+  const navigateAfterAction = (fallbackWhenNoObject: "/reports/all" | "/") => {
+    if (returnTo === "reports-all") {
+      let parsedSearch: Record<string, unknown> = {};
+      if (returnSearch) {
+        try {
+          parsedSearch = JSON.parse(returnSearch);
+        } catch {
+          parsedSearch = {};
+        }
+      }
+      navigate({ to: "/reports/all", search: parsedSearch as never });
+      return;
+    }
+    if (objectId) {
+      navigate({ to: "/objects/$id", params: { id: objectId } });
+    } else {
+      navigate({ to: fallbackWhenNoObject });
+    }
+  };
+
   const save = async (status: "draft" | "done") => {
     if (status === "done" && !objectId) {
       toast.error("Выберите объект");
@@ -364,11 +396,7 @@ export function RecordForm({
         }
       }
       toast.success(status === "draft" ? "Черновик сохранён" : "Запись сохранена");
-      if (objectId) {
-        navigate({ to: "/objects/$id", params: { id: objectId } });
-      } else {
-        navigate({ to: "/reports/all" });
-      }
+      navigateAfterAction("/reports/all");
     } catch (err) {
       console.error("Не удалось сохранить запись:", err);
       const detail = err instanceof Error ? err.message : String(err);
@@ -398,11 +426,7 @@ export function RecordForm({
     }
 
     toast("Запись отменена");
-    if (objectId) {
-      navigate({ to: "/objects/$id", params: { id: objectId } });
-    } else {
-      navigate({ to: "/" });
-    }
+    navigateAfterAction("/");
   };
 
   // Явное удаление уже сохранённой записи (кнопка «Удалить» рядом с «Отменить»).
@@ -415,11 +439,7 @@ export function RecordForm({
       await deleteRecord(record.id);
       clearQuickDraftId(record.id);
       toast.success("Запись удалена");
-      if (objectId) {
-        navigate({ to: "/objects/$id", params: { id: objectId } });
-      } else {
-        navigate({ to: "/" });
-      }
+      navigateAfterAction("/");
     } catch {
       toast.error("Не удалось удалить запись");
       setDeletingRecord(false);
