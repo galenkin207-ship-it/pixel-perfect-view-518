@@ -911,18 +911,26 @@ function ReportsPage() {
 
   const perObject = objects
     .filter((o) => recentlyActiveObjectIds.has(o.id))
-    .map((o) => ({
-      ...o,
-      // Считаем позиции (строки видов работ во всех записях по объекту), а не
-      // количество самих записей — так число отражает реальный объём
-      // выполненных работ, а не то, сколько раз прораб сохранил запись.
-      count: periodRecords
-        .filter((r) => r.object_id === o.id)
-        .reduce((s, r) => s + r.items.length, 0),
-    }))
+    .map((o) => {
+      // Считаем УНИКАЛЬНЫЕ виды работ на объекте (одинаковый вид работ,
+      // записанный несколько раз — в одной записи или в разных, — считается
+      // один раз), а не количество строк/записей. Ключ — name+unit, как и в
+      // buildObjectStats ниже, на случай редкого совпадения названий с
+      // разными единицами измерения.
+      const kinds = new Set<string>();
+      for (const r of periodRecords) {
+        if (r.object_id !== o.id) continue;
+        for (const item of r.items) kinds.add(`${item.name}||${item.unit}`);
+      }
+      return { ...o, count: kinds.size };
+    })
     .sort((a, b) => b.count - a.count);
   const maxCount = Math.max(1, ...perObject.map((p) => p.count));
-  const periodPositions = periodRecords.reduce((s, r) => s + r.items.length, 0);
+  // Уникальные виды работ за период по всей компании (не сумма по объектам —
+  // один и тот же вид работ на разных объектах всё равно один вид работ).
+  const periodPositions = new Set(
+    periodRecords.flatMap((r) => r.items.map((item) => `${item.name}||${item.unit}`)),
+  ).size;
   const revenue = periodRecords.reduce((s, r) => s + r.total, 0);
   const activeEmployees = new Set(
     periodRecords.flatMap((r) =>
