@@ -541,7 +541,13 @@ export const api = {
         rejected_by: string | null;
         rejected_at: string | null;
         created_at: string;
-        comments: { id: number; author: string; text: string; created_at: string }[];
+        comments: {
+          id: number;
+          author: string;
+          text: string;
+          created_at: string;
+          edited_at: string | null;
+        }[];
       }[]
     >("/requests");
     return rows.map((r) => ({
@@ -570,15 +576,19 @@ export const api = {
         text: c.text,
         time: formatTime(c.created_at),
         date: isoToRu(c.created_at),
+        edited: c.edited_at != null,
       })),
     }));
   },
 
   async addRequestComment(requestId: string, text: string): Promise<RequestComment> {
-    const c = await request<{ id: number; author: string; text: string; created_at: string }>(
-      `/requests/${requestId}/comments`,
-      { method: "POST", body: JSON.stringify({ text }) },
-    );
+    const c = await request<{
+      id: number;
+      author: string;
+      text: string;
+      created_at: string;
+      edited_at: string | null;
+    }>(`/requests/${requestId}/comments`, { method: "POST", body: JSON.stringify({ text }) });
     return {
       id: String(c.id),
       author: c.author,
@@ -586,7 +596,41 @@ export const api = {
       text: c.text,
       time: formatTime(c.created_at),
       date: isoToRu(c.created_at),
+      edited: c.edited_at != null,
     };
+  },
+
+  async editRequestComment(
+    requestId: string,
+    commentId: string,
+    text: string,
+  ): Promise<RequestComment> {
+    const c = await request<{
+      id: number;
+      author: string;
+      text: string;
+      created_at: string;
+      edited_at: string | null;
+    }>(`/requests/${requestId}/comments/${commentId}`, {
+      method: "PUT",
+      body: JSON.stringify({ text }),
+    });
+    return {
+      id: String(c.id),
+      author: c.author,
+      own: false,
+      text: c.text,
+      time: formatTime(c.created_at),
+      date: isoToRu(c.created_at),
+      edited: c.edited_at != null,
+    };
+  },
+
+  async deleteRequestComment(requestId: string, commentId: string): Promise<void> {
+    await request<{ id: number; deleted: boolean }>(
+      `/requests/${requestId}/comments/${commentId}`,
+      { method: "DELETE" },
+    );
   },
 
   async createRequest(text: string): Promise<WorkRequest> {

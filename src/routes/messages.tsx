@@ -1,12 +1,28 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import ExcelJS from "exceljs";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { roleLabels, type WorkRequest } from "@/data/mock";
@@ -56,6 +72,8 @@ function MessagesPage() {
     decideRequest,
     deleteRequest,
     addRequestComment,
+    editRequestComment,
+    deleteRequestComment,
     units,
     markNotificationsRead,
   } = useApp();
@@ -205,6 +223,59 @@ function MessagesPage() {
     }
   };
 
+  // Редактирование собственного сообщения в переписке — как в Телеграме:
+  // один и тот же textarea на всю страницу переиспользуется под сообщение,
+  // которое сейчас открыто на редактирование (editingCommentId).
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [savingCommentEdit, setSavingCommentEdit] = useState(false);
+
+  const startCommentEdit = (commentId: string, text: string) => {
+    setEditingCommentId(commentId);
+    setEditText(text);
+  };
+
+  const cancelCommentEdit = () => {
+    setEditingCommentId(null);
+    setEditText("");
+  };
+
+  const saveCommentEdit = async (requestId: string, commentId: string) => {
+    const text = editText.trim();
+    if (!text) return;
+    setSavingCommentEdit(true);
+    try {
+      await editRequestComment(requestId, commentId, text);
+      cancelCommentEdit();
+    } catch {
+      toast.error("Не удалось изменить сообщение, попробуйте ещё раз");
+    } finally {
+      setSavingCommentEdit(false);
+    }
+  };
+
+  // Удаление сообщения — "удаляется у всех", подтверждаем действие, т.к. оно
+  // необратимо.
+  const [deleteCommentTarget, setDeleteCommentTarget] = useState<{
+    requestId: string;
+    commentId: string;
+  } | null>(null);
+  const [deletingComment, setDeletingComment] = useState(false);
+
+  const confirmDeleteComment = async () => {
+    if (!deleteCommentTarget) return;
+    setDeletingComment(true);
+    try {
+      await deleteRequestComment(deleteCommentTarget.requestId, deleteCommentTarget.commentId);
+      if (editingCommentId === deleteCommentTarget.commentId) cancelCommentEdit();
+      setDeleteCommentTarget(null);
+    } catch {
+      toast.error("Не удалось удалить сообщение, попробуйте ещё раз");
+    } finally {
+      setDeletingComment(false);
+    }
+  };
+
   const [deciding, setDeciding] = useState<string | null>(null);
 
   const decide = async (id: string, status: "approved" | "rejected") => {
@@ -347,27 +418,107 @@ function MessagesPage() {
                   <div className="mt-2 space-y-2">
                     {r.comments.map((c) => {
                       const own = c.author === currentUser.full_name;
+                      const isEditing = editingCommentId === c.id;
                       return (
                         <div
                           key={c.id}
-                          className={cn("flex", own ? "justify-end" : "justify-start")}
+                          className={cn("flex items-end gap-1", own ? "justify-end" : "justify-start")}
                         >
                           <span
                             className={cn(
                               "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
                               own ? "bg-primary text-primary-foreground" : "bg-surface",
+                              isEditing && "w-full max-w-[80%]",
                             )}
                           >
-                            {c.text}
-                            <span
-                              className={cn(
-                                "mt-1 block text-[10px]",
-                                own ? "text-primary-foreground/70" : "text-muted-foreground",
-                              )}
-                            >
-                              {c.author} · {c.time}
-                            </span>
+                            {isEditing ? (
+                              <div className="flex flex-col gap-2">
+                                <textarea
+                                  autoFocus
+                                  value={editText}
+                                  onChange={(e) => setEditText(e.target.value)}
+                                  onFocus={(e) => autoResizeTextarea(e.target)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.shiftKey) {
+                                      e.preventDefault();
+                                      void saveCommentEdit(r.id, c.id);
+                                    } else if (e.key === "Escape") {
+                                      cancelCommentEdit();
+                                    }
+                                  }}
+                                  rows={1}
+                                  className="min-w-40 max-h-40 w-full resize-none overflow-y-auto rounded-lg border border-primary-foreground/30 bg-background px-2 py-1 text-sm leading-normal text-foreground"
+                                  ref={(el) => autoResizeTextarea(el)}
+                                />
+                                <div className="flex justify-end gap-3 text-xs font-semibold">
+                                  <button
+                                    type="button"
+                                    onClick={cancelCommentEdit}
+                                    disabled={savingCommentEdit}
+                                    className={cn(
+                                      own ? "text-primary-foreground/80" : "text-muted-foreground",
+                                      "disabled:opacity-60",
+                                    )}
+                                  >
+                                    Отмена
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void saveCommentEdit(r.id, c.id)}
+                                    disabled={!editText.trim() || savingCommentEdit}
+                                    className={cn(
+                                      own ? "text-primary-foreground" : "text-primary",
+                                      "disabled:opacity-60",
+                                    )}
+                                  >
+                                    {savingCommentEdit ? "Сохранение..." : "Сохранить"}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                {c.text}
+                                <span
+                                  className={cn(
+                                    "mt-1 block text-[10px]",
+                                    own ? "text-primary-foreground/70" : "text-muted-foreground",
+                                  )}
+                                >
+                                  {c.author} · {c.time}
+                                  {c.edited ? " · изменено" : ""}
+                                </span>
+                              </>
+                            )}
                           </span>
+
+                          {own && !isEditing && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  aria-label="Действия с сообщением"
+                                  className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-surface"
+                                >
+                                  <MoreVertical className="size-4" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => startCommentEdit(c.id, c.text)}>
+                                  <Pencil className="mr-2 size-4" />
+                                  Редактировать
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    setDeleteCommentTarget({ requestId: r.id, commentId: c.id })
+                                  }
+                                  className="text-status-rejected focus:text-status-rejected"
+                                >
+                                  <Trash2 className="mr-2 size-4" />
+                                  Удалить
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </div>
                       );
                     })}
@@ -563,6 +714,30 @@ function MessagesPage() {
             )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!deleteCommentTarget}
+        onOpenChange={(open) => !open && !deletingComment && setDeleteCommentTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить сообщение?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Сообщение будет удалено у всех участников переписки. Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingComment}>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deletingComment}
+              onClick={() => void confirmDeleteComment()}
+              className="bg-status-rejected text-white hover:bg-status-rejected/90"
+            >
+              {deletingComment ? "Удаление..." : "Удалить"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }

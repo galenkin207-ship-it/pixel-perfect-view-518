@@ -564,6 +564,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const editRequestComment = async (
+    requestId: string,
+    commentId: string,
+    text: string,
+  ): Promise<RequestComment> => {
+    try {
+      const comment = await api.editRequestComment(requestId, commentId, text);
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId
+            ? { ...r, comments: r.comments.map((c) => (c.id === commentId ? comment : c)) }
+            : r,
+        ),
+      );
+      return comment;
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to edit comment");
+    }
+  };
+
+  const deleteRequestComment = async (requestId: string, commentId: string): Promise<void> => {
+    try {
+      await api.deleteRequestComment(requestId, commentId);
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId ? { ...r, comments: r.comments.filter((c) => c.id !== commentId) } : r,
+        ),
+      );
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to delete comment");
+    }
+  };
+
   const deleteRequest = async (id: string): Promise<void> => {
     try {
       const result = await api.deleteRequest(id);
@@ -935,6 +968,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     decideRequest,
     deleteRequest,
     addRequestComment,
+    editRequestComment,
+    deleteRequestComment,
     workTypes,
     setWorkTypes,
     addWorkType,

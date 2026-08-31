@@ -69,6 +69,8 @@ export type AppState = {
   ) => Promise<WorkRequest>;
   deleteRequest: (id: string) => Promise<void>;
   addRequestComment: (requestId: string, text: string) => Promise<RequestComment>;
+  editRequestComment: (requestId: string, commentId: string, text: string) => Promise<RequestComment>;
+  deleteRequestComment: (requestId: string, commentId: string) => Promise<void>;
   workTypes: WorkType[];
   setWorkTypes: React.Dispatch<React.SetStateAction<WorkType[]>>;
   addWorkType: (input: { name: string; unit: string; price: number }) => Promise<WorkType>;
