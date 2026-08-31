@@ -221,18 +221,15 @@ function AllRecordsPage() {
         >
           <label className="block">
             <span className="label-caps">Объект</span>
-            <select
-              value={objectId}
-              onChange={(e) => updateFilter({ object: e.target.value })}
-              className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
-            >
-              <option value="all">Все объекты</option>
-              {objects.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <SearchableSelect
+                items={objects.map((o) => ({ id: o.id, label: o.name }))}
+                value={objectId === "all" ? "" : objectId}
+                onChange={(id) => updateFilter({ object: id === "" ? "all" : id })}
+                allLabel="Все объекты"
+                searchPlaceholder="Поиск объекта..."
+              />
+            </div>
           </label>
           <label className="block">
             <span className="label-caps">Поиск по работе</span>
