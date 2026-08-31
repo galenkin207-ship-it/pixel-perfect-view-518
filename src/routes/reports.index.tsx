@@ -6,6 +6,7 @@ import { ChevronRight } from "lucide-react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
+import { SearchableSelect } from "@/components/app/searchable-select";
 import { cn } from "@/lib/utils";
 import { allocationsFor, itemQty } from "@/lib/record-utils";
 import { roleLabels, type WorkObject, type WorkRecord } from "@/data/mock";
@@ -1222,42 +1223,27 @@ function ReportsPage() {
           <div className="rounded-2xl border border-border bg-card p-4">
             <h3 className="font-semibold">Отчёт по объекту / сотруднику / подавшему</h3>
             <div className="mt-3 space-y-2">
-              <select
+              <SearchableSelect
+                items={objects.map((o) => ({ id: o.id, label: o.name }))}
                 value={rObject}
-                onChange={(e) => setRObject(e.target.value)}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-              >
-                <option value="">Все объекты</option>
-                {objects.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
-              <select
+                onChange={setRObject}
+                allLabel="Все объекты"
+                searchPlaceholder="Поиск объекта..."
+              />
+              <SearchableSelect
+                items={employees.map((e) => ({ id: e, label: e }))}
                 value={rEmployee}
-                onChange={(e) => setREmployee(e.target.value)}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-              >
-                <option value="">Все сотрудники</option>
-                {employees.map((e) => (
-                  <option key={e} value={e}>
-                    {e}
-                  </option>
-                ))}
-              </select>
-              <select
+                onChange={setREmployee}
+                allLabel="Все сотрудники"
+                searchPlaceholder="Поиск сотрудника..."
+              />
+              <SearchableSelect
+                items={submitters.map((s) => ({ id: s, label: s }))}
                 value={rSubmitter}
-                onChange={(e) => setRSubmitter(e.target.value)}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-              >
-                <option value="">Все подавшие</option>
-                {submitters.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                onChange={setRSubmitter}
+                allLabel="Все подавшие"
+                searchPlaceholder="Поиск подавшего..."
+              />
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <FieldLabel>С даты</FieldLabel>
