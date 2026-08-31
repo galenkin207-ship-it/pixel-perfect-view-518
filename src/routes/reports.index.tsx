@@ -1014,14 +1014,18 @@ function ReportsPage() {
         <div className="mt-3 space-y-3">
           {perObject.map((o) => (
             <div key={o.id} className="flex items-center gap-3">
-              <span className="w-32 shrink-0 truncate text-sm">{o.name}</span>
+              <span className="max-w-[45%] shrink-0 text-sm break-words sm:max-w-[55%]">
+                {o.name}
+              </span>
               <span className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                 <span
                   className="block h-full rounded-full bg-primary"
                   style={{ width: `${(o.count / maxCount) * 100}%` }}
                 />
               </span>
-              <span className="w-8 text-right font-mono text-sm font-bold">{o.count}</span>
+              <span className="w-8 shrink-0 text-right font-mono text-sm font-bold">
+                {o.count}
+              </span>
             </div>
           ))}
           {perObject.length === 0 && (
