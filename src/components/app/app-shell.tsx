@@ -258,6 +258,10 @@ export function AppShell({
       >
         {mobileTabs(role).map((t) => {
           const active = isActive(t.to);
+          // Синяя точка на вкладке «Заявки» у админов, пока есть хотя бы
+          // одна необработанная (pending) заявка — независимо от того,
+          // на какой странице сейчас находится пользователь.
+          const showPendingDot = role === "admin" && t.to === "/messages" && pending > 0;
           return (
             <Link
               key={t.to}
@@ -267,7 +271,15 @@ export function AppShell({
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
-              <t.icon className="size-[22px]" />
+              <span className="relative">
+                <t.icon className="size-[22px]" />
+                {showPendingDot && (
+                  <span
+                    aria-label="Есть необработанные заявки"
+                    className="absolute -top-0.5 -right-0.5 block size-2 rounded-full bg-primary ring-2 ring-panel"
+                  />
+                )}
+              </span>
               {t.label}
             </Link>
           );
