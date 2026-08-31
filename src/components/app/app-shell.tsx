@@ -167,7 +167,7 @@ export function AppShell({
         {/* Content */}
         <main
           id="app-scroll-container"
-          className="relative min-w-0 flex-1 overflow-y-auto bg-background pb-28 md:pb-0"
+          className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-background pb-28 md:pb-0"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <PullToRefresh onRefresh={refreshData}>
