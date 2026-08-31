@@ -5,10 +5,11 @@ import { useState } from "react";
 import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar } from "@/components/app/bits";
 import { RecordDetail } from "@/components/app/record-detail";
+import { SearchableSelect } from "@/components/app/searchable-select";
 import { StatusBadge } from "@/components/app/status-badge";
 import { itemQty } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
-import { statusLabels, type RecordStatus } from "@/data/mock";
+import { statusLabels, type RecordStatus, type WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
 // Фильтры и страница пагинации хранятся в URL (а не в локальном useState),
@@ -20,6 +21,7 @@ export type ReportsAllSearch = {
   status: string;
   query: string;
   submitter: string;
+  performer: string;
   page: number;
 };
 
@@ -29,6 +31,7 @@ export const Route = createFileRoute("/reports/all")({
     status: typeof search["status"] === "string" ? search["status"] : "all",
     query: typeof search["query"] === "string" ? search["query"] : "",
     submitter: typeof search["submitter"] === "string" ? search["submitter"] : "all",
+    performer: typeof search["performer"] === "string" ? search["performer"] : "all",
     page: Number(search["page"]) > 0 ? Number(search["page"]) : 1,
   }),
   head: () => ({
@@ -47,10 +50,10 @@ export const Route = createFileRoute("/reports/all")({
 });
 
 function AllRecordsPage() {
-  const { records, objects, submitterNames } = useApp();
+  const { records, objects, employees, submitterNames } = useApp();
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { object: objectId, status, query, submitter, page } = search;
+  const { object: objectId, status, query, submitter, performer, page } = search;
   const [openId, setOpenId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const openRecord = records.find((r) => r.id === openId) ?? null;
@@ -63,11 +66,34 @@ function AllRecordsPage() {
     new Set([...records.map((r) => r.created_by), ...submitterNames]),
   ).sort();
 
+  // Список для фильтра "Сотрудник/Бригада" — сотрудники из общего справочника
+  // + названия бригад, реально встречающиеся в записях (личный список бригад
+  // текущего пользователя из useApp тут не подходит: "Все записи" смотрят
+  // куратор/админ, а бригады у каждого прораба свои).
+  const performers = Array.from(
+    new Set([
+      ...employees,
+      ...records
+        .filter((r) => r.execution_type === "brigade" && r.brigade_name)
+        .map((r) => r.brigade_name as string),
+    ]),
+  ).sort();
+
+  // Совпадение по сотруднику/бригаде: выбранное имя может быть либо
+  // сотрудником, выполнявшим запись самостоятельно, либо названием бригады,
+  // либо участником бригады — так по ФИО сотрудника находятся и его личные
+  // записи, и записи бригад, в которых он участвовал.
+  const matchesPerformer = (r: WorkRecord, value: string) =>
+    r.employees.includes(value) ||
+    r.brigade_name === value ||
+    (r.brigade_members ?? []).includes(value);
+
   const filtered = records.filter(
     (r) =>
       (objectId === "all" || r.object_id === objectId) &&
       (status === "all" || r.status === status) &&
       (submitter === "all" || r.created_by === submitter) &&
+      (performer === "all" || matchesPerformer(r, performer)) &&
       r.items.some((i) => i.name.toLowerCase().includes(query.toLowerCase())),
   );
 
@@ -90,12 +116,23 @@ function AllRecordsPage() {
   };
 
   const hasActiveFilters =
-    objectId !== "all" || status !== "all" || query !== "" || submitter !== "all";
+    objectId !== "all" ||
+    status !== "all" ||
+    query !== "" ||
+    submitter !== "all" ||
+    performer !== "all";
 
   const clearFilters = () => {
     void navigate({
       to: "/reports/all",
-      search: { object: "all", status: "all", query: "", submitter: "all", page: 1 },
+      search: {
+        object: "all",
+        status: "all",
+        query: "",
+        submitter: "all",
+        performer: "all",
+        page: 1,
+      },
       replace: true,
     });
   };
@@ -178,7 +215,7 @@ function AllRecordsPage() {
 
         <div
           className={cn(
-            "mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5",
+            "mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-6",
             !filtersOpen && "hidden md:grid",
           )}
         >
@@ -205,6 +242,18 @@ function AllRecordsPage() {
               placeholder="Вид работы..."
               className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
             />
+          </label>
+          <label className="block">
+            <span className="label-caps">Сотрудник / Бригада</span>
+            <div className="mt-1">
+              <SearchableSelect
+                items={performers.map((p) => ({ id: p, label: p }))}
+                value={performer === "all" ? "" : performer}
+                onChange={(id) => updateFilter({ performer: id === "" ? "all" : id })}
+                allLabel="Все"
+                searchPlaceholder="Поиск сотрудника или бригады..."
+              />
+            </div>
           </label>
           <label className="block">
             <span className="label-caps">Кто подал</span>
