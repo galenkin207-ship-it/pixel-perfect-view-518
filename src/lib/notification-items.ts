@@ -123,6 +123,17 @@ export function sortNotificationItems(items: NotificationItem[]): NotificationIt
 }
 
 /**
+ * Id уведомлений только по сообщениям переписки конкретной заявки (без самой
+ * заявки/решения по ней) — используется, когда пользователь просто
+ * разворачивает блок "Переписка" в списке заявок, не открывая её отдельным
+ * окном: в этот момент имеет смысл пометить прочитанными именно сообщения,
+ * которые он увидел, а не всё, что связано с заявкой.
+ */
+export function commentIdsForRequest(r: WorkRequest): string[] {
+  return r.comments.map((c) => c.id);
+}
+
+/**
  * Все id уведомлений, относящиеся к одной заявке (сама заявка, её удаление
  * автором, если было, и все сообщения переписки) — чтобы при открытии
  * заявки можно было одним вызовом пометить прочитанным всё, что с ней связано.
@@ -132,6 +143,6 @@ export function notificationIdsForRequest(r: WorkRequest): string[] {
   if (r.status === "deleted") ids.push(`${r.id}-deleted`);
   if (r.status === "approved") ids.push(`${r.id}-approved`);
   if (r.status === "rejected") ids.push(`${r.id}-rejected`);
-  for (const c of r.comments) ids.push(c.id);
+  ids.push(...commentIdsForRequest(r));
   return ids;
 }

@@ -27,7 +27,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { roleLabels, type WorkRequest } from "@/data/mock";
 import { useApp } from "@/state/use-app";
-import { notificationIdsForRequest } from "@/lib/notification-items";
+import { notificationIdsForRequest, commentIdsForRequest } from "@/lib/notification-items";
 
 type MessagesSearch = { request?: string | undefined; from?: "notifications" | undefined };
 
@@ -90,7 +90,14 @@ function MessagesPage() {
   // уведомления (диалог) переписка всегда показывается развёрнутой,
   // независимо от этого состояния.
   const [expandedChats, setExpandedChats] = useState<Record<string, boolean>>({});
-  const toggleChat = (id: string) => setExpandedChats((s) => ({ ...s, [id]: !(s[id] ?? false) }));
+  // Разворачивание переписки прямо в списке (не через диалог из уведомлений)
+  // считается тем, что пользователь её посмотрел — помечаем сообщения этой
+  // заявки прочитанными сразу при открытии блока.
+  const toggleChat = (r: WorkRequest) => {
+    const willExpand = !(expandedChats[r.id] ?? false);
+    setExpandedChats((s) => ({ ...s, [r.id]: willExpand }));
+    if (willExpand) markNotificationsRead(commentIdsForRequest(r));
+  };
   const [resolve, setResolve] = useState<
     Record<string, { name: string; unit: string; price: string }>
   >({});
@@ -401,7 +408,7 @@ function MessagesPage() {
             <div className="mt-3">
               <button
                 type="button"
-                onClick={() => toggleChat(r.id)}
+                onClick={() => toggleChat(r)}
                 className="flex w-full items-center justify-between gap-2 rounded-lg py-1 text-left text-xs font-semibold tracking-[0.02em] text-muted-foreground"
               >
                 <span>Переписка{r.comments.length > 0 ? ` · ${r.comments.length}` : ""}</span>
