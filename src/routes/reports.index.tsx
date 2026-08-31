@@ -911,9 +911,18 @@ function ReportsPage() {
 
   const perObject = objects
     .filter((o) => recentlyActiveObjectIds.has(o.id))
-    .map((o) => ({ ...o, count: periodRecords.filter((r) => r.object_id === o.id).length }))
+    .map((o) => ({
+      ...o,
+      // Считаем позиции (строки видов работ во всех записях по объекту), а не
+      // количество самих записей — так число отражает реальный объём
+      // выполненных работ, а не то, сколько раз прораб сохранил запись.
+      count: periodRecords
+        .filter((r) => r.object_id === o.id)
+        .reduce((s, r) => s + r.items.length, 0),
+    }))
     .sort((a, b) => b.count - a.count);
   const maxCount = Math.max(1, ...perObject.map((p) => p.count));
+  const periodPositions = periodRecords.reduce((s, r) => s + r.items.length, 0);
   const revenue = periodRecords.reduce((s, r) => s + r.total, 0);
   const activeEmployees = new Set(
     periodRecords.flatMap((r) =>
@@ -974,8 +983,8 @@ function ReportsPage() {
         )}
       >
         <Metric
-          value={String(periodRecords.length)}
-          label={period === "Месяц" ? "записей за месяц" : "записей за неделю"}
+          value={String(periodPositions)}
+          label={period === "Месяц" ? "видов работ за месяц" : "видов работ за неделю"}
           accent
         />
         <Metric
