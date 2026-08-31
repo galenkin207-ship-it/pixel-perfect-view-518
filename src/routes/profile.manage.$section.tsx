@@ -877,30 +877,229 @@ function EmployeesSection() {
   }, [employees]);
 
   return (
-    <StringSection
-      addTitle="Добавить сотрудника"
-      fieldLabel="ФИО сотрудника"
-      addButton="Добавить сотрудника"
-      bulkButton="Загрузить сотрудников"
-      bulkPlaceholder={"По одному ФИО на строку\n\nПример:\nИванов И.И.\nПетров П.П."}
-      searchPlaceholder="Начните вводить ФИО..."
-      items={full.map((e) => ({ id: e.id, label: e.name }))}
-      onAdd={(v) => addEmployee(v)}
-      onBulk={async (lines) => {
-        let ok = 0;
-        for (const line of lines) {
-          try {
-            await addEmployee(line);
-            ok++;
-          } catch {
-            /* пропускаем строку, которая не загрузилась, и продолжаем остальные */
+    <>
+      <StringSection
+        addTitle="Добавить сотрудника"
+        fieldLabel="ФИО сотрудника"
+        addButton="Добавить сотрудника"
+        bulkButton="Загрузить сотрудников"
+        bulkPlaceholder={"По одному ФИО на строку\n\nПример:\nИванов И.И.\nПетров П.П."}
+        searchPlaceholder="Начните вводить ФИО..."
+        items={full.map((e) => ({ id: e.id, label: e.name }))}
+        onAdd={(v) => addEmployee(v)}
+        onBulk={async (lines) => {
+          let ok = 0;
+          for (const line of lines) {
+            try {
+              await addEmployee(line);
+              ok++;
+            } catch {
+              /* пропускаем строку, которая не загрузилась, и продолжаем остальные */
+            }
           }
-        }
-        return ok;
-      }}
-      onRename={(id, v) => renameEmployee(id, v)}
-      onRemove={(id) => deleteEmployee(id)}
-    />
+          return ok;
+        }}
+        onRename={(id, v) => renameEmployee(id, v)}
+        onRemove={(id) => deleteEmployee(id)}
+      />
+      <EmployeesList employees={full} onRename={renameEmployee} onRemove={deleteEmployee} />
+    </>
+  );
+}
+
+/* Полный просматриваемый список всех сотрудников — сортировка приходит с
+   бэкенда по алфавиту (ORDER BY lower(name)), здесь только поиск/пагинация
+   и переименование/удаление по клику на строку, как в разделах "Виды работ"
+   и "Объекты". */
+function EmployeesList({
+  employees,
+  onRename,
+  onRemove,
+}: {
+  employees: { id: string; name: string }[];
+  onRename: (id: string, v: string) => Promise<void>;
+  onRemove: (id: string) => Promise<void>;
+}) {
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(0);
+  const [openId, setOpenId] = useState("");
+  const [draft, setDraft] = useState("");
+  const [confirmId, setConfirmId] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  const filtered = useMemo(() => smartFilter(employees, q, (e) => e.name), [employees, q]);
+
+  const perPage = 50;
+  const pages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const current = Math.min(page, pages - 1);
+  const slice = filtered.slice(current * perPage, current * perPage + perPage);
+
+  const open = (id: string) => {
+    const e = employees.find((x) => x.id === id);
+    if (!e) return;
+    setConfirmId("");
+    if (openId === id) {
+      setOpenId("");
+      return;
+    }
+    setOpenId(id);
+    setDraft(e.name);
+  };
+
+  return (
+    <section className="mt-4 rounded-2xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-semibold">Все сотрудники</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Всего: {filtered.length}. Список отсортирован по алфавиту. Нажмите на строку, чтобы
+            переименовать или удалить.
+          </p>
+        </div>
+        <input
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(0);
+          }}
+          placeholder="Поиск по ФИО..."
+          className={cn(input, "sm:w-72")}
+        />
+      </div>
+
+      <ul className="mt-3 max-h-[min(70vh,900px)] divide-y divide-border overflow-auto rounded-xl border border-border">
+        {slice.map((e, i) => (
+          <li key={e.id} className="bg-surface">
+            <button
+              type="button"
+              onClick={() => open(e.id)}
+              className={cn(
+                "flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted",
+                openId === e.id && "bg-primary/10",
+              )}
+            >
+              <span className="w-8 shrink-0 text-xs text-muted-foreground">
+                {current * perPage + i + 1}
+              </span>
+              <span className="min-w-0 flex-1 text-sm break-words whitespace-normal">
+                {e.name}
+              </span>
+            </button>
+
+            {openId === e.id && (
+              <div className="space-y-3 border-t border-border bg-card p-3">
+                <label className="block">
+                  <span className="label-caps">ФИО</span>
+                  <input
+                    value={draft}
+                    onChange={(ev) => setDraft(ev.target.value)}
+                    className={cn(input, "mt-1")}
+                  />
+                </label>
+
+                {confirmId === e.id ? (
+                  <div className="rounded-xl border border-border bg-surface p-3">
+                    <p className="text-sm">Удалить «{e.name}» из справочника сотрудников?</p>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        disabled={removing}
+                        className={cn(primaryBtn, "bg-status-rejected disabled:opacity-60")}
+                        onClick={async () => {
+                          setRemoving(true);
+                          try {
+                            await onRemove(e.id);
+                            setConfirmId("");
+                            setOpenId("");
+                            toast.success("Сотрудник удалён из справочника");
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : "Не удалось удалить");
+                          } finally {
+                            setRemoving(false);
+                          }
+                        }}
+                      >
+                        {removing ? "Удаление..." : "Да, удалить"}
+                      </button>
+                      <button type="button" className={ghostBtn} onClick={() => setConfirmId("")}>
+                        Отмена
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={saving}
+                      className={cn(primaryBtn, "disabled:opacity-60")}
+                      onClick={async () => {
+                        if (!draft.trim()) {
+                          toast.error("Заполните ФИО");
+                          return;
+                        }
+                        setSaving(true);
+                        try {
+                          await onRename(e.id, draft.trim());
+                          setOpenId("");
+                          toast.success("Сохранено");
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Не удалось сохранить");
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                    >
+                      {saving ? "Сохранение..." : "Сохранить"}
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(ghostBtn, "text-status-rejected")}
+                      onClick={() => setConfirmId(e.id)}
+                    >
+                      <Trash2 className="mr-1 inline size-3.5" />
+                      Удалить
+                    </button>
+                    <button type="button" className={ghostBtn} onClick={() => setOpenId("")}>
+                      Закрыть
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </li>
+        ))}
+        {!slice.length && (
+          <li className="bg-surface px-3 py-6 text-center text-sm text-muted-foreground">
+            Ничего не найдено
+          </li>
+        )}
+      </ul>
+
+      {pages > 1 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className={ghostBtn}
+            disabled={current === 0}
+            onClick={() => setPage(current - 1)}
+          >
+            Назад
+          </button>
+          <span className="text-xs text-muted-foreground">
+            Страница {current + 1} из {pages}
+          </span>
+          <button
+            type="button"
+            className={ghostBtn}
+            disabled={current >= pages - 1}
+            onClick={() => setPage(current + 1)}
+          >
+            Вперёд
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 
