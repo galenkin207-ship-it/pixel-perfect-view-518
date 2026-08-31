@@ -27,7 +27,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { roleLabels, type WorkRequest } from "@/data/mock";
 import { useApp } from "@/state/use-app";
-import { notificationIdsForRequest, commentIdsForRequest } from "@/lib/notification-items";
+import { notificationIdsForRequest } from "@/lib/notification-items";
 
 type MessagesSearch = { request?: string | undefined; from?: "notifications" | undefined };
 
@@ -91,12 +91,13 @@ function MessagesPage() {
   // независимо от этого состояния.
   const [expandedChats, setExpandedChats] = useState<Record<string, boolean>>({});
   // Разворачивание переписки прямо в списке (не через диалог из уведомлений)
-  // считается тем, что пользователь её посмотрел — помечаем сообщения этой
-  // заявки прочитанными сразу при открытии блока.
+  // считается тем, что пользователь посмотрел заявку целиком — помечаем
+  // прочитанным сразу всё, что с ней связано (саму заявку, решение по ней и
+  // сообщения переписки), а не только сообщения.
   const toggleChat = (r: WorkRequest) => {
     const willExpand = !(expandedChats[r.id] ?? false);
     setExpandedChats((s) => ({ ...s, [r.id]: willExpand }));
-    if (willExpand) markNotificationsRead(commentIdsForRequest(r));
+    if (willExpand) markNotificationsRead(notificationIdsForRequest(r));
   };
   const [resolve, setResolve] = useState<
     Record<string, { name: string; unit: string; price: string }>
