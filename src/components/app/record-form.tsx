@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { Camera, Image as ImageIcon, Plus, Search, X } from "lucide-react";
+import { Camera, Image as ImageIcon, Plus, Search, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -126,6 +126,8 @@ export function RecordForm({
   const [saving, setSaving] = useState(false);
   const [deletingPhoto, setDeletingPhoto] = useState<string | null>(null);
   const [dateIso, setDateIso] = useState(() => toIso(record?.date));
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deletingRecord, setDeletingRecord] = useState(false);
 
   const object = objects.find((o) => o.id === objectId) ?? null;
   const total = recordTotal(items);
@@ -400,6 +402,28 @@ export function RecordForm({
       navigate({ to: "/objects/$id", params: { id: objectId } });
     } else {
       navigate({ to: "/" });
+    }
+  };
+
+  // Явное удаление уже сохранённой записи (кнопка «Удалить» рядом с «Отменить»).
+  // В отличие от handleCancel, здесь всегда безвозвратно удаляем саму запись —
+  // доступно только при редактировании уже существующей записи (record задан).
+  const handleDeleteRecord = async () => {
+    if (!record) return;
+    setDeletingRecord(true);
+    try {
+      await deleteRecord(record.id);
+      clearQuickDraftId(record.id);
+      toast.success("Запись удалена");
+      if (objectId) {
+        navigate({ to: "/objects/$id", params: { id: objectId } });
+      } else {
+        navigate({ to: "/" });
+      }
+    } catch {
+      toast.error("Не удалось удалить запись");
+      setDeletingRecord(false);
+      setConfirmingDelete(false);
     }
   };
 
@@ -783,6 +807,30 @@ export function RecordForm({
           </div>
         )}
 
+        {record && confirmingDelete && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+            <p className="text-sm font-medium text-foreground">
+              Удалить эту запись без возможности восстановления?
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={handleDeleteRecord}
+                disabled={deletingRecord}
+                className="flex-1 rounded-lg bg-destructive py-2.5 text-sm font-semibold text-destructive-foreground disabled:opacity-60"
+              >
+                {deletingRecord ? "Удаление..." : "Да, удалить"}
+              </button>
+              <button
+                onClick={() => setConfirmingDelete(false)}
+                disabled={deletingRecord}
+                className="flex-1 rounded-lg bg-surface py-2.5 text-sm font-semibold text-foreground disabled:opacity-60"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
             onClick={handleCancel}
@@ -794,6 +842,17 @@ export function RecordForm({
           >
             Отменить
           </button>
+          {record && (
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              disabled={saving || compressingPhotos || deletingRecord}
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-destructive/40 bg-surface py-3.5 text-sm font-semibold text-destructive transition-colors disabled:opacity-60 sm:w-auto sm:px-6"
+            >
+              <Trash2 className="size-4" />
+              Удалить
+            </button>
+          )}
           <button
             onClick={() => save("draft")}
             disabled={saving || compressingPhotos}
