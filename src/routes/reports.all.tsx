@@ -254,18 +254,15 @@ function AllRecordsPage() {
           </label>
           <label className="block">
             <span className="label-caps">Кто подал</span>
-            <select
-              value={submitter}
-              onChange={(e) => updateFilter({ submitter: e.target.value })}
-              className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
-            >
-              <option value="all">Все</option>
-              {submitters.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <SearchableSelect
+                items={submitters.map((s) => ({ id: s, label: s }))}
+                value={submitter === "all" ? "" : submitter}
+                onChange={(id) => updateFilter({ submitter: id === "" ? "all" : id })}
+                allLabel="Все"
+                searchPlaceholder="Поиск по ФИО..."
+              />
+            </div>
           </label>
           <label className="block">
             <span className="label-caps">Дата</span>
