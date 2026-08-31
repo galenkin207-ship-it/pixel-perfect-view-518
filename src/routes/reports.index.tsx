@@ -1117,7 +1117,10 @@ function ReportsPage() {
                         <button
                           type="button"
                           onClick={() => setExpandedStatsKey(expanded ? null : row.key)}
-                          className="flex w-full items-center gap-3 text-left"
+                          className={cn(
+                            "-mx-2 flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted",
+                            expanded && "bg-primary/10",
+                          )}
                         >
                           <span className="w-5 shrink-0 text-xs text-muted-foreground">
                             {i + 1}
@@ -1140,33 +1143,65 @@ function ReportsPage() {
                           />
                         </button>
                         {expanded && (
-                          <div className="mt-2 ml-8 space-y-1.5">
-                            {row.items.map((it) => (
-                              <div
-                                key={`${it.name}-${it.unit}`}
-                                className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm"
-                              >
-                                <span className="text-muted-foreground break-words">{it.name}</span>
-                                <span className="shrink-0 font-mono font-semibold tabular-nums text-primary">
-                                  — {formatQty(it.qty)} {it.unit}
-                                </span>
+                          <div className="mt-2 ml-2 overflow-hidden rounded-xl border border-border sm:ml-8">
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead className="bg-surface/60 text-left text-xs text-muted-foreground">
+                                  <tr>
+                                    <th className="px-3 py-2 font-semibold">Вид работы</th>
+                                    <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">
+                                      Объём (выполненный)
+                                    </th>
+                                    {isAdmin && (
+                                      <>
+                                        <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">
+                                          Цена за ед. изм.
+                                        </th>
+                                        <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">
+                                          Сумма, ₽
+                                        </th>
+                                      </>
+                                    )}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {row.items.map((it) => (
+                                    <tr
+                                      key={`${it.name}-${it.unit}`}
+                                      className="border-t border-border transition-colors hover:bg-surface/60"
+                                    >
+                                      <td className="px-3 py-2 break-words">{it.name}</td>
+                                      <td className="px-3 py-2 text-right font-mono font-semibold whitespace-nowrap text-primary">
+                                        {formatQty(it.qty)} {it.unit}
+                                      </td>
+                                      {isAdmin && (
+                                        <>
+                                          <td className="px-3 py-2 text-right font-mono whitespace-nowrap text-muted-foreground">
+                                            {formatMoney(it.price)}
+                                          </td>
+                                          <td className="px-3 py-2 text-right font-mono font-semibold whitespace-nowrap text-status-done">
+                                            {formatMoney(it.sum)}
+                                          </td>
+                                        </>
+                                      )}
+                                    </tr>
+                                  ))}
+                                </tbody>
                                 {isAdmin && (
-                                  <>
-                                    <span className="shrink-0 font-mono tabular-nums text-status-review">
-                                      × {formatMoney(it.price)}
-                                    </span>
-                                    <span className="shrink-0 font-mono font-semibold tabular-nums text-status-done">
-                                      = {formatMoney(it.sum)}
-                                    </span>
-                                  </>
+                                  <tfoot>
+                                    <tr className="border-t border-border bg-surface/60">
+                                      <td className="px-3 py-2 font-bold" colSpan={2}>
+                                        Итого
+                                      </td>
+                                      <td className="px-3 py-2" />
+                                      <td className="px-3 py-2 text-right font-mono font-bold whitespace-nowrap text-primary">
+                                        {formatMoney(row.totalValue)}
+                                      </td>
+                                    </tr>
+                                  </tfoot>
                                 )}
-                              </div>
-                            ))}
-                            {isAdmin && (
-                              <p className="pt-1 text-xs text-muted-foreground">
-                                Сумма: {Math.round(row.totalValue).toLocaleString("ru-RU")} ₽
-                              </p>
-                            )}
+                              </table>
+                            </div>
                           </div>
                         )}
                       </div>
