@@ -41,6 +41,14 @@ export function PullToRefresh({
       setPull(v);
     };
 
+    // На мобильном страница скроллится не document/window, а внутренний
+    // контейнер #app-scroll-container (см. AppShell) — это нужно, чтобы
+    // обойти известный баг Safari на iOS, из-за которого фиксированное
+    // нижнее меню "плавает"/подпрыгивает при скролле самого document.
+    // Поэтому здесь проверяем scrollTop этого контейнера, а не window.scrollY.
+    const getScrollTop = () =>
+      document.getElementById("app-scroll-container")?.scrollTop ?? window.scrollY;
+
     // Полноэкранные диалоги (выбор вида работ, Radix Dialog и т.п.) рисуются
     // поверх страницы, но лежат в том же DOM-дереве — без этой проверки
     // свайп внутри их собственного списка воспринимается глобальным
@@ -53,7 +61,7 @@ export function PullToRefresh({
 
     const onTouchStart = (e: TouchEvent) => {
       if (refreshingRef.current) return;
-      if (window.scrollY > 0) return;
+      if (getScrollTop() > 0) return;
       if (e.touches.length !== 1) return;
       if (isInsideOverlay(e.target)) return;
       startYRef.current = e.touches[0]!.clientY;
@@ -63,7 +71,7 @@ export function PullToRefresh({
     const onTouchMove = (e: TouchEvent) => {
       if (!trackingRef.current) return;
       const dy = e.touches[0]!.clientY - startYRef.current;
-      if (dy <= 0 || window.scrollY > 0) {
+      if (dy <= 0 || getScrollTop() > 0) {
         trackingRef.current = false;
         setPullValue(0);
         return;

@@ -94,7 +94,7 @@ export function AppShell({
 
   return (
     <div className="min-h-dvh bg-panel text-foreground md:h-screen">
-      <div className="flex min-h-dvh w-full overflow-hidden bg-panel md:h-full md:min-h-0">
+      <div className="flex h-dvh w-full overflow-hidden bg-panel md:h-full md:min-h-0">
         {/* Desktop sidebar */}
         <aside className="hidden w-[220px] shrink-0 flex-col overflow-y-auto border-r border-border bg-sidebar p-4 md:flex lg:w-[250px] xl:w-[280px]">
           <Link to="/" className="mb-6 flex items-center gap-2 px-2">
@@ -167,7 +167,8 @@ export function AppShell({
         {/* Content */}
         <main
           id="app-scroll-container"
-          className="relative min-w-0 flex-1 bg-background pb-28 md:overflow-y-auto md:pb-0"
+          className="relative min-w-0 flex-1 overflow-y-auto bg-background pb-28 md:pb-0"
+          style={{ WebkitOverflowScrolling: "touch" }}
         >
           <PullToRefresh onRefresh={refreshData}>
             {/* Mobile top bar */}
