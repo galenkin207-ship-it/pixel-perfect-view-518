@@ -8,7 +8,7 @@ import { EmployeeSelect } from "@/components/app/employee-select";
 import { NumberField } from "@/components/app/number-field";
 import { ObjectSelect } from "@/components/app/object-select";
 import { useBlurOnScroll } from "@/hooks/use-blur-on-scroll";
-import { cn } from "@/lib/utils";
+import { cn, objectLabel } from "@/lib/utils";
 import { itemQty, recordTotal, round2, syncItem } from "@/lib/record-utils";
 import { smartFilter } from "@/lib/smart-search";
 import { api } from "@/lib/api-client";
@@ -581,7 +581,7 @@ export function RecordForm({
               : "Редактирование записи"
             : "Новая запись"
         }
-        title={object ? `${object.name}, ${object.address}` : "Выберите объект"}
+        title={object ? objectLabel(object.name, object.address) : "Выберите объект"}
       />
 
       <div className="mt-5 w-full space-y-5 xl:max-w-5xl 2xl:max-w-none">

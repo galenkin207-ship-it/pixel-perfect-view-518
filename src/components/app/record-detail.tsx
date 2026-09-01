@@ -8,6 +8,7 @@ import { PhotoViewer } from "@/components/app/photo-viewer";
 import { StatusBadge } from "@/components/app/status-badge";
 import { allocationsFor, canEditRecord, itemQty, recordTotal } from "@/lib/record-utils";
 import { clearQuickDraftId } from "@/lib/quick-draft";
+import { objectLabel } from "@/lib/utils";
 import type { WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
@@ -56,7 +57,7 @@ export function RecordDetail({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs text-muted-foreground">
-              {object?.name} · {object?.address}
+              {object ? objectLabel(object.name, object.address) : ""}
             </p>
             <h2 className="mt-0.5 text-lg font-bold">
               Запись от {record.date}, {record.time}

@@ -198,7 +198,9 @@ function ObjectsPage() {
                         />
                       )}
                     </p>
-                    <p className="mt-0.5 text-sm text-muted-foreground">{o.address}</p>
+                    {o.address && (
+                      <p className="mt-0.5 text-sm text-muted-foreground">{o.address}</p>
+                    )}
                   </div>
                   <span
                     className={

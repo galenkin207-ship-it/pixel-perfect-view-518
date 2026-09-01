@@ -1119,13 +1119,13 @@ function ObjectsSection() {
         searchPlaceholder="Начните вводить название объекта..."
         items={objects.map((o) => ({ id: o.id, label: o.name }))}
         onAdd={async (v) => {
-          await addObject({ name: v, address: "Адрес уточняется", progress_percent: 0 });
+          await addObject({ name: v, address: "", progress_percent: 0 });
         }}
         onBulk={async (lines) => {
           let ok = 0;
           for (const name of lines) {
             try {
-              await addObject({ name, address: "Адрес уточняется", progress_percent: 0 });
+              await addObject({ name, address: "", progress_percent: 0 });
               ok++;
             } catch {
               /* пропускаем строку, которая не загрузилась, и продолжаем остальные */
@@ -1137,7 +1137,7 @@ function ObjectsSection() {
           const obj = objects.find((o) => o.id === id);
           await updateObject(id, {
             name: v,
-            address: obj?.address ?? "Адрес уточняется",
+            address: obj?.address ?? "",
             progress_percent: obj?.progress_percent ?? 0,
           });
         }}
@@ -1192,7 +1192,9 @@ function ObjectsStatusList() {
                     </span>
                   )}
                 </p>
-                <p className="truncate text-xs text-muted-foreground">{o.address}</p>
+                {o.address && (
+                  <p className="truncate text-xs text-muted-foreground">{o.address}</p>
+                )}
               </div>
               <button
                 type="button"
