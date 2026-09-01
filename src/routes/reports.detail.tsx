@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Download,
   Image as ImageIcon,
-  X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import ExcelJS from "exceljs";
@@ -126,24 +125,15 @@ function ReportDetailPage() {
   const [mobileDay, setMobileDay] = useState<string | null>(null);
   const [mobileRecord, setMobileRecord] = useState<string | null>(null);
   const [mobileItem, setMobileItem] = useState<string | null>(null);
-  const [itemFilterByRecord, setItemFilterByRecord] = useState<Record<string, string>>({});
+  const [expandedItemsByRecord, setExpandedItemsByRecord] = useState<Record<string, string[]>>(
+    {},
+  );
 
-  const toggleItemFilter = (recordId: string, item: string) => {
-    setItemFilterByRecord((prev) => {
-      if (prev[recordId] === item) {
-        const next = { ...prev };
-        delete next[recordId];
-        return next;
-      }
-      return { ...prev, [recordId]: item };
-    });
-  };
-  const clearItemFilter = (recordId: string) => {
-    setItemFilterByRecord((prev) => {
-      if (!(recordId in prev)) return prev;
-      const next = { ...prev };
-      delete next[recordId];
-      return next;
+  const toggleExpandedItem = (recordId: string, item: string) => {
+    setExpandedItemsByRecord((prev) => {
+      const cur = prev[recordId] ?? [];
+      const next = cur.includes(item) ? cur.filter((x) => x !== item) : [...cur, item];
+      return { ...prev, [recordId]: next };
     });
   };
 
@@ -558,7 +548,7 @@ function ReportDetailPage() {
     setMobileDay(null);
     setMobileRecord(null);
     setMobileItem(null);
-    setItemFilterByRecord({});
+    setExpandedItemsByRecord({});
   };
 
   const toggle = (arr: string[], set: (v: string[]) => void, id: string) =>
@@ -616,7 +606,7 @@ function ReportDetailPage() {
     return (
       <AppShell>
         <MobileHeader
-          title={`Запись ${activeRecord.time}`}
+          title={`Запись ${activeRecord.date}`}
           onBack={() => {
             setMobileItem(null);
             setMobileRecord(null);
@@ -871,13 +861,7 @@ function ReportDetailPage() {
                     <div className="space-y-2 border-t border-border bg-surface/40 p-3">
                       {day.records.map((r) => {
                         const rOpen = openRecords.includes(r.id);
-                        const activeItemFilter = itemFilterByRecord[r.id];
-                        const handleItemClick = (name: string) => {
-                          if (!openRecords.includes(r.id)) {
-                            setOpenRecords([...openRecords, r.id]);
-                          }
-                          toggleItemFilter(r.id, name);
-                        };
+                        const openItems = expandedItemsByRecord[r.id] ?? [];
                         return (
                           <div key={r.id} className="rounded-xl border border-border bg-card">
                             <div
@@ -905,10 +889,8 @@ function ReportDetailPage() {
                                   {...(applied?.employee
                                     ? { employeeFilter: applied.employee }
                                     : {})}
-                                  onItemClick={handleItemClick}
-                                  {...(activeItemFilter
-                                    ? { selectedItem: activeItemFilter }
-                                    : {})}
+                                  onItemClick={(name) => toggleExpandedItem(r.id, name)}
+                                  expandedItems={openItems}
                                 />
                               </div>
                             </div>
@@ -921,8 +903,6 @@ function ReportDetailPage() {
                                   {...(applied?.employee
                                     ? { employeeFilter: applied.employee }
                                     : {})}
-                                  {...(activeItemFilter ? { itemFilter: activeItemFilter } : {})}
-                                  onClearItemFilter={() => clearItemFilter(r.id)}
                                 />
                               </div>
                             )}
@@ -997,15 +977,17 @@ function ReportDetailPage() {
 
 function MobileHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-start gap-2">
       <button
         onClick={onBack}
-        className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-sm font-semibold"
+        className="mt-0.5 flex shrink-0 items-center gap-1 rounded-lg border border-border px-3 py-2 text-sm font-semibold"
       >
         <ChevronLeft className="size-4" />
         Назад
       </button>
-      <h1 className="min-w-0 flex-1 truncate text-lg font-bold">{title}</h1>
+      <h1 className="min-w-0 flex-1 text-lg leading-snug font-bold break-words whitespace-normal">
+        {title}
+      </h1>
     </div>
   );
 }
@@ -1015,13 +997,13 @@ function RecordSummary({
   isAdmin,
   employeeFilter,
   onItemClick,
-  selectedItem,
+  expandedItems,
 }: {
   record: WorkRecord;
   isAdmin: boolean;
   employeeFilter?: string;
   onItemClick?: (name: string) => void;
-  selectedItem?: string;
+  expandedItems?: string[];
 }) {
   const crew = crewOf(record);
   const rows = employeeFilter
@@ -1032,6 +1014,7 @@ function RecordSummary({
   return (
     <div className="space-y-1.5">
       {rows.map(({ item, qty }, i) => {
+        const isOpen = expandedItems?.includes(item.name) ?? false;
         const nameContent = (
           <>
             {item.name}
@@ -1040,38 +1023,69 @@ function RecordSummary({
             )}
           </>
         );
+        const itemBreakdown = isOpen
+          ? breakdownOf(record).filter(
+              (row) =>
+                row.item === item.name && (!employeeFilter || row.employee === employeeFilter),
+            )
+          : [];
         return (
-          <div key={i} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            {onItemClick ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onItemClick(item.name);
-                }}
-                title="Показать, кто и сколько сделал по этому виду работ"
-                className={cn(
-                  "-mx-1 flex min-w-0 flex-1 items-start gap-1.5 rounded px-1 text-left font-semibold break-words whitespace-normal transition-colors hover:bg-primary/10 hover:text-primary",
-                  selectedItem === item.name && "bg-primary/10 text-primary",
-                )}
-              >
-                {nameContent}
-              </button>
-            ) : (
-              <span className="flex min-w-0 flex-1 items-start gap-1.5 font-semibold break-words whitespace-normal">
-                {nameContent}
-              </span>
-            )}
-            <span className="flex shrink-0 items-baseline gap-3">
-              <span className="font-mono text-sm font-bold tabular-nums">
-                {qty} {item.unit}
-              </span>
-              {isAdmin && (
-                <span className="font-mono text-sm font-bold tabular-nums text-primary">
-                  {money(qty * item.price)}
+          <div key={i}>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              {onItemClick ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onItemClick(item.name);
+                  }}
+                  title="Показать, кто и сколько сделал по этому виду работ"
+                  className={cn(
+                    "-mx-1 flex min-w-0 flex-1 items-start gap-1.5 rounded px-1 text-left font-semibold break-words whitespace-normal transition-colors hover:bg-primary/10 hover:text-primary",
+                    isOpen && "bg-primary/10 text-primary",
+                  )}
+                >
+                  {nameContent}
+                </button>
+              ) : (
+                <span className="flex min-w-0 flex-1 items-start gap-1.5 font-semibold break-words whitespace-normal">
+                  {nameContent}
                 </span>
               )}
-            </span>
+              <span className="flex shrink-0 items-baseline gap-3">
+                <span className="font-mono text-sm font-bold tabular-nums">
+                  {qty} {item.unit}
+                </span>
+                {isAdmin && (
+                  <span className="font-mono text-sm font-bold tabular-nums text-primary">
+                    {money(qty * item.price)}
+                  </span>
+                )}
+              </span>
+            </div>
+            {isOpen && (
+              <div className="mt-1.5 mb-1 rounded-lg bg-surface/60 px-3 py-2">
+                <p className="label-caps text-[11px] text-muted-foreground">
+                  Кто и сколько сделал
+                </p>
+                <div className="mt-1">
+                  {itemBreakdown.map((row, j) => (
+                    <div
+                      key={j}
+                      className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/60 py-1.5 last:border-0"
+                    >
+                      <span className="text-sm font-semibold">{row.employee}</span>
+                      <span className="font-mono text-sm font-bold">
+                        {row.qty} {row.unit}
+                      </span>
+                    </div>
+                  ))}
+                  {itemBreakdown.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Нет разбивки</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         );
       })}
@@ -1081,6 +1095,7 @@ function RecordSummary({
           {employeeFilter ? employeeFilter : crew.join(", ") || "—"}
         </span>
       </p>
+
       <p className="text-sm text-muted-foreground">
         Кто подал: <span className="text-foreground">{record.created_by}</span>
       </p>
@@ -1093,32 +1108,32 @@ function RecordDetailBlock({
   isAdmin,
   nested,
   employeeFilter,
-  itemFilter,
-  onClearItemFilter,
   onItemClick,
 }: {
   record: WorkRecord;
   isAdmin: boolean;
   nested?: boolean;
   employeeFilter?: string;
-  itemFilter?: string;
-  onClearItemFilter?: () => void;
   onItemClick?: (name: string) => void;
 }) {
   const [photosOpen, setPhotosOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const crew = crewOf(record);
-  const rows = breakdownOf(record).filter(
-    (row) =>
-      (!employeeFilter || row.employee === employeeFilter) &&
-      (!itemFilter || row.item === itemFilter),
-  );
   const recordTotalValue = employeeFilter
     ? record.items.reduce(
         (s, item) => s + employeeItemQty(item, employeeFilter, crew) * item.price,
         0,
       )
     : recordTotal(record.items);
+
+  // Один вид работ в записи — разбивку показываем сразу, отдельный экран не нужен.
+  const singleItem = record.items.length === 1 ? record.items[0] : null;
+  const singleItemRows = singleItem
+    ? breakdownOf(record).filter(
+        (row) =>
+          row.item === singleItem.name && (!employeeFilter || row.employee === employeeFilter),
+      )
+    : [];
 
   return (
     <div className={cn(!nested && "mt-4 rounded-2xl border border-border bg-card p-4")}>
@@ -1127,45 +1142,31 @@ function RecordDetailBlock({
           record={record}
           isAdmin={isAdmin}
           {...(employeeFilter ? { employeeFilter } : {})}
-          {...(onItemClick ? { onItemClick } : {})}
-          {...(itemFilter ? { selectedItem: itemFilter } : {})}
+          {...(onItemClick && record.items.length > 1 ? { onItemClick } : {})}
         />
       )}
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="label-caps">Кто и сколько сделал</h3>
-        {itemFilter && onClearItemFilter && (
-          <button
-            type="button"
-            onClick={onClearItemFilter}
-            className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
-          >
-            {itemFilter}
-            <X className="size-3.5" />
-          </button>
-        )}
-      </div>
-      <div className="mt-2">
-        {rows.map((row, i) => (
-          <div
-            key={i}
-            className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border py-2.5 last:border-0"
-          >
-            <div className="min-w-0">
-              <button className="text-sm font-semibold text-primary underline-offset-2 hover:underline">
-                {row.employee}
-              </button>
-              {!itemFilter && (
-                <p className="text-xs break-words text-muted-foreground">{row.item}</p>
-              )}
-            </div>
-            <span className="font-mono text-sm font-bold">
-              {row.qty} {row.unit}
-            </span>
+      {!nested && singleItem && (
+        <>
+          <h3 className="label-caps mt-4">Кто и сколько сделал</h3>
+          <div className="mt-2">
+            {singleItemRows.map((row, i) => (
+              <div
+                key={i}
+                className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border py-2.5 last:border-0"
+              >
+                <span className="text-sm font-semibold">{row.employee}</span>
+                <span className="font-mono text-sm font-bold">
+                  {row.qty} {row.unit}
+                </span>
+              </div>
+            ))}
+            {singleItemRows.length === 0 && (
+              <p className="text-sm text-muted-foreground">Нет разбивки</p>
+            )}
           </div>
-        ))}
-        {rows.length === 0 && <p className="text-sm text-muted-foreground">Нет разбивки</p>}
-      </div>
+        </>
+      )}
 
       {isAdmin && (
         <div className="mt-3 flex items-center justify-between rounded-xl bg-surface px-4 py-3">
