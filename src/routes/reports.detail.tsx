@@ -1,5 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronDown, ChevronLeft, ChevronRight, Download, Image as ImageIcon } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsDown,
+  Download,
+  Image as ImageIcon,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import ExcelJS from "exceljs";
 
@@ -52,6 +59,25 @@ function weekday(d: string) {
 }
 function money(n: number) {
   return `${Math.round(n).toLocaleString("ru-RU")} ₽`;
+}
+
+/** Тройная стрелка вниз (уровень «день») — своя, т.к. в lucide-react есть только одинарная и двойная. */
+function ChevronsDownTriple({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="m7 3 5 5 5-5" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="m7 17 5 5 5-5" />
+    </svg>
+  );
 }
 
 type Breakdown = { employee: string; qty: number; unit: string; item: string };
@@ -827,7 +853,7 @@ function ReportDetailPage() {
                     {isMobile ? (
                       <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                     ) : (
-                      <ChevronDown
+                      <ChevronsDownTriple
                         className={cn(
                           "size-4 shrink-0 text-muted-foreground transition-transform",
                           open && "rotate-180",
@@ -866,6 +892,12 @@ function ReportDetailPage() {
                           setPhotosOpenByRecord((prev) => ({ ...prev, [r.id]: true }));
                           toggleExpandedItem(r.id, name);
                         };
+                        const handlePhotoIconClick = () => {
+                          if (!openRecords.includes(r.id)) {
+                            setOpenRecords([...openRecords, r.id]);
+                          }
+                          setPhotosOpenByRecord((prev) => ({ ...prev, [r.id]: true }));
+                        };
                         return (
                           <div key={r.id} className="rounded-xl border border-border bg-card">
                             <div
@@ -880,7 +912,7 @@ function ReportDetailPage() {
                               }}
                               className="flex w-full cursor-pointer items-start gap-3 p-4 text-left transition-colors hover:bg-surface/60"
                             >
-                              <ChevronDown
+                              <ChevronsDown
                                 className={cn(
                                   "mt-1 size-4 shrink-0 text-muted-foreground transition-transform",
                                   rOpen && "rotate-180",
@@ -895,6 +927,7 @@ function ReportDetailPage() {
                                     : {})}
                                   onItemClick={handleItemClick}
                                   expandedItems={openItems}
+                                  onPhotoIconClick={handlePhotoIconClick}
                                 />
                               </div>
                             </div>
@@ -1006,14 +1039,18 @@ function RecordSummary({
   employeeFilter,
   onItemClick,
   expandedItems,
+  onPhotoIconClick,
 }: {
   record: WorkRecord;
   isAdmin: boolean;
   employeeFilter?: string;
   onItemClick?: (name: string) => void;
   expandedItems?: string[];
+  onPhotoIconClick?: () => void;
 }) {
   const crew = crewOf(record);
+  // Десктопный инлайн-разворот видов работ (в отличие от мобильной навигации на отдельный экран).
+  const isDesktopToggle = Boolean(onItemClick) && expandedItems !== undefined;
   const rows = employeeFilter
     ? record.items
         .map((item) => ({ item, qty: employeeItemQty(item, employeeFilter, crew) }))
@@ -1029,8 +1066,16 @@ function RecordSummary({
         const nameContent = (
           <>
             {item.name}
-            {record.photos.length > 0 && (
+            {record.photos.length > 0 && !isDesktopToggle && (
               <ImageIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+            )}
+            {isDesktopToggle && (
+              <ChevronDown
+                className={cn(
+                  "mt-1 size-4 shrink-0 text-muted-foreground transition-transform",
+                  isOpen && "rotate-180",
+                )}
+              />
             )}
           </>
         );
@@ -1135,6 +1180,20 @@ function RecordSummary({
       <p className="text-sm text-muted-foreground">
         Кто подал: <span className="text-foreground">{record.created_by}</span>
       </p>
+
+      {isDesktopToggle && record.photos.length > 0 && onPhotoIconClick && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPhotoIconClick();
+          }}
+          title="Показать фото"
+          className="-mx-1 mt-1 flex items-center gap-1.5 rounded px-1 py-0.5 text-primary transition-colors hover:bg-primary/10"
+        >
+          <ImageIcon className="size-6" />
+        </button>
+      )}
     </div>
   );
 }
