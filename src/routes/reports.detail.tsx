@@ -1116,7 +1116,7 @@ function RecordDetailBlock({
   employeeFilter?: string;
   onItemClick?: (name: string) => void;
 }) {
-  const [photosOpen, setPhotosOpen] = useState(false);
+  const [photosOpen, setPhotosOpen] = useState(true);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const crew = crewOf(record);
   const recordTotalValue = employeeFilter
