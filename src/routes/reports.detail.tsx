@@ -6,8 +6,9 @@ import {
   ChevronsDown,
   Download,
   Image as ImageIcon,
+  SlidersHorizontal,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ExcelJS from "exceljs";
 
 import { AppShell } from "@/components/app/app-shell";
@@ -146,8 +147,24 @@ function ReportDetailPage() {
   const [mobileDay, setMobileDay] = useState<string | null>(null);
   const [mobileRecord, setMobileRecord] = useState<string | null>(null);
   const [mobileItem, setMobileItem] = useState<string | null>(null);
+  const [photoPreviewRecordId, setPhotoPreviewRecordId] = useState<string | null>(null);
+  const [dayPhotoViewer, setDayPhotoViewer] = useState<{
+    record: WorkRecord;
+    index: number;
+  } | null>(null);
   const [expandedItemsByRecord, setExpandedItemsByRecord] = useState<Record<string, string[]>>({});
   const [photosOpenByRecord, setPhotosOpenByRecord] = useState<Record<string, boolean>>({});
+  const [filtersOpen, setFiltersOpen] = useState(true);
+
+  // При переходе между мобильными "экранами" (день/запись/вид работ) страница
+  // рендерится в том же контейнере, реальной навигации не происходит — поэтому
+  // скролл нужно сбрасывать руками, иначе новый экран открывается там, где
+  // была прокрутка на предыдущем.
+  useEffect(() => {
+    const el = document.getElementById("app-scroll-container");
+    if (el) el.scrollTop = 0;
+    else window.scrollTo(0, 0);
+  }, [mobileDay, mobileRecord, mobileItem]);
 
   const toggleExpandedItem = (recordId: string, item: string) => {
     setExpandedItemsByRecord((prev) => {
@@ -568,8 +585,11 @@ function ReportDetailPage() {
     setMobileDay(null);
     setMobileRecord(null);
     setMobileItem(null);
+    setPhotoPreviewRecordId(null);
+    setDayPhotoViewer(null);
     setExpandedItemsByRecord({});
     setPhotosOpenByRecord({});
+    setFiltersOpen(true);
   };
 
   const toggle = (arr: string[], set: (v: string[]) => void, id: string) =>
@@ -621,54 +641,75 @@ function ReportDetailPage() {
     );
   }
 
-  if (isMobile && applied && activeRecord) {
-    return (
-      <AppShell>
-        <MobileHeader
-          title={`Запись ${activeRecord.date}`}
-          onBack={() => {
-            setMobileItem(null);
-            setMobileRecord(null);
-          }}
-        />
-        <RecordDetailBlock
-          record={activeRecord}
-          isAdmin={isAdmin}
-          {...(applied?.employee ? { employeeFilter: applied.employee } : {})}
-          onItemClick={(name) => setMobileItem(name)}
-        />
-      </AppShell>
-    );
-  }
-
   if (isMobile && applied && activeDay) {
     return (
       <AppShell>
         <MobileHeader
           title={`${weekday(activeDay.date)}, ${activeDay.date}`}
-          onBack={() => setMobileDay(null)}
+          onBack={() => {
+            setMobileRecord(null);
+            setMobileItem(null);
+            setPhotoPreviewRecordId(null);
+            setMobileDay(null);
+          }}
         />
-        <div className="mt-3 space-y-2">
-          {activeDay.records.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => {
-                setMobileItem(null);
-                setMobileRecord(r.id);
-              }}
-              className="flex w-full items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left"
-            >
-              <div className="min-w-0 flex-1">
+        <div className="mt-3 space-y-3">
+          {activeDay.records.map((r) => {
+            const crew = crewOf(r);
+            const recordTotalValue = applied?.employee
+              ? r.items.reduce(
+                  (s, item) => s + employeeItemQty(item, applied.employee, crew) * item.price,
+                  0,
+                )
+              : recordTotal(r.items);
+            const photosShown = photoPreviewRecordId === r.id;
+            return (
+              <div key={r.id} className="rounded-2xl border border-border bg-card p-4">
                 <RecordSummary
                   record={r}
                   isAdmin={isAdmin}
                   {...(applied?.employee ? { employeeFilter: applied.employee } : {})}
+                  onItemClick={(name) => {
+                    setPhotoPreviewRecordId(null);
+                    setMobileRecord(r.id);
+                    setMobileItem(name);
+                  }}
+                  onPhotoIconClick={() =>
+                    setPhotoPreviewRecordId((cur) => (cur === r.id ? null : r.id))
+                  }
                 />
+                {photosShown && (
+                  <div className="mt-2 flex gap-2 overflow-x-auto">
+                    {r.photos.map((p, i) => (
+                      <button
+                        key={p}
+                        onClick={() => setDayPhotoViewer({ record: r, index: i })}
+                        className="size-24 shrink-0 overflow-hidden rounded-xl border border-border bg-muted"
+                      >
+                        <img src={p} alt="Фото к записи" className="size-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {isAdmin && (
+                  <div className="mt-3 flex items-center justify-between rounded-xl bg-surface px-4 py-3">
+                    <span className="text-sm font-semibold">Итого по записи</span>
+                    <span className="font-mono font-bold text-primary">
+                      {money(recordTotalValue)}
+                    </span>
+                  </div>
+                )}
               </div>
-              <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground" />
-            </button>
-          ))}
+            );
+          })}
         </div>
+        {dayPhotoViewer && (
+          <PhotoViewer
+            photos={dayPhotoViewer.record.photos}
+            initialIndex={dayPhotoViewer.index}
+            onClose={() => setDayPhotoViewer(null)}
+          />
+        )}
       </AppShell>
     );
   }
@@ -678,7 +719,20 @@ function ReportDetailPage() {
       <PageHeading context={roleLabels[role]} title="Отчёт по объекту / сотруднику / подавшему" />
 
       <section className="mt-4 rounded-2xl border border-border bg-card p-4">
-        <div className="grid gap-3 md:grid-cols-3">
+        <button
+          onClick={() => setFiltersOpen((v) => !v)}
+          className="flex w-full items-center gap-2 text-sm font-semibold md:hidden"
+        >
+          <SlidersHorizontal className="size-4" />
+          {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
+        </button>
+
+        <div
+          className={cn(
+            "grid gap-3 md:mt-0 md:grid-cols-3",
+            filtersOpen ? "mt-3" : "hidden md:grid",
+          )}
+        >
           <div>
             <FieldLabel>Сотрудник</FieldLabel>
             <div className="mt-1">
@@ -742,6 +796,7 @@ function ReportDetailPage() {
                 setOpenRecords([]);
                 setMobileDay(null);
                 setMobileRecord(null);
+                if (isMobile) setFiltersOpen(false);
               }}
               className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
             >
@@ -755,7 +810,7 @@ function ReportDetailPage() {
             </button>
           </div>
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">
+        <p className={cn("mt-3 text-xs text-muted-foreground", !filtersOpen && "hidden md:block")}>
           Укажите хотя бы одно поле. Оба сразу — отчёт по конкретному сотруднику именно на этом
           объекте.
         </p>
@@ -827,15 +882,9 @@ function ReportDetailPage() {
                   <button
                     onClick={() => {
                       if (isMobile) {
+                        setMobileRecord(null);
                         setMobileItem(null);
-                        const onlyRecord = day.records.length === 1 ? day.records[0] : undefined;
-                        if (onlyRecord) {
-                          setMobileDay(null);
-                          setMobileRecord(onlyRecord.id);
-                        } else {
-                          setMobileRecord(null);
-                          setMobileDay(day.date);
-                        }
+                        setMobileDay(day.date);
                       } else {
                         toggle(openDays, setOpenDays, day.date);
                       }
@@ -1058,9 +1107,6 @@ function RecordSummary({
         const nameContent = (
           <>
             {item.name}
-            {record.photos.length > 0 && !isDesktopToggle && (
-              <ImageIcon className="mt-0.5 size-4 shrink-0 text-primary" />
-            )}
             {isDesktopToggle && (
               <ChevronDown
                 className={cn(
@@ -1173,7 +1219,7 @@ function RecordSummary({
         Кто подал: <span className="text-foreground">{record.created_by}</span>
       </p>
 
-      {isDesktopToggle && record.photos.length > 0 && onPhotoIconClick && (
+      {record.photos.length > 0 && onPhotoIconClick && (
         <button
           type="button"
           onClick={(e) => {
@@ -1236,6 +1282,7 @@ function RecordDetailBlock({
           isAdmin={isAdmin}
           {...(employeeFilter ? { employeeFilter } : {})}
           {...(onItemClick && record.items.length > 1 ? { onItemClick } : {})}
+          onPhotoIconClick={() => setPhotosOpen(true)}
         />
       )}
 
