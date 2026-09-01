@@ -147,7 +147,11 @@ function ReportDetailPage() {
   const [mobileDay, setMobileDay] = useState<string | null>(null);
   const [mobileRecord, setMobileRecord] = useState<string | null>(null);
   const [mobileItem, setMobileItem] = useState<string | null>(null);
-  const [dayPhotoRecord, setDayPhotoRecord] = useState<WorkRecord | null>(null);
+  const [photoPreviewRecordId, setPhotoPreviewRecordId] = useState<string | null>(null);
+  const [dayPhotoViewer, setDayPhotoViewer] = useState<{
+    record: WorkRecord;
+    index: number;
+  } | null>(null);
   const [expandedItemsByRecord, setExpandedItemsByRecord] = useState<Record<string, string[]>>({});
   const [photosOpenByRecord, setPhotosOpenByRecord] = useState<Record<string, boolean>>({});
   const [filtersOpen, setFiltersOpen] = useState(true);
@@ -571,7 +575,8 @@ function ReportDetailPage() {
     setMobileDay(null);
     setMobileRecord(null);
     setMobileItem(null);
-    setDayPhotoRecord(null);
+    setPhotoPreviewRecordId(null);
+    setDayPhotoViewer(null);
     setExpandedItemsByRecord({});
     setPhotosOpenByRecord({});
     setFiltersOpen(true);
@@ -634,64 +639,47 @@ function ReportDetailPage() {
           onBack={() => {
             setMobileRecord(null);
             setMobileItem(null);
-            setDayPhotoRecord(null);
+            setPhotoPreviewRecordId(null);
             setMobileDay(null);
           }}
         />
         <div className="mt-3 space-y-3">
           {activeDay.records.map((r) => {
             const crew = crewOf(r);
-            const singleItem = r.items.length === 1 ? r.items[0] : null;
-            const singleItemRows = singleItem
-              ? breakdownOf(r).filter(
-                  (row) =>
-                    row.item === singleItem.name &&
-                    (!applied?.employee || row.employee === applied.employee),
-                )
-              : [];
             const recordTotalValue = applied?.employee
               ? r.items.reduce(
                   (s, item) => s + employeeItemQty(item, applied.employee, crew) * item.price,
                   0,
                 )
               : recordTotal(r.items);
+            const photosShown = photoPreviewRecordId === r.id;
             return (
               <div key={r.id} className="rounded-2xl border border-border bg-card p-4">
                 <RecordSummary
                   record={r}
                   isAdmin={isAdmin}
                   {...(applied?.employee ? { employeeFilter: applied.employee } : {})}
-                  {...(singleItem
-                    ? {}
-                    : {
-                        onItemClick: (name: string) => {
-                          setDayPhotoRecord(null);
-                          setMobileRecord(r.id);
-                          setMobileItem(name);
-                        },
-                      })}
-                  onPhotoIconClick={() => setDayPhotoRecord(r)}
+                  onItemClick={(name) => {
+                    setPhotoPreviewRecordId(null);
+                    setMobileRecord(r.id);
+                    setMobileItem(name);
+                  }}
+                  onPhotoIconClick={() =>
+                    setPhotoPreviewRecordId((cur) => (cur === r.id ? null : r.id))
+                  }
                 />
-                {singleItem && (
-                  <>
-                    <h3 className="label-caps mt-4">Кто и сколько сделал</h3>
-                    <div className="mt-2">
-                      {singleItemRows.map((row, i) => (
-                        <div
-                          key={i}
-                          className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border py-2.5 last:border-0"
-                        >
-                          <span className="text-sm font-semibold">{row.employee}</span>
-                          <span className="font-mono text-sm font-bold">
-                            {row.qty} {row.unit}
-                          </span>
-                        </div>
-                      ))}
-                      {singleItemRows.length === 0 && (
-                        <p className="text-sm text-muted-foreground">Нет разбивки</p>
-                      )}
-                    </div>
-                  </>
+                {photosShown && (
+                  <div className="mt-2 flex gap-2 overflow-x-auto">
+                    {r.photos.map((p, i) => (
+                      <button
+                        key={p}
+                        onClick={() => setDayPhotoViewer({ record: r, index: i })}
+                        className="size-24 shrink-0 overflow-hidden rounded-xl border border-border bg-muted"
+                      >
+                        <img src={p} alt="Фото к записи" className="size-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
                 )}
                 {isAdmin && (
                   <div className="mt-3 flex items-center justify-between rounded-xl bg-surface px-4 py-3">
@@ -705,11 +693,11 @@ function ReportDetailPage() {
             );
           })}
         </div>
-        {dayPhotoRecord && (
+        {dayPhotoViewer && (
           <PhotoViewer
-            photos={dayPhotoRecord.photos}
-            initialIndex={0}
-            onClose={() => setDayPhotoRecord(null)}
+            photos={dayPhotoViewer.record.photos}
+            initialIndex={dayPhotoViewer.index}
+            onClose={() => setDayPhotoViewer(null)}
           />
         )}
       </AppShell>
