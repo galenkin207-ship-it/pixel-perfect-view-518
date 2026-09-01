@@ -1,5 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronDown, ChevronLeft, ChevronRight, Download, Image as ImageIcon } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Image as ImageIcon,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import ExcelJS from "exceljs";
 
@@ -118,6 +124,18 @@ function ReportDetailPage() {
   const [openRecords, setOpenRecords] = useState<string[]>([]);
   const [mobileDay, setMobileDay] = useState<string | null>(null);
   const [mobileRecord, setMobileRecord] = useState<string | null>(null);
+  const [mobileItem, setMobileItem] = useState<string | null>(null);
+  const [expandedItemsByRecord, setExpandedItemsByRecord] = useState<Record<string, string[]>>(
+    {},
+  );
+
+  const toggleExpandedItem = (recordId: string, item: string) => {
+    setExpandedItemsByRecord((prev) => {
+      const cur = prev[recordId] ?? [];
+      const next = cur.includes(item) ? cur.filter((x) => x !== item) : [...cur, item];
+      return { ...prev, [recordId]: next };
+    });
+  };
 
   // Реальные авторы записей + вручную добавленные пользователи (is_submitter).
   const submitters = useMemo(
@@ -529,6 +547,8 @@ function ReportDetailPage() {
     setOpenRecords([]);
     setMobileDay(null);
     setMobileRecord(null);
+    setMobileItem(null);
+    setExpandedItemsByRecord({});
   };
 
   const toggle = (arr: string[], set: (v: string[]) => void, id: string) =>
@@ -538,14 +558,65 @@ function ReportDetailPage() {
   const activeRecord = activeDay?.records.find((r) => r.id === mobileRecord);
 
   // ---------- мобильные экраны ----------
+  if (isMobile && applied && activeRecord && mobileItem) {
+    const crew = crewOf(activeRecord);
+    const itemDef = activeRecord.items.find((i) => i.name === mobileItem);
+    const itemRows = breakdownOf(activeRecord).filter(
+      (row) =>
+        row.item === mobileItem && (!applied?.employee || row.employee === applied.employee),
+    );
+    const itemTotal = itemDef
+      ? (applied?.employee
+          ? employeeItemQty(itemDef, applied.employee, crew)
+          : itemQty(itemDef)) * itemDef.price
+      : 0;
+    return (
+      <AppShell>
+        <MobileHeader title={mobileItem} onBack={() => setMobileItem(null)} />
+        <div className="mt-3 rounded-2xl border border-border bg-card p-4">
+          <h3 className="label-caps">Кто и сколько сделал</h3>
+          <div className="mt-2">
+            {itemRows.map((row, i) => (
+              <div
+                key={i}
+                className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border py-2.5 last:border-0"
+              >
+                <span className="text-sm font-semibold">{row.employee}</span>
+                <span className="font-mono text-sm font-bold">
+                  {row.qty} {row.unit}
+                </span>
+              </div>
+            ))}
+            {itemRows.length === 0 && (
+              <p className="text-sm text-muted-foreground">Нет разбивки</p>
+            )}
+          </div>
+          {isAdmin && itemDef && (
+            <div className="mt-3 flex items-center justify-between rounded-xl bg-surface px-4 py-3">
+              <span className="text-sm font-semibold">Итого по виду работ</span>
+              <span className="font-mono font-bold text-primary">{money(itemTotal)}</span>
+            </div>
+          )}
+        </div>
+      </AppShell>
+    );
+  }
+
   if (isMobile && applied && activeRecord) {
     return (
       <AppShell>
-        <MobileHeader title={`Запись ${activeRecord.time}`} onBack={() => setMobileRecord(null)} />
+        <MobileHeader
+          title={`Запись ${activeRecord.date}`}
+          onBack={() => {
+            setMobileItem(null);
+            setMobileRecord(null);
+          }}
+        />
         <RecordDetailBlock
           record={activeRecord}
           isAdmin={isAdmin}
           {...(applied?.employee ? { employeeFilter: applied.employee } : {})}
+          onItemClick={(name) => setMobileItem(name)}
         />
       </AppShell>
     );
@@ -562,7 +633,10 @@ function ReportDetailPage() {
           {activeDay.records.map((r) => (
             <button
               key={r.id}
-              onClick={() => setMobileRecord(r.id)}
+              onClick={() => {
+                setMobileItem(null);
+                setMobileRecord(r.id);
+              }}
               className="flex w-full items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left"
             >
               <div className="min-w-0 flex-1">
@@ -743,9 +817,15 @@ function ReportDetailPage() {
                   className="overflow-hidden rounded-2xl border border-border bg-card"
                 >
                   <button
-                    onClick={() =>
-                      isMobile ? setMobileDay(day.date) : toggle(openDays, setOpenDays, day.date)
-                    }
+                    onClick={() => {
+                      if (isMobile) {
+                        setMobileRecord(null);
+                        setMobileItem(null);
+                        setMobileDay(day.date);
+                      } else {
+                        toggle(openDays, setOpenDays, day.date);
+                      }
+                    }}
                     className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-surface/60"
                   >
                     {isMobile ? (
@@ -781,11 +861,20 @@ function ReportDetailPage() {
                     <div className="space-y-2 border-t border-border bg-surface/40 p-3">
                       {day.records.map((r) => {
                         const rOpen = openRecords.includes(r.id);
+                        const openItems = expandedItemsByRecord[r.id] ?? [];
                         return (
                           <div key={r.id} className="rounded-xl border border-border bg-card">
-                            <button
+                            <div
+                              role="button"
+                              tabIndex={0}
                               onClick={() => toggle(openRecords, setOpenRecords, r.id)}
-                              className="flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-surface/60"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  toggle(openRecords, setOpenRecords, r.id);
+                                }
+                              }}
+                              className="flex w-full cursor-pointer items-start gap-3 p-4 text-left transition-colors hover:bg-surface/60"
                             >
                               <ChevronDown
                                 className={cn(
@@ -800,9 +889,11 @@ function ReportDetailPage() {
                                   {...(applied?.employee
                                     ? { employeeFilter: applied.employee }
                                     : {})}
+                                  onItemClick={(name) => toggleExpandedItem(r.id, name)}
+                                  expandedItems={openItems}
                                 />
                               </div>
-                            </button>
+                            </div>
                             {rOpen && (
                               <div className="border-t border-border p-4">
                                 <RecordDetailBlock
@@ -886,15 +977,17 @@ function ReportDetailPage() {
 
 function MobileHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-start gap-2">
       <button
         onClick={onBack}
-        className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-sm font-semibold"
+        className="mt-0.5 flex shrink-0 items-center gap-1 rounded-lg border border-border px-3 py-2 text-sm font-semibold"
       >
         <ChevronLeft className="size-4" />
         Назад
       </button>
-      <h1 className="min-w-0 flex-1 truncate text-lg font-bold">{title}</h1>
+      <h1 className="min-w-0 flex-1 text-lg leading-snug font-bold break-words whitespace-normal">
+        {title}
+      </h1>
     </div>
   );
 }
@@ -903,10 +996,14 @@ function RecordSummary({
   record,
   isAdmin,
   employeeFilter,
+  onItemClick,
+  expandedItems,
 }: {
   record: WorkRecord;
   isAdmin: boolean;
   employeeFilter?: string;
+  onItemClick?: (name: string) => void;
+  expandedItems?: string[];
 }) {
   const crew = crewOf(record);
   const rows = employeeFilter
@@ -916,32 +1013,89 @@ function RecordSummary({
     : record.items.map((item) => ({ item, qty: itemQty(item) }));
   return (
     <div className="space-y-1.5">
-      {rows.map(({ item, qty }, i) => (
-        <div key={i} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <span className="flex min-w-0 flex-1 items-start gap-1.5 font-semibold break-words whitespace-normal">
+      {rows.map(({ item, qty }, i) => {
+        const isOpen = expandedItems?.includes(item.name) ?? false;
+        const nameContent = (
+          <>
             {item.name}
             {record.photos.length > 0 && (
               <ImageIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
             )}
-          </span>
-          <span className="flex shrink-0 items-baseline gap-3">
-            <span className="font-mono text-sm font-bold tabular-nums">
-              {qty} {item.unit}
-            </span>
-            {isAdmin && (
-              <span className="font-mono text-sm font-bold tabular-nums text-primary">
-                {money(qty * item.price)}
+          </>
+        );
+        const itemBreakdown = isOpen
+          ? breakdownOf(record).filter(
+              (row) =>
+                row.item === item.name && (!employeeFilter || row.employee === employeeFilter),
+            )
+          : [];
+        return (
+          <div key={i}>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              {onItemClick ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onItemClick(item.name);
+                  }}
+                  title="Показать, кто и сколько сделал по этому виду работ"
+                  className={cn(
+                    "-mx-1 flex min-w-0 flex-1 items-start gap-1.5 rounded px-1 text-left font-semibold break-words whitespace-normal transition-colors hover:bg-primary/10 hover:text-primary",
+                    isOpen && "bg-primary/10 text-primary",
+                  )}
+                >
+                  {nameContent}
+                </button>
+              ) : (
+                <span className="flex min-w-0 flex-1 items-start gap-1.5 font-semibold break-words whitespace-normal">
+                  {nameContent}
+                </span>
+              )}
+              <span className="flex shrink-0 items-baseline gap-3">
+                <span className="font-mono text-sm font-bold tabular-nums">
+                  {qty} {item.unit}
+                </span>
+                {isAdmin && (
+                  <span className="font-mono text-sm font-bold tabular-nums text-primary">
+                    {money(qty * item.price)}
+                  </span>
+                )}
               </span>
+            </div>
+            {isOpen && (
+              <div className="mt-1.5 mb-1 rounded-lg bg-surface/60 px-3 py-2">
+                <p className="label-caps text-[11px] text-muted-foreground">
+                  Кто и сколько сделал
+                </p>
+                <div className="mt-1">
+                  {itemBreakdown.map((row, j) => (
+                    <div
+                      key={j}
+                      className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/60 py-1.5 last:border-0"
+                    >
+                      <span className="text-sm font-semibold">{row.employee}</span>
+                      <span className="font-mono text-sm font-bold">
+                        {row.qty} {row.unit}
+                      </span>
+                    </div>
+                  ))}
+                  {itemBreakdown.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Нет разбивки</p>
+                  )}
+                </div>
+              </div>
             )}
-          </span>
-        </div>
-      ))}
+          </div>
+        );
+      })}
       <p className="text-sm break-words text-muted-foreground">
         {employeeFilter ? "Сотрудник" : "Сотрудники"}:{" "}
         <span className="text-foreground">
           {employeeFilter ? employeeFilter : crew.join(", ") || "—"}
         </span>
       </p>
+
       <p className="text-sm text-muted-foreground">
         Кто подал: <span className="text-foreground">{record.created_by}</span>
       </p>
@@ -954,24 +1108,32 @@ function RecordDetailBlock({
   isAdmin,
   nested,
   employeeFilter,
+  onItemClick,
 }: {
   record: WorkRecord;
   isAdmin: boolean;
   nested?: boolean;
   employeeFilter?: string;
+  onItemClick?: (name: string) => void;
 }) {
-  const [photosOpen, setPhotosOpen] = useState(false);
+  const [photosOpen, setPhotosOpen] = useState(true);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const crew = crewOf(record);
-  const rows = breakdownOf(record).filter(
-    (row) => !employeeFilter || row.employee === employeeFilter,
-  );
   const recordTotalValue = employeeFilter
     ? record.items.reduce(
         (s, item) => s + employeeItemQty(item, employeeFilter, crew) * item.price,
         0,
       )
     : recordTotal(record.items);
+
+  // Один вид работ в записи — разбивку показываем сразу, отдельный экран не нужен.
+  const singleItem = record.items.length === 1 ? record.items[0] : null;
+  const singleItemRows = singleItem
+    ? breakdownOf(record).filter(
+        (row) =>
+          row.item === singleItem.name && (!employeeFilter || row.employee === employeeFilter),
+      )
+    : [];
 
   return (
     <div className={cn(!nested && "mt-4 rounded-2xl border border-border bg-card p-4")}>
@@ -980,29 +1142,31 @@ function RecordDetailBlock({
           record={record}
           isAdmin={isAdmin}
           {...(employeeFilter ? { employeeFilter } : {})}
+          {...(onItemClick && record.items.length > 1 ? { onItemClick } : {})}
         />
       )}
 
-      <h3 className="label-caps mt-4">Кто и сколько сделал</h3>
-      <div className="mt-2">
-        {rows.map((row, i) => (
-          <div
-            key={i}
-            className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border py-2.5 last:border-0"
-          >
-            <div className="min-w-0">
-              <button className="text-sm font-semibold text-primary underline-offset-2 hover:underline">
-                {row.employee}
-              </button>
-              <p className="text-xs break-words text-muted-foreground">{row.item}</p>
-            </div>
-            <span className="font-mono text-sm font-bold">
-              {row.qty} {row.unit}
-            </span>
+      {!nested && singleItem && (
+        <>
+          <h3 className="label-caps mt-4">Кто и сколько сделал</h3>
+          <div className="mt-2">
+            {singleItemRows.map((row, i) => (
+              <div
+                key={i}
+                className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border py-2.5 last:border-0"
+              >
+                <span className="text-sm font-semibold">{row.employee}</span>
+                <span className="font-mono text-sm font-bold">
+                  {row.qty} {row.unit}
+                </span>
+              </div>
+            ))}
+            {singleItemRows.length === 0 && (
+              <p className="text-sm text-muted-foreground">Нет разбивки</p>
+            )}
           </div>
-        ))}
-        {rows.length === 0 && <p className="text-sm text-muted-foreground">Нет разбивки</p>}
-      </div>
+        </>
+      )}
 
       {isAdmin && (
         <div className="mt-3 flex items-center justify-between rounded-xl bg-surface px-4 py-3">
