@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArchiveRestore, Search } from "lucide-react";
+import { ArchiveRestore, MapPin, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -80,7 +80,12 @@ function ObjectsArchivePage() {
               )}
             >
               <p className="text-base leading-snug font-bold">{o.name}</p>
-              {o.address && <p className="mt-1 text-sm text-muted-foreground">{o.address}</p>}
+              {o.address && (
+                <p className="mt-1 flex items-start gap-1 text-sm text-muted-foreground">
+                  <MapPin className="mt-0.5 size-3.5 shrink-0" />
+                  <span>{o.address}</span>
+                </p>
+              )}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
                   В архиве
