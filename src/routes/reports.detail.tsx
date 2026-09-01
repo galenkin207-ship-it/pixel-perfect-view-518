@@ -555,7 +555,9 @@ function ReportDetailPage() {
     set(arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id]);
 
   const activeDay = days.find((d) => d.date === mobileDay);
-  const activeRecord = activeDay?.records.find((r) => r.id === mobileRecord);
+  const activeRecord = mobileRecord
+    ? days.flatMap((d) => d.records).find((r) => r.id === mobileRecord)
+    : undefined;
 
   // ---------- мобильные экраны ----------
   if (isMobile && applied && activeRecord && mobileItem) {
@@ -817,9 +819,14 @@ function ReportDetailPage() {
                   <button
                     onClick={() => {
                       if (isMobile) {
-                        setMobileRecord(null);
                         setMobileItem(null);
-                        setMobileDay(day.date);
+                        if (day.records.length === 1) {
+                          setMobileDay(null);
+                          setMobileRecord(day.records[0].id);
+                        } else {
+                          setMobileRecord(null);
+                          setMobileDay(day.date);
+                        }
                       } else {
                         toggle(openDays, setOpenDays, day.date);
                       }
