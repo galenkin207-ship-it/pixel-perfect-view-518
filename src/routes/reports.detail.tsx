@@ -1027,40 +1027,65 @@ function RecordSummary({
           : [];
         return (
           <div key={i}>
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              {onItemClick ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onItemClick(item.name);
-                  }}
-                  title="Показать, кто и сколько сделал по этому виду работ"
-                  className={cn(
-                    "-mx-1 flex min-w-0 flex-1 items-start gap-1.5 rounded px-1 text-left font-semibold break-words whitespace-normal transition-colors",
-                    isNavigate ? "text-primary" : "hover:bg-primary/10 hover:text-primary",
-                    isOpen && "bg-primary/10 text-primary",
+            {isNavigate ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onItemClick?.(item.name);
+                }}
+                title="Показать, кто и сколько сделал по этому виду работ"
+                className="-mx-1 flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded px-1 py-0.5 text-left transition-colors active:bg-primary/10"
+              >
+                <span className="flex min-w-0 flex-1 items-start gap-1.5 font-semibold text-primary break-words whitespace-normal">
+                  {nameContent}
+                </span>
+                <span className="flex shrink-0 items-baseline gap-3">
+                  <span className="font-mono text-sm font-bold tabular-nums">
+                    {qty} {item.unit}
+                  </span>
+                  {isAdmin && (
+                    <span className="font-mono text-sm font-bold tabular-nums text-primary">
+                      {money(qty * item.price)}
+                    </span>
                   )}
-                >
-                  {nameContent}
-                </button>
-              ) : (
-                <span className="flex min-w-0 flex-1 items-start gap-1.5 font-semibold break-words whitespace-normal">
-                  {nameContent}
+                  <ChevronRight className="size-4 shrink-0 text-primary" />
                 </span>
-              )}
-              <span className="flex shrink-0 items-baseline gap-3">
-                <span className="font-mono text-sm font-bold tabular-nums">
-                  {qty} {item.unit}
-                </span>
-                {isAdmin && (
-                  <span className="font-mono text-sm font-bold tabular-nums text-primary">
-                    {money(qty * item.price)}
+              </button>
+            ) : (
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                {onItemClick ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onItemClick(item.name);
+                    }}
+                    title="Показать, кто и сколько сделал по этому виду работ"
+                    className={cn(
+                      "-mx-1 flex min-w-0 flex-1 items-start gap-1.5 rounded px-1 text-left font-semibold break-words whitespace-normal transition-colors hover:bg-primary/10 hover:text-primary",
+                      isOpen && "bg-primary/10 text-primary",
+                    )}
+                  >
+                    {nameContent}
+                  </button>
+                ) : (
+                  <span className="flex min-w-0 flex-1 items-start gap-1.5 font-semibold break-words whitespace-normal">
+                    {nameContent}
                   </span>
                 )}
-                {isNavigate && <ChevronRight className="size-4 shrink-0 text-primary" />}
-              </span>
-            </div>
+                <span className="flex shrink-0 items-baseline gap-3">
+                  <span className="font-mono text-sm font-bold tabular-nums">
+                    {qty} {item.unit}
+                  </span>
+                  {isAdmin && (
+                    <span className="font-mono text-sm font-bold tabular-nums text-primary">
+                      {money(qty * item.price)}
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
             {isOpen && (
               <div className="mt-1.5 mb-1 rounded-lg bg-surface/60 px-3 py-2">
                 <p className="label-caps text-[11px] text-muted-foreground">Кто и сколько сделал</p>
