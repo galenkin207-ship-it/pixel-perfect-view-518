@@ -209,7 +209,7 @@ function ObjectsPage() {
                   >
                     {recordsToday > 0
                       ? `${recordsToday} ${pluralizeRecords(recordsToday)} сегодня`
-                      : "Нет записей"}
+                      : "Сегодня записей нет"}
                   </span>
                 </div>
               </Link>
