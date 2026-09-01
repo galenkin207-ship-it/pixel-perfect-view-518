@@ -147,6 +147,7 @@ function ReportDetailPage() {
   const [mobileDay, setMobileDay] = useState<string | null>(null);
   const [mobileRecord, setMobileRecord] = useState<string | null>(null);
   const [mobileItem, setMobileItem] = useState<string | null>(null);
+  const [dayPhotoRecord, setDayPhotoRecord] = useState<WorkRecord | null>(null);
   const [expandedItemsByRecord, setExpandedItemsByRecord] = useState<Record<string, string[]>>({});
   const [photosOpenByRecord, setPhotosOpenByRecord] = useState<Record<string, boolean>>({});
   const [filtersOpen, setFiltersOpen] = useState(true);
@@ -570,6 +571,7 @@ function ReportDetailPage() {
     setMobileDay(null);
     setMobileRecord(null);
     setMobileItem(null);
+    setDayPhotoRecord(null);
     setExpandedItemsByRecord({});
     setPhotosOpenByRecord({});
     setFiltersOpen(true);
@@ -624,54 +626,92 @@ function ReportDetailPage() {
     );
   }
 
-  if (isMobile && applied && activeRecord) {
-    return (
-      <AppShell>
-        <MobileHeader
-          title={`Запись ${activeRecord.date}`}
-          onBack={() => {
-            setMobileItem(null);
-            setMobileRecord(null);
-          }}
-        />
-        <RecordDetailBlock
-          record={activeRecord}
-          isAdmin={isAdmin}
-          {...(applied?.employee ? { employeeFilter: applied.employee } : {})}
-          onItemClick={(name) => setMobileItem(name)}
-        />
-      </AppShell>
-    );
-  }
-
   if (isMobile && applied && activeDay) {
     return (
       <AppShell>
         <MobileHeader
           title={`${weekday(activeDay.date)}, ${activeDay.date}`}
-          onBack={() => setMobileDay(null)}
+          onBack={() => {
+            setMobileRecord(null);
+            setMobileItem(null);
+            setDayPhotoRecord(null);
+            setMobileDay(null);
+          }}
         />
-        <div className="mt-3 space-y-2">
-          {activeDay.records.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => {
-                setMobileItem(null);
-                setMobileRecord(r.id);
-              }}
-              className="flex w-full items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left"
-            >
-              <div className="min-w-0 flex-1">
+        <div className="mt-3 space-y-3">
+          {activeDay.records.map((r) => {
+            const crew = crewOf(r);
+            const singleItem = r.items.length === 1 ? r.items[0] : null;
+            const singleItemRows = singleItem
+              ? breakdownOf(r).filter(
+                  (row) =>
+                    row.item === singleItem.name &&
+                    (!applied?.employee || row.employee === applied.employee),
+                )
+              : [];
+            const recordTotalValue = applied?.employee
+              ? r.items.reduce(
+                  (s, item) => s + employeeItemQty(item, applied.employee, crew) * item.price,
+                  0,
+                )
+              : recordTotal(r.items);
+            return (
+              <div key={r.id} className="rounded-2xl border border-border bg-card p-4">
                 <RecordSummary
                   record={r}
                   isAdmin={isAdmin}
                   {...(applied?.employee ? { employeeFilter: applied.employee } : {})}
+                  {...(singleItem
+                    ? {}
+                    : {
+                        onItemClick: (name: string) => {
+                          setDayPhotoRecord(null);
+                          setMobileRecord(r.id);
+                          setMobileItem(name);
+                        },
+                      })}
+                  onPhotoIconClick={() => setDayPhotoRecord(r)}
                 />
+                {singleItem && (
+                  <>
+                    <h3 className="label-caps mt-4">Кто и сколько сделал</h3>
+                    <div className="mt-2">
+                      {singleItemRows.map((row, i) => (
+                        <div
+                          key={i}
+                          className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border py-2.5 last:border-0"
+                        >
+                          <span className="text-sm font-semibold">{row.employee}</span>
+                          <span className="font-mono text-sm font-bold">
+                            {row.qty} {row.unit}
+                          </span>
+                        </div>
+                      ))}
+                      {singleItemRows.length === 0 && (
+                        <p className="text-sm text-muted-foreground">Нет разбивки</p>
+                      )}
+                    </div>
+                  </>
+                )}
+                {isAdmin && (
+                  <div className="mt-3 flex items-center justify-between rounded-xl bg-surface px-4 py-3">
+                    <span className="text-sm font-semibold">Итого по записи</span>
+                    <span className="font-mono font-bold text-primary">
+                      {money(recordTotalValue)}
+                    </span>
+                  </div>
+                )}
               </div>
-              <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground" />
-            </button>
-          ))}
+            );
+          })}
         </div>
+        {dayPhotoRecord && (
+          <PhotoViewer
+            photos={dayPhotoRecord.photos}
+            initialIndex={0}
+            onClose={() => setDayPhotoRecord(null)}
+          />
+        )}
       </AppShell>
     );
   }
@@ -844,15 +884,9 @@ function ReportDetailPage() {
                   <button
                     onClick={() => {
                       if (isMobile) {
+                        setMobileRecord(null);
                         setMobileItem(null);
-                        const onlyRecord = day.records.length === 1 ? day.records[0] : undefined;
-                        if (onlyRecord) {
-                          setMobileDay(null);
-                          setMobileRecord(onlyRecord.id);
-                        } else {
-                          setMobileRecord(null);
-                          setMobileDay(day.date);
-                        }
+                        setMobileDay(day.date);
                       } else {
                         toggle(openDays, setOpenDays, day.date);
                       }
