@@ -982,9 +982,7 @@ function EmployeesList({
               <span className="w-8 shrink-0 text-xs text-muted-foreground">
                 {current * perPage + i + 1}
               </span>
-              <span className="min-w-0 flex-1 text-sm break-words whitespace-normal">
-                {e.name}
-              </span>
+              <span className="min-w-0 flex-1 text-sm break-words whitespace-normal">{e.name}</span>
             </button>
 
             {openId === e.id && (
@@ -1106,42 +1104,173 @@ function EmployeesList({
 /* 3. Объекты */
 function ObjectsSection() {
   const { objects, addObject, updateObject, deleteObject } = useApp();
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [editId, setEditId] = useState("");
+  const [draft, setDraft] = useState({ name: "", address: "" });
+  const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const edited = objects.find((o) => o.id === editId);
+
+  const select = (id: string) => {
+    const o = objects.find((x) => x.id === id);
+    if (!o) return;
+    setEditId(id);
+    setDraft({ name: o.name, address: o.address ?? "" });
+  };
+
   return (
     <>
-      <StringSection
-        addTitle="Добавить объект"
-        fieldLabel="Название объекта"
-        addButton="Добавить объект"
-        bulkButton="Загрузить объекты"
-        bulkPlaceholder={
-          "По одному названию объекта на строку\n\nПример:\nОбъект №42\nСклад на Заречной"
+      <TwoCol
+        left={
+          <>
+            <Card title="Добавить объект">
+              <label className="block">
+                <span className="label-caps">Название объекта</span>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className={cn(input, "mt-1")}
+                />
+              </label>
+              <label className="block">
+                <span className="label-caps">Адрес (необязательно)</span>
+                <input
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className={cn(input, "mt-1")}
+                />
+              </label>
+              <button
+                type="button"
+                disabled={adding}
+                className={cn(primaryBtn, "disabled:opacity-60")}
+                onClick={async () => {
+                  if (!name.trim()) {
+                    toast.error("Заполните название");
+                    return;
+                  }
+                  setAdding(true);
+                  try {
+                    await addObject({
+                      name: name.trim(),
+                      address: address.trim(),
+                      progress_percent: 0,
+                    });
+                    setName("");
+                    setAddress("");
+                    toast.success("Добавлено");
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Не удалось добавить");
+                  } finally {
+                    setAdding(false);
+                  }
+                }}
+              >
+                {adding ? "Сохранение..." : "Добавить объект"}
+              </button>
+            </Card>
+
+            <Card title="Изменить или удалить">
+              <Autocomplete
+                items={objects.map((o) => ({ id: o.id, label: o.name }))}
+                value={editId}
+                onChange={select}
+                placeholder="Начните вводить название объекта..."
+              />
+              {edited && (
+                <div className="space-y-3 rounded-xl bg-surface p-3">
+                  <label className="block">
+                    <span className="label-caps">Название</span>
+                    <input
+                      value={draft.name}
+                      onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+                      className={cn(input, "mt-1 bg-card")}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="label-caps">Адрес (необязательно)</span>
+                    <input
+                      value={draft.address}
+                      onChange={(e) => setDraft((d) => ({ ...d, address: e.target.value }))}
+                      className={cn(input, "mt-1 bg-card")}
+                    />
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={saving}
+                      className={cn(primaryBtn, "disabled:opacity-60")}
+                      onClick={async () => {
+                        if (!draft.name.trim()) {
+                          toast.error("Заполните название");
+                          return;
+                        }
+                        setSaving(true);
+                        try {
+                          await updateObject(editId, {
+                            name: draft.name.trim(),
+                            address: draft.address.trim(),
+                            progress_percent: edited?.progress_percent ?? 0,
+                          });
+                          toast.success("Сохранено");
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Не удалось сохранить");
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                    >
+                      {saving ? "Сохранение..." : "Сохранить"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={removing}
+                      className={cn(ghostBtn, "text-status-rejected disabled:opacity-60")}
+                      onClick={async () => {
+                        setRemoving(true);
+                        try {
+                          await deleteObject(editId);
+                          setEditId("");
+                          toast.success("Удалено");
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Не удалось удалить");
+                        } finally {
+                          setRemoving(false);
+                        }
+                      }}
+                    >
+                      <Trash2 className="mr-1 inline size-3.5" />
+                      {removing ? "Удаление..." : "Удалить"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </>
         }
-        searchPlaceholder="Начните вводить название объекта..."
-        items={objects.map((o) => ({ id: o.id, label: o.name }))}
-        onAdd={async (v) => {
-          await addObject({ name: v, address: "", progress_percent: 0 });
-        }}
-        onBulk={async (lines) => {
-          let ok = 0;
-          for (const name of lines) {
-            try {
-              await addObject({ name, address: "", progress_percent: 0 });
-              ok++;
-            } catch {
-              /* пропускаем строку, которая не загрузилась, и продолжаем остальные */
+        right={
+          <Bulk
+            title="Пакетная загрузка"
+            button="Загрузить объекты"
+            placeholder={
+              "По одному названию объекта на строку\n\nПример:\nОбъект №42\nСклад на Заречной"
             }
-          }
-          return ok;
-        }}
-        onRename={async (id, v) => {
-          const obj = objects.find((o) => o.id === id);
-          await updateObject(id, {
-            name: v,
-            address: obj?.address ?? "",
-            progress_percent: obj?.progress_percent ?? 0,
-          });
-        }}
-        onRemove={(id) => deleteObject(id)}
+            onSubmit={async (lines) => {
+              let ok = 0;
+              for (const objName of lines) {
+                try {
+                  await addObject({ name: objName, address: "", progress_percent: 0 });
+                  ok++;
+                } catch {
+                  /* пропускаем строку, которая не загрузилась, и продолжаем остальные */
+                }
+              }
+              return ok;
+            }}
+          />
+        }
       />
       <ObjectsStatusList />
     </>
@@ -1192,9 +1321,7 @@ function ObjectsStatusList() {
                     </span>
                   )}
                 </p>
-                {o.address && (
-                  <p className="truncate text-xs text-muted-foreground">{o.address}</p>
-                )}
+                {o.address && <p className="truncate text-xs text-muted-foreground">{o.address}</p>}
               </div>
               <button
                 type="button"
