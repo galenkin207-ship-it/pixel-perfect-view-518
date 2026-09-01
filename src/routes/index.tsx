@@ -12,6 +12,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/")({
@@ -185,39 +186,36 @@ function ObjectsPage() {
               <Link
                 to="/objects/$id"
                 params={{ id: o.id }}
-                className="block rounded-2xl border border-border bg-card p-4 transition-shadow hover:shadow-md"
+                className="block rounded-2xl border border-border bg-card p-4 pr-10 transition-shadow hover:shadow-md"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 truncate text-base font-bold">
-                      <span className="truncate">{o.name}</span>
-                      {isActive && (
-                        <span
-                          title={`Есть записи за последние ${ACTIVE_WINDOW_DAYS} дней`}
-                          className="inline-block size-2 shrink-0 rounded-full bg-emerald-500"
-                        />
-                      )}
-                    </p>
-                    {o.address && (
-                      <p className="mt-0.5 text-sm text-muted-foreground">{o.address}</p>
-                    )}
-                  </div>
-                  <span
-                    className={
-                      recordsToday > 0
-                        ? "shrink-0 rounded-full bg-accent px-2.5 py-1 text-[10px] font-semibold tracking-[0.06em] text-accent-foreground uppercase"
-                        : "shrink-0 rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase"
-                    }
-                  >
-                    {recordsToday > 0
-                      ? `${recordsToday} ${pluralizeRecords(recordsToday)} сегодня`
-                      : "Сегодня записей нет"}
-                  </span>
-                </div>
+                <p className="flex flex-wrap items-center gap-1.5 text-base leading-snug font-bold">
+                  <span>{o.name}</span>
+                  {isActive && (
+                    <span
+                      title={`Есть записи за последние ${ACTIVE_WINDOW_DAYS} дней`}
+                      className="inline-block size-2 shrink-0 rounded-full bg-emerald-500"
+                    />
+                  )}
+                </p>
+                {o.address && (
+                  <p className="mt-1 text-sm text-muted-foreground">{o.address}</p>
+                )}
+                <span
+                  className={cn(
+                    "mt-3 inline-block rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-[0.06em] uppercase",
+                    recordsToday > 0
+                      ? "bg-accent text-accent-foreground"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {recordsToday > 0
+                    ? `${recordsToday} ${pluralizeRecords(recordsToday)} сегодня`
+                    : "Сегодня записей нет"}
+                </span>
               </Link>
-              {/* Кнопка стоит строго под бейджем, в его же правой колонке —
-                  слева там текст названия/адреса, поэтому пересечься с ними
-                  она не может независимо от длины адреса или высоты карточки. */}
+              {/* Кнопка стоит в верхнем правом углу карточки — под неё зарезервировано
+                  место через pr-10 у Link, поэтому она не наезжает на название или бейдж
+                  независимо от длины названия и количества строк, которые оно занимает. */}
               <button
                 type="button"
                 aria-label="Открепить объект с главного экрана"
@@ -230,7 +228,7 @@ function ObjectsPage() {
                     toast.error(err instanceof Error ? err.message : "Не удалось открепить объект");
                   }
                 }}
-                className="absolute top-11 right-3 flex size-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-status-rejected"
+                className="absolute top-3 right-3 flex size-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-status-rejected"
               >
                 <PinOff className="size-3.5" />
               </button>

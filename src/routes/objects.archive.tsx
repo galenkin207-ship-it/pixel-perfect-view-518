@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
+import { cn } from "@/lib/utils";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/objects/archive")({
@@ -73,24 +74,23 @@ function ObjectsArchivePage() {
             <Link
               to="/objects/$id"
               params={{ id: o.id }}
-              className="block rounded-2xl border border-border bg-card p-4 opacity-90 transition-shadow hover:shadow-md hover:opacity-100"
+              className={cn(
+                "block rounded-2xl border border-border bg-card p-4 opacity-90 transition-shadow hover:shadow-md hover:opacity-100",
+                canManage && "pr-24",
+              )}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-base font-bold">{o.name}</p>
-                  {o.address && (
-                    <p className="mt-0.5 text-sm text-muted-foreground">{o.address}</p>
-                  )}
-                </div>
-                <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+              <p className="text-base leading-snug font-bold">{o.name}</p>
+              {o.address && <p className="mt-1 text-sm text-muted-foreground">{o.address}</p>}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
                   В архиве
                 </span>
+                {o.archived_at && (
+                  <span className="text-xs text-muted-foreground">
+                    Завершён {formatDate(o.archived_at)}
+                  </span>
+                )}
               </div>
-              {o.archived_at && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Завершён {formatDate(o.archived_at)}
-                </p>
-              )}
             </Link>
             {canManage && (
               <button
