@@ -149,12 +149,18 @@ function AllRecordsPage() {
       to: "/reports/all",
       search: { ...search, page: clamped },
       replace: true,
+    }).then(() => {
+      // Роутер восстанавливает прежнюю позицию скролла (scrollRestoration) уже
+      // после навигации, поэтому наш сброс наверх должен сработать позже —
+      // иначе он "выигрывает" по времени, но тут же перезатирается роутером.
+      requestAnimationFrame(() => {
+        const scrollContainer = document.getElementById("app-scroll-container");
+        if (scrollContainer) {
+          scrollContainer.scrollTo({ top: 0, behavior: "smooth" });
+        }
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
     });
-    const scrollContainer = document.getElementById("app-scroll-container");
-    if (scrollContainer) {
-      scrollContainer.scrollTo({ top: 0, behavior: "smooth" });
-    }
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const Pagination = ({ withClear = false }: { withClear?: boolean } = {}) => (
