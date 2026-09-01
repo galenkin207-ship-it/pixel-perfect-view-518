@@ -1023,9 +1023,7 @@ function ReportsPage() {
                   style={{ width: `${(o.count / maxCount) * 100}%` }}
                 />
               </span>
-              <span className="w-8 shrink-0 text-right font-mono text-sm font-bold">
-                {o.count}
-              </span>
+              <span className="w-8 shrink-0 text-right font-mono text-sm font-bold">{o.count}</span>
             </div>
           ))}
           {perObject.length === 0 && (
@@ -1334,7 +1332,15 @@ function ReportsPage() {
 
         <Link
           to="/reports/all"
-          search={{ object: "all", status: "all", query: "", submitter: "all", performer: "all", page: 1 }}
+          search={{
+            object: "all",
+            status: "all",
+            query: "",
+            submitter: "all",
+            performer: "all",
+            date: "",
+            page: 1,
+          }}
           className="mt-4 inline-block text-sm font-semibold text-primary"
         >
           Все записи — таблица с фильтрами →

@@ -7,6 +7,7 @@ import { InitialsAvatar } from "@/components/app/bits";
 import { RecordDetail } from "@/components/app/record-detail";
 import { SearchableSelect } from "@/components/app/searchable-select";
 import { StatusBadge } from "@/components/app/status-badge";
+import { ruToIso } from "@/lib/api-client";
 import { itemQty } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
 import { statusLabels, type RecordStatus, type WorkRecord } from "@/data/mock";
@@ -22,6 +23,7 @@ export type ReportsAllSearch = {
   query: string;
   submitter: string;
   performer: string;
+  date: string;
   page: number;
 };
 
@@ -32,6 +34,7 @@ export const Route = createFileRoute("/reports/all")({
     query: typeof search["query"] === "string" ? search["query"] : "",
     submitter: typeof search["submitter"] === "string" ? search["submitter"] : "all",
     performer: typeof search["performer"] === "string" ? search["performer"] : "all",
+    date: typeof search["date"] === "string" ? search["date"] : "",
     page: Number(search["page"]) > 0 ? Number(search["page"]) : 1,
   }),
   head: () => ({
@@ -53,7 +56,7 @@ function AllRecordsPage() {
   const { records, objects, employees, submitterNames } = useApp();
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { object: objectId, status, query, submitter, performer, page } = search;
+  const { object: objectId, status, query, submitter, performer, date, page } = search;
   const [openId, setOpenId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const openRecord = records.find((r) => r.id === openId) ?? null;
@@ -94,6 +97,7 @@ function AllRecordsPage() {
       (status === "all" || r.status === status) &&
       (submitter === "all" || r.created_by === submitter) &&
       (performer === "all" || matchesPerformer(r, performer)) &&
+      (date === "" || ruToIso(r.date) === date) &&
       r.items.some((i) => i.name.toLowerCase().includes(query.toLowerCase())),
   );
 
@@ -120,7 +124,8 @@ function AllRecordsPage() {
     status !== "all" ||
     query !== "" ||
     submitter !== "all" ||
-    performer !== "all";
+    performer !== "all" ||
+    date !== "";
 
   const clearFilters = () => {
     void navigate({
@@ -131,6 +136,7 @@ function AllRecordsPage() {
         query: "",
         submitter: "all",
         performer: "all",
+        date: "",
         page: 1,
       },
       replace: true,
@@ -268,6 +274,8 @@ function AllRecordsPage() {
             <span className="label-caps">Дата</span>
             <input
               type="date"
+              value={date}
+              onChange={(e) => updateFilter({ date: e.target.value })}
               className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
             />
           </label>
