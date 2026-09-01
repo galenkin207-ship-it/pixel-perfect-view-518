@@ -149,27 +149,6 @@ function AllRecordsPage() {
       to: "/reports/all",
       search: { ...search, page: clamped },
       replace: true,
-    }).then(() => {
-      requestAnimationFrame(() => {
-        const scrollContainer = document.getElementById("app-scroll-container");
-        console.log("[goToPage debug]", {
-          found: !!scrollContainer,
-          scrollTop: scrollContainer?.scrollTop,
-          scrollHeight: scrollContainer?.scrollHeight,
-          clientHeight: scrollContainer?.clientHeight,
-          windowScrollY: window.scrollY,
-        });
-        if (scrollContainer) {
-          scrollContainer.scrollTo({ top: 0, behavior: "smooth" });
-        }
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        setTimeout(() => {
-          console.log("[goToPage debug +300ms]", {
-            scrollTop: document.getElementById("app-scroll-container")?.scrollTop,
-            windowScrollY: window.scrollY,
-          });
-        }, 300);
-      });
     });
   };
 
