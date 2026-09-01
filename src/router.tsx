@@ -9,6 +9,13 @@ export const getRouter = () => {
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
+    // #app-scroll-container — единственный скроллящийся элемент на странице
+    // (см. AppShell). Без этой опции роутер при каждой навигации переносит
+    // его старую позицию скролла в кэш новой страницы и сам её туда
+    // проставляет — из-за этого не срабатывал сброс наверх при переключении
+    // страниц в "Все записи" (и потенциально при любой другой навигации).
+    scrollToTopSelectors: ["#app-scroll-container"],
+    scrollRestorationBehavior: "smooth",
     defaultPreloadStaleTime: 0,
   });
 

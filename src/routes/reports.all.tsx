@@ -150,11 +150,6 @@ function AllRecordsPage() {
       search: { ...search, page: clamped },
       replace: true,
     });
-    const scrollContainer = document.getElementById("app-scroll-container");
-    if (scrollContainer) {
-      scrollContainer.scrollTo({ top: 0, behavior: "smooth" });
-    }
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const Pagination = ({ withClear = false }: { withClear?: boolean } = {}) => (
