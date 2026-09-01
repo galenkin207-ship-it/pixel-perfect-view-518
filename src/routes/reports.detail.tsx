@@ -677,20 +677,18 @@ function ReportDetailPage() {
           </div>
           <div>
             <FieldLabel>Объект</FieldLabel>
-            <input
-              list="report-objects"
-              value={objects.find((o) => o.id === objectId)?.name ?? ""}
-              onChange={(e) =>
-                setObjectId(objects.find((o) => o.name === e.target.value)?.id ?? "")
-              }
-              placeholder="— все объекты —"
+            <select
+              value={objectId}
+              onChange={(e) => setObjectId(e.target.value)}
               className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-            />
-            <datalist id="report-objects">
+            >
+              <option value="">— все объекты —</option>
               {objects.map((o) => (
-                <option key={o.id} value={o.name} />
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
               ))}
-            </datalist>
+            </select>
           </div>
           <div>
             <FieldLabel>Подавший</FieldLabel>
