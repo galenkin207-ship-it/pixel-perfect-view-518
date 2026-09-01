@@ -2,7 +2,7 @@ import { Check, ChevronDown, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { smartFilter } from "@/lib/smart-search";
-import { cn } from "@/lib/utils";
+import { cn, objectLabel } from "@/lib/utils";
 import type { WorkObject } from "@/data/mock";
 
 export function ObjectSelect({
@@ -46,7 +46,7 @@ export function ObjectSelect({
         className="flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-left text-sm"
       >
         <span className={cn("truncate", !selected && "text-muted-foreground")}>
-          {selected ? `${selected.name} · ${selected.address}` : placeholder}
+          {selected ? objectLabel(selected.name, selected.address) : placeholder}
         </span>
         <ChevronDown
           className={cn(
@@ -83,7 +83,10 @@ export function ObjectSelect({
                     className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted"
                   >
                     <span className="break-words">
-                      {o.name} <span className="text-muted-foreground">· {o.address}</span>
+                      {o.name}{" "}
+                      {o.address && (
+                        <span className="text-muted-foreground">· {o.address}</span>
+                      )}
                     </span>
                     {active && <Check className="size-4 shrink-0 text-primary" />}
                   </button>

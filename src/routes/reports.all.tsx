@@ -323,9 +323,11 @@ function AllRecordsPage() {
                         <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
                           {object.name}
                         </span>{" "}
-                        <span className="text-sm font-normal text-muted-foreground">
-                          {object.address}
-                        </span>
+                        {object.address && (
+                          <span className="text-sm font-normal text-muted-foreground">
+                            {object.address}
+                          </span>
+                        )}
                       </>
                     ) : (
                       <span className="text-sm font-normal text-muted-foreground">
