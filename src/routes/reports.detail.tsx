@@ -6,6 +6,7 @@ import {
   ChevronsDown,
   Download,
   Image as ImageIcon,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import ExcelJS from "exceljs";
@@ -148,6 +149,7 @@ function ReportDetailPage() {
   const [mobileItem, setMobileItem] = useState<string | null>(null);
   const [expandedItemsByRecord, setExpandedItemsByRecord] = useState<Record<string, string[]>>({});
   const [photosOpenByRecord, setPhotosOpenByRecord] = useState<Record<string, boolean>>({});
+  const [filtersOpen, setFiltersOpen] = useState(true);
 
   const toggleExpandedItem = (recordId: string, item: string) => {
     setExpandedItemsByRecord((prev) => {
@@ -570,6 +572,7 @@ function ReportDetailPage() {
     setMobileItem(null);
     setExpandedItemsByRecord({});
     setPhotosOpenByRecord({});
+    setFiltersOpen(true);
   };
 
   const toggle = (arr: string[], set: (v: string[]) => void, id: string) =>
@@ -678,7 +681,20 @@ function ReportDetailPage() {
       <PageHeading context={roleLabels[role]} title="Отчёт по объекту / сотруднику / подавшему" />
 
       <section className="mt-4 rounded-2xl border border-border bg-card p-4">
-        <div className="grid gap-3 md:grid-cols-3">
+        <button
+          onClick={() => setFiltersOpen((v) => !v)}
+          className="flex w-full items-center gap-2 text-sm font-semibold md:hidden"
+        >
+          <SlidersHorizontal className="size-4" />
+          {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
+        </button>
+
+        <div
+          className={cn(
+            "grid gap-3 md:mt-0 md:grid-cols-3",
+            filtersOpen ? "mt-3" : "hidden md:grid",
+          )}
+        >
           <div>
             <FieldLabel>Сотрудник</FieldLabel>
             <div className="mt-1">
@@ -742,6 +758,7 @@ function ReportDetailPage() {
                 setOpenRecords([]);
                 setMobileDay(null);
                 setMobileRecord(null);
+                if (isMobile) setFiltersOpen(false);
               }}
               className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
             >
@@ -755,7 +772,7 @@ function ReportDetailPage() {
             </button>
           </div>
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">
+        <p className={cn("mt-3 text-xs text-muted-foreground", !filtersOpen && "hidden md:block")}>
           Укажите хотя бы одно поле. Оба сразу — отчёт по конкретному сотруднику именно на этом
           объекте.
         </p>
@@ -1058,9 +1075,6 @@ function RecordSummary({
         const nameContent = (
           <>
             {item.name}
-            {record.photos.length > 0 && !isDesktopToggle && (
-              <ImageIcon className="mt-0.5 size-4 shrink-0 text-primary" />
-            )}
             {isDesktopToggle && (
               <ChevronDown
                 className={cn(
@@ -1173,7 +1187,7 @@ function RecordSummary({
         Кто подал: <span className="text-foreground">{record.created_by}</span>
       </p>
 
-      {isDesktopToggle && record.photos.length > 0 && onPhotoIconClick && (
+      {record.photos.length > 0 && onPhotoIconClick && (
         <button
           type="button"
           onClick={(e) => {
@@ -1236,6 +1250,7 @@ function RecordDetailBlock({
           isAdmin={isAdmin}
           {...(employeeFilter ? { employeeFilter } : {})}
           {...(onItemClick && record.items.length > 1 ? { onItemClick } : {})}
+          onPhotoIconClick={() => setPhotosOpen(true)}
         />
       )}
 
