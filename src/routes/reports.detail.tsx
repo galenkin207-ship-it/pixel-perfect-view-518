@@ -13,6 +13,7 @@ import ExcelJS from "exceljs";
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { PhotoViewer } from "@/components/app/photo-viewer";
+import { SearchableSelect } from "@/components/app/searchable-select";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { allocationsFor, itemQty, recordTotal } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
@@ -680,48 +681,39 @@ function ReportDetailPage() {
         <div className="grid gap-3 md:grid-cols-3">
           <div>
             <FieldLabel>Сотрудник</FieldLabel>
-            <select
-              value={employee}
-              onChange={(e) => setEmployee(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-            >
-              <option value="">— все сотрудники —</option>
-              {employees.map((e) => (
-                <option key={e} value={e}>
-                  {e}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <SearchableSelect
+                items={employees.map((e) => ({ id: e, label: e }))}
+                value={employee}
+                onChange={setEmployee}
+                allLabel="Все сотрудники"
+                searchPlaceholder="Поиск сотрудника..."
+              />
+            </div>
           </div>
           <div>
             <FieldLabel>Объект</FieldLabel>
-            <select
-              value={objectId}
-              onChange={(e) => setObjectId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-            >
-              <option value="">— все объекты —</option>
-              {objects.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <SearchableSelect
+                items={objects.map((o) => ({ id: o.id, label: o.name }))}
+                value={objectId}
+                onChange={setObjectId}
+                allLabel="Все объекты"
+                searchPlaceholder="Поиск объекта..."
+              />
+            </div>
           </div>
           <div>
             <FieldLabel>Подавший</FieldLabel>
-            <select
-              value={submitter}
-              onChange={(e) => setSubmitter(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-            >
-              <option value="">— все подавшие —</option>
-              {submitters.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <SearchableSelect
+                items={submitters.map((s) => ({ id: s, label: s }))}
+                value={submitter}
+                onChange={setSubmitter}
+                allLabel="Все подавшие"
+                searchPlaceholder="Поиск по ФИО..."
+              />
+            </div>
           </div>
           <div>
             <FieldLabel>С даты</FieldLabel>
