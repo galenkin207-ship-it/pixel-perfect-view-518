@@ -8,7 +8,7 @@ import {
   Image as ImageIcon,
   SlidersHorizontal,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ExcelJS from "exceljs";
 
 import { AppShell } from "@/components/app/app-shell";
@@ -155,6 +155,16 @@ function ReportDetailPage() {
   const [expandedItemsByRecord, setExpandedItemsByRecord] = useState<Record<string, string[]>>({});
   const [photosOpenByRecord, setPhotosOpenByRecord] = useState<Record<string, boolean>>({});
   const [filtersOpen, setFiltersOpen] = useState(true);
+
+  // При переходе между мобильными "экранами" (день/запись/вид работ) страница
+  // рендерится в том же контейнере, реальной навигации не происходит — поэтому
+  // скролл нужно сбрасывать руками, иначе новый экран открывается там, где
+  // была прокрутка на предыдущем.
+  useEffect(() => {
+    const el = document.getElementById("app-scroll-container");
+    if (el) el.scrollTop = 0;
+    else window.scrollTo(0, 0);
+  }, [mobileDay, mobileRecord, mobileItem]);
 
   const toggleExpandedItem = (recordId: string, item: string) => {
     setExpandedItemsByRecord((prev) => {
