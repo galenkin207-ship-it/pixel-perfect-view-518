@@ -120,6 +120,7 @@ function ReportDetailPage() {
   const [mobileRecord, setMobileRecord] = useState<string | null>(null);
   const [mobileItem, setMobileItem] = useState<string | null>(null);
   const [expandedItemsByRecord, setExpandedItemsByRecord] = useState<Record<string, string[]>>({});
+  const [photosOpenByRecord, setPhotosOpenByRecord] = useState<Record<string, boolean>>({});
 
   const toggleExpandedItem = (recordId: string, item: string) => {
     setExpandedItemsByRecord((prev) => {
@@ -541,6 +542,7 @@ function ReportDetailPage() {
     setMobileRecord(null);
     setMobileItem(null);
     setExpandedItemsByRecord({});
+    setPhotosOpenByRecord({});
   };
 
   const toggle = (arr: string[], set: (v: string[]) => void, id: string) =>
@@ -808,9 +810,10 @@ function ReportDetailPage() {
                     onClick={() => {
                       if (isMobile) {
                         setMobileItem(null);
-                        if (day.records.length === 1) {
+                        const onlyRecord = day.records.length === 1 ? day.records[0] : undefined;
+                        if (onlyRecord) {
                           setMobileDay(null);
-                          setMobileRecord(day.records[0].id);
+                          setMobileRecord(onlyRecord.id);
                         } else {
                           setMobileRecord(null);
                           setMobileDay(day.date);
@@ -855,6 +858,14 @@ function ReportDetailPage() {
                       {day.records.map((r) => {
                         const rOpen = openRecords.includes(r.id);
                         const openItems = expandedItemsByRecord[r.id] ?? [];
+                        const recordPhotosOpen = photosOpenByRecord[r.id] ?? true;
+                        const handleItemClick = (name: string) => {
+                          if (!openRecords.includes(r.id)) {
+                            setOpenRecords([...openRecords, r.id]);
+                          }
+                          setPhotosOpenByRecord((prev) => ({ ...prev, [r.id]: true }));
+                          toggleExpandedItem(r.id, name);
+                        };
                         return (
                           <div key={r.id} className="rounded-xl border border-border bg-card">
                             <div
@@ -882,7 +893,7 @@ function ReportDetailPage() {
                                   {...(applied?.employee
                                     ? { employeeFilter: applied.employee }
                                     : {})}
-                                  onItemClick={(name) => toggleExpandedItem(r.id, name)}
+                                  onItemClick={handleItemClick}
                                   expandedItems={openItems}
                                 />
                               </div>
@@ -896,6 +907,10 @@ function ReportDetailPage() {
                                   {...(applied?.employee
                                     ? { employeeFilter: applied.employee }
                                     : {})}
+                                  photosOpen={recordPhotosOpen}
+                                  onPhotosOpenChange={(v) =>
+                                    setPhotosOpenByRecord((prev) => ({ ...prev, [r.id]: v }))
+                                  }
                                 />
                               </div>
                             )}
@@ -1015,7 +1030,7 @@ function RecordSummary({
           <>
             {item.name}
             {record.photos.length > 0 && (
-              <ImageIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+              <ImageIcon className="mt-0.5 size-4 shrink-0 text-primary" />
             )}
           </>
         );
@@ -1130,14 +1145,20 @@ function RecordDetailBlock({
   nested,
   employeeFilter,
   onItemClick,
+  photosOpen: photosOpenProp,
+  onPhotosOpenChange,
 }: {
   record: WorkRecord;
   isAdmin: boolean;
   nested?: boolean;
   employeeFilter?: string;
   onItemClick?: (name: string) => void;
+  photosOpen?: boolean;
+  onPhotosOpenChange?: (open: boolean) => void;
 }) {
-  const [photosOpen, setPhotosOpen] = useState(true);
+  const [internalPhotosOpen, setInternalPhotosOpen] = useState(true);
+  const photosOpen = photosOpenProp ?? internalPhotosOpen;
+  const setPhotosOpen = onPhotosOpenChange ?? setInternalPhotosOpen;
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const crew = crewOf(record);
   const recordTotalValue = employeeFilter
@@ -1197,7 +1218,7 @@ function RecordDetailBlock({
       )}
 
       <button
-        onClick={() => setPhotosOpen((v) => !v)}
+        onClick={() => setPhotosOpen(!photosOpen)}
         className="mt-3 flex w-full items-center gap-2 rounded-xl bg-surface px-4 py-3 text-sm font-semibold"
       >
         <ChevronDown className={cn("size-4 transition-transform", photosOpen && "rotate-180")} />
