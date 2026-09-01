@@ -1,11 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Image as ImageIcon,
-} from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Download, Image as ImageIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import ExcelJS from "exceljs";
 
@@ -125,9 +119,7 @@ function ReportDetailPage() {
   const [mobileDay, setMobileDay] = useState<string | null>(null);
   const [mobileRecord, setMobileRecord] = useState<string | null>(null);
   const [mobileItem, setMobileItem] = useState<string | null>(null);
-  const [expandedItemsByRecord, setExpandedItemsByRecord] = useState<Record<string, string[]>>(
-    {},
-  );
+  const [expandedItemsByRecord, setExpandedItemsByRecord] = useState<Record<string, string[]>>({});
 
   const toggleExpandedItem = (recordId: string, item: string) => {
     setExpandedItemsByRecord((prev) => {
@@ -555,20 +547,20 @@ function ReportDetailPage() {
     set(arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id]);
 
   const activeDay = days.find((d) => d.date === mobileDay);
-  const activeRecord = activeDay?.records.find((r) => r.id === mobileRecord);
+  const activeRecord = mobileRecord
+    ? days.flatMap((d) => d.records).find((r) => r.id === mobileRecord)
+    : undefined;
 
   // ---------- мобильные экраны ----------
   if (isMobile && applied && activeRecord && mobileItem) {
     const crew = crewOf(activeRecord);
     const itemDef = activeRecord.items.find((i) => i.name === mobileItem);
     const itemRows = breakdownOf(activeRecord).filter(
-      (row) =>
-        row.item === mobileItem && (!applied?.employee || row.employee === applied.employee),
+      (row) => row.item === mobileItem && (!applied?.employee || row.employee === applied.employee),
     );
     const itemTotal = itemDef
-      ? (applied?.employee
-          ? employeeItemQty(itemDef, applied.employee, crew)
-          : itemQty(itemDef)) * itemDef.price
+      ? (applied?.employee ? employeeItemQty(itemDef, applied.employee, crew) : itemQty(itemDef)) *
+        itemDef.price
       : 0;
     return (
       <AppShell>
@@ -587,9 +579,7 @@ function ReportDetailPage() {
                 </span>
               </div>
             ))}
-            {itemRows.length === 0 && (
-              <p className="text-sm text-muted-foreground">Нет разбивки</p>
-            )}
+            {itemRows.length === 0 && <p className="text-sm text-muted-foreground">Нет разбивки</p>}
           </div>
           {isAdmin && itemDef && (
             <div className="mt-3 flex items-center justify-between rounded-xl bg-surface px-4 py-3">
@@ -677,20 +667,18 @@ function ReportDetailPage() {
           </div>
           <div>
             <FieldLabel>Объект</FieldLabel>
-            <input
-              list="report-objects"
-              value={objects.find((o) => o.id === objectId)?.name ?? ""}
-              onChange={(e) =>
-                setObjectId(objects.find((o) => o.name === e.target.value)?.id ?? "")
-              }
-              placeholder="— все объекты —"
+            <select
+              value={objectId}
+              onChange={(e) => setObjectId(e.target.value)}
               className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-            />
-            <datalist id="report-objects">
+            >
+              <option value="">— все объекты —</option>
               {objects.map((o) => (
-                <option key={o.id} value={o.name} />
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
               ))}
-            </datalist>
+            </select>
           </div>
           <div>
             <FieldLabel>Подавший</FieldLabel>
@@ -819,9 +807,14 @@ function ReportDetailPage() {
                   <button
                     onClick={() => {
                       if (isMobile) {
-                        setMobileRecord(null);
                         setMobileItem(null);
-                        setMobileDay(day.date);
+                        if (day.records.length === 1) {
+                          setMobileDay(null);
+                          setMobileRecord(day.records[0].id);
+                        } else {
+                          setMobileRecord(null);
+                          setMobileDay(day.date);
+                        }
                       } else {
                         toggle(openDays, setOpenDays, day.date);
                       }
@@ -1015,6 +1008,9 @@ function RecordSummary({
     <div className="space-y-1.5">
       {rows.map(({ item, qty }, i) => {
         const isOpen = expandedItems?.includes(item.name) ?? false;
+        // Когда expandedItems не передан, клик по виду работ ведёт на отдельный экран
+        // (мобильная навигация), а не разворачивает разбивку тут же (десктоп).
+        const isNavigate = Boolean(onItemClick) && expandedItems === undefined;
         const nameContent = (
           <>
             {item.name}
@@ -1041,7 +1037,8 @@ function RecordSummary({
                   }}
                   title="Показать, кто и сколько сделал по этому виду работ"
                   className={cn(
-                    "-mx-1 flex min-w-0 flex-1 items-start gap-1.5 rounded px-1 text-left font-semibold break-words whitespace-normal transition-colors hover:bg-primary/10 hover:text-primary",
+                    "-mx-1 flex min-w-0 flex-1 items-start gap-1.5 rounded px-1 text-left font-semibold break-words whitespace-normal transition-colors",
+                    isNavigate ? "text-primary" : "hover:bg-primary/10 hover:text-primary",
                     isOpen && "bg-primary/10 text-primary",
                   )}
                 >
@@ -1061,13 +1058,12 @@ function RecordSummary({
                     {money(qty * item.price)}
                   </span>
                 )}
+                {isNavigate && <ChevronRight className="size-4 shrink-0 text-primary" />}
               </span>
             </div>
             {isOpen && (
               <div className="mt-1.5 mb-1 rounded-lg bg-surface/60 px-3 py-2">
-                <p className="label-caps text-[11px] text-muted-foreground">
-                  Кто и сколько сделал
-                </p>
+                <p className="label-caps text-[11px] text-muted-foreground">Кто и сколько сделал</p>
                 <div className="mt-1">
                   {itemBreakdown.map((row, j) => (
                     <div
