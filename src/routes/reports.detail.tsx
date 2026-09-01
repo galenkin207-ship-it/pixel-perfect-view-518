@@ -1,5 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronDown, ChevronLeft, ChevronRight, Download, Image as ImageIcon } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsDown,
+  Download,
+  Image as ImageIcon,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import ExcelJS from "exceljs";
 
@@ -52,6 +59,25 @@ function weekday(d: string) {
 }
 function money(n: number) {
   return `${Math.round(n).toLocaleString("ru-RU")} ₽`;
+}
+
+/** Тройная стрелка вниз (уровень «день») — своя, т.к. в lucide-react есть только одинарная и двойная. */
+function ChevronsDownTriple({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="m7 3 5 5 5-5" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="m7 17 5 5 5-5" />
+    </svg>
+  );
 }
 
 type Breakdown = { employee: string; qty: number; unit: string; item: string };
@@ -120,6 +146,7 @@ function ReportDetailPage() {
   const [mobileRecord, setMobileRecord] = useState<string | null>(null);
   const [mobileItem, setMobileItem] = useState<string | null>(null);
   const [expandedItemsByRecord, setExpandedItemsByRecord] = useState<Record<string, string[]>>({});
+  const [photosOpenByRecord, setPhotosOpenByRecord] = useState<Record<string, boolean>>({});
 
   const toggleExpandedItem = (recordId: string, item: string) => {
     setExpandedItemsByRecord((prev) => {
@@ -541,6 +568,7 @@ function ReportDetailPage() {
     setMobileRecord(null);
     setMobileItem(null);
     setExpandedItemsByRecord({});
+    setPhotosOpenByRecord({});
   };
 
   const toggle = (arr: string[], set: (v: string[]) => void, id: string) =>
@@ -808,9 +836,10 @@ function ReportDetailPage() {
                     onClick={() => {
                       if (isMobile) {
                         setMobileItem(null);
-                        if (day.records.length === 1) {
+                        const onlyRecord = day.records.length === 1 ? day.records[0] : undefined;
+                        if (onlyRecord) {
                           setMobileDay(null);
-                          setMobileRecord(day.records[0].id);
+                          setMobileRecord(onlyRecord.id);
                         } else {
                           setMobileRecord(null);
                           setMobileDay(day.date);
@@ -824,7 +853,7 @@ function ReportDetailPage() {
                     {isMobile ? (
                       <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                     ) : (
-                      <ChevronDown
+                      <ChevronsDownTriple
                         className={cn(
                           "size-4 shrink-0 text-muted-foreground transition-transform",
                           open && "rotate-180",
@@ -855,6 +884,20 @@ function ReportDetailPage() {
                       {day.records.map((r) => {
                         const rOpen = openRecords.includes(r.id);
                         const openItems = expandedItemsByRecord[r.id] ?? [];
+                        const recordPhotosOpen = photosOpenByRecord[r.id] ?? true;
+                        const handleItemClick = (name: string) => {
+                          if (!openRecords.includes(r.id)) {
+                            setOpenRecords([...openRecords, r.id]);
+                          }
+                          setPhotosOpenByRecord((prev) => ({ ...prev, [r.id]: true }));
+                          toggleExpandedItem(r.id, name);
+                        };
+                        const handlePhotoIconClick = () => {
+                          if (!openRecords.includes(r.id)) {
+                            setOpenRecords([...openRecords, r.id]);
+                          }
+                          setPhotosOpenByRecord((prev) => ({ ...prev, [r.id]: true }));
+                        };
                         return (
                           <div key={r.id} className="rounded-xl border border-border bg-card">
                             <div
@@ -869,7 +912,7 @@ function ReportDetailPage() {
                               }}
                               className="flex w-full cursor-pointer items-start gap-3 p-4 text-left transition-colors hover:bg-surface/60"
                             >
-                              <ChevronDown
+                              <ChevronsDown
                                 className={cn(
                                   "mt-1 size-4 shrink-0 text-muted-foreground transition-transform",
                                   rOpen && "rotate-180",
@@ -882,8 +925,9 @@ function ReportDetailPage() {
                                   {...(applied?.employee
                                     ? { employeeFilter: applied.employee }
                                     : {})}
-                                  onItemClick={(name) => toggleExpandedItem(r.id, name)}
+                                  onItemClick={handleItemClick}
                                   expandedItems={openItems}
+                                  onPhotoIconClick={handlePhotoIconClick}
                                 />
                               </div>
                             </div>
@@ -896,6 +940,10 @@ function ReportDetailPage() {
                                   {...(applied?.employee
                                     ? { employeeFilter: applied.employee }
                                     : {})}
+                                  photosOpen={recordPhotosOpen}
+                                  onPhotosOpenChange={(v) =>
+                                    setPhotosOpenByRecord((prev) => ({ ...prev, [r.id]: v }))
+                                  }
                                 />
                               </div>
                             )}
@@ -991,14 +1039,18 @@ function RecordSummary({
   employeeFilter,
   onItemClick,
   expandedItems,
+  onPhotoIconClick,
 }: {
   record: WorkRecord;
   isAdmin: boolean;
   employeeFilter?: string;
   onItemClick?: (name: string) => void;
   expandedItems?: string[];
+  onPhotoIconClick?: () => void;
 }) {
   const crew = crewOf(record);
+  // Десктопный инлайн-разворот видов работ (в отличие от мобильной навигации на отдельный экран).
+  const isDesktopToggle = Boolean(onItemClick) && expandedItems !== undefined;
   const rows = employeeFilter
     ? record.items
         .map((item) => ({ item, qty: employeeItemQty(item, employeeFilter, crew) }))
@@ -1014,8 +1066,16 @@ function RecordSummary({
         const nameContent = (
           <>
             {item.name}
-            {record.photos.length > 0 && (
-              <ImageIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+            {record.photos.length > 0 && !isDesktopToggle && (
+              <ImageIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+            )}
+            {isDesktopToggle && (
+              <ChevronDown
+                className={cn(
+                  "mt-1 size-4 shrink-0 text-muted-foreground transition-transform",
+                  isOpen && "rotate-180",
+                )}
+              />
             )}
           </>
         );
@@ -1120,6 +1180,20 @@ function RecordSummary({
       <p className="text-sm text-muted-foreground">
         Кто подал: <span className="text-foreground">{record.created_by}</span>
       </p>
+
+      {isDesktopToggle && record.photos.length > 0 && onPhotoIconClick && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPhotoIconClick();
+          }}
+          title="Показать фото"
+          className="-mx-1 mt-1 flex items-center gap-1.5 rounded px-1 py-0.5 text-primary transition-colors hover:bg-primary/10"
+        >
+          <ImageIcon className="size-6" />
+        </button>
+      )}
     </div>
   );
 }
@@ -1130,14 +1204,20 @@ function RecordDetailBlock({
   nested,
   employeeFilter,
   onItemClick,
+  photosOpen: photosOpenProp,
+  onPhotosOpenChange,
 }: {
   record: WorkRecord;
   isAdmin: boolean;
   nested?: boolean;
   employeeFilter?: string;
   onItemClick?: (name: string) => void;
+  photosOpen?: boolean;
+  onPhotosOpenChange?: (open: boolean) => void;
 }) {
-  const [photosOpen, setPhotosOpen] = useState(true);
+  const [internalPhotosOpen, setInternalPhotosOpen] = useState(true);
+  const photosOpen = photosOpenProp ?? internalPhotosOpen;
+  const setPhotosOpen = onPhotosOpenChange ?? setInternalPhotosOpen;
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const crew = crewOf(record);
   const recordTotalValue = employeeFilter
@@ -1197,7 +1277,7 @@ function RecordDetailBlock({
       )}
 
       <button
-        onClick={() => setPhotosOpen((v) => !v)}
+        onClick={() => setPhotosOpen(!photosOpen)}
         className="mt-3 flex w-full items-center gap-2 rounded-xl bg-surface px-4 py-3 text-sm font-semibold"
       >
         <ChevronDown className={cn("size-4 transition-transform", photosOpen && "rotate-180")} />
