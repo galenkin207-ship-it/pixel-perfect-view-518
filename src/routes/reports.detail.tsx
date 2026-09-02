@@ -921,7 +921,7 @@ function ReportDetailPage() {
                   </button>
 
                   {!isMobile && open && (
-                    <div className="space-y-2 border-t border-border bg-surface/40 p-3">
+                    <div className="space-y-2 border-t border-border bg-surface p-3">
                       {day.records.map((r) => {
                         const rOpen = openRecords.includes(r.id);
                         const openItems = expandedItemsByRecord[r.id] ?? [];
