@@ -1202,7 +1202,7 @@ function RecordSummary({
                   {itemBreakdown.map((row, j) => (
                     <div
                       key={j}
-                      className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/60 py-1.5 last:border-0"
+                      className="-mx-2 flex flex-wrap items-baseline justify-between gap-2 rounded-lg border-b border-border/60 px-2 py-1.5 transition-colors last:border-0 md:hover:bg-white"
                     >
                       <span className="text-sm font-semibold">{row.employee}</span>
                       <span className="font-mono text-sm font-bold">
