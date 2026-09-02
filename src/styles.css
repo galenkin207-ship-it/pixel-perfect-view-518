@@ -78,7 +78,7 @@
   /* #0B0B0C page shell */
   --shell: oklch(0.145 0.002 285);
   --panel: oklch(1 0 0);
-  --surface: oklch(0.972 0.004 265);
+  --surface: oklch(0.95 0.006 265);
   --background: oklch(1 0 0);
   --foreground: oklch(0.21 0.008 265);
   --card: oklch(1 0 0);
