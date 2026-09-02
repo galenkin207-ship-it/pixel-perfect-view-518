@@ -158,15 +158,17 @@ function ReportDetailPage() {
   const [photosOpenByRecord, setPhotosOpenByRecord] = useState<Record<string, boolean>>({});
   const [filtersOpen, setFiltersOpen] = useState(!hasInitial);
 
-  // При переходе между мобильными "экранами" (день/запись/вид работ) страница
+  // При переходе между мобильными "экранами" (список/день) страница
   // рендерится в том же контейнере, реальной навигации не происходит — поэтому
   // скролл нужно сбрасывать руками, иначе новый экран открывается там, где
-  // была прокрутка на предыдущем.
+  // была прокрутка на предыдущем. Открытие/закрытие модалки с разбивкой по
+  // виду работ (mobileItem) — это оверлей поверх текущего экрана дня, а не
+  // переход на новый экран, поэтому скролл при этом трогать не нужно.
   useEffect(() => {
     const el = document.getElementById("app-scroll-container");
     if (el) el.scrollTop = 0;
     else window.scrollTo(0, 0);
-  }, [mobileDay, mobileRecord, mobileItem]);
+  }, [mobileDay]);
 
   const toggleExpandedItem = (recordId: string, item: string) => {
     setExpandedItemsByRecord((prev) => {
