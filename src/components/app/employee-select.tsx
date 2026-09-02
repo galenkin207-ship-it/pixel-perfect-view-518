@@ -62,6 +62,14 @@ export function EmployeeSelect({
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                // Backspace на пустом поле поиска убирает последнего
+                // добавленного сотрудника — удобно на телефоне, не нужно
+                // точно попадать по крестику на маленьком чипе.
+                if (e.key === "Backspace" && query === "" && value.length > 0) {
+                  onChange(value.slice(0, -1));
+                }
+              }}
               placeholder="Поиск сотрудника..."
               className="w-full bg-transparent py-3 pr-3 pl-9 text-sm outline-none"
             />
@@ -74,7 +82,10 @@ export function EmployeeSelect({
                   <button
                     type="button"
                     onClick={() => toggle(e)}
-                    className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted"
+                    className={cn(
+                      "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted",
+                      active && "bg-primary/10 font-semibold text-primary hover:bg-primary/15",
+                    )}
                   >
                     <span className="break-words">{e}</span>
                     {active && <Check className="size-4 text-primary" />}

@@ -1,22 +1,29 @@
-import { Check, ChevronDown, Search } from "lucide-react";
+import { Check, ChevronDown, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { smartFilter } from "@/lib/smart-search";
 import { cn } from "@/lib/utils";
 
 /**
- * Одиночный выбор с поиском по вводу и пунктом "Все ..." для сброса фильтра.
+ * Одиночный выбор с поиском — само поле является обычным текстовым
+ * input'ом, а не отдельной кнопкой с попапом-подсказкой. Поэтому с ним
+ * работаешь как с обычным текстом: клик/фокус выделяет всё значение целиком
+ * (как штатное выделение в input — с "палочками"-курсорами по краям), одно
+ * нажатие Backspace стирает выбор полностью, а повторный клик снимает
+ * выделение и ставит курсор в конкретное место для правки по буквам —
+ * это встроенное поведение браузера, отдельного кода для этого не нужно.
+ *
  * Универсальная версия ObjectSelect (components/app/object-select.tsx) —
- * та привязана к WorkObject и не умеет сбрасывать выбор, а этот компонент
- * используется там, где нужен обычный список {id, label} с возможностью
- * "не фильтровать" (объекты/сотрудники/подавшие в отчётах и т.п.).
+ * та привязана к WorkObject, а этот компонент используется там, где нужен
+ * обычный список {id, label} с возможностью "не фильтровать" (объекты,
+ * сотрудники, подавшие, виды работ в отчётах и т.п.).
  */
 export function SearchableSelect({
   items,
   value,
   onChange,
   allLabel,
-  searchPlaceholder = "Поиск...",
+  searchPlaceholder,
 }: {
   items: { id: string; label: string }[];
   value: string;
@@ -27,91 +34,135 @@ export function SearchableSelect({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const selected = items.find((i) => i.id === value) ?? null;
   const filtered = useMemo(() => smartFilter(items, query, (i) => i.label), [items, query]);
+
+  // Пока поле не редактируется, оно всегда показывает текущий выбор (или
+  // пусто, если ничего не выбрано) — любая незавершённая правка при
+  // закрытии отбрасывается.
+  useEffect(() => {
+    if (!open) setQuery(selected ? selected.label : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, open]);
 
   useEffect(() => {
     if (!open) return;
     const onClickOutside = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         setOpen(false);
-        setQuery("");
       }
     };
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
 
+  const pick = (id: string) => {
+    onChange(id);
+    setOpen(false);
+    inputRef.current?.blur();
+  };
+
   return (
     <div ref={rootRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-left text-sm"
-      >
-        <span className={cn("truncate", !selected && "text-muted-foreground")}>
-          {selected ? selected.label : allLabel}
-        </span>
-        <ChevronDown
-          className={cn(
-            "size-4 shrink-0 text-muted-foreground transition-transform",
-            open && "rotate-180",
-          )}
+      <div className="relative">
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          ref={inputRef}
+          value={query}
+          placeholder={allLabel}
+          onFocus={(e) => {
+            setOpen(true);
+            e.target.select();
+          }}
+          onChange={(e) => {
+            const next = e.target.value;
+            setQuery(next);
+            // Как только текст правки перестаёт совпадать с текущим выбором
+            // (в том числе стал пустым после Backspace) — сам выбор
+            // снимается, начинается обычный поиск по новому тексту.
+            if (value !== "" && next !== (selected ? selected.label : "")) {
+              onChange("");
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              setOpen(false);
+              setQuery(selected ? selected.label : "");
+              e.currentTarget.blur();
+            }
+          }}
+          className="w-full truncate rounded-lg border border-border bg-surface py-2 pr-14 pl-9 text-left text-sm placeholder:text-muted-foreground"
         />
-      </button>
+        <span className="absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-1">
+          {value !== "" && (
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="Очистить выбор"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onChange("");
+                setQuery("");
+                inputRef.current?.focus();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onChange("");
+                  setQuery("");
+                  inputRef.current?.focus();
+                }
+              }}
+              className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <X className="size-3.5" />
+            </span>
+          )}
+          <ChevronDown
+            className={cn(
+              "size-4 shrink-0 text-muted-foreground transition-transform",
+              open && "rotate-180",
+            )}
+          />
+        </span>
+      </div>
 
       {open && (
-        <div className="absolute z-30 mt-2 w-full overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-          <div className="relative border-b border-border">
-            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={searchPlaceholder}
-              className="w-full bg-transparent py-2.5 pr-3 pl-9 text-sm outline-none"
-            />
-          </div>
-          <ul className="max-h-60 overflow-y-auto p-1">
-            <li>
-              <button
-                type="button"
-                onClick={() => {
-                  onChange("");
-                  setOpen(false);
-                  setQuery("");
-                }}
-                className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted"
-              >
-                <span className="text-muted-foreground">{allLabel}</span>
-                {!value && <Check className="size-4 shrink-0 text-primary" />}
-              </button>
-            </li>
-            {filtered.map((i) => {
-              const active = i.id === value;
-              return (
-                <li key={i.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onChange(i.id);
-                      setOpen(false);
-                      setQuery("");
-                    }}
-                    className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted"
-                  >
-                    <span className="break-words">{i.label}</span>
-                    {active && <Check className="size-4 shrink-0 text-primary" />}
-                  </button>
-                </li>
-              );
-            })}
-            {filtered.length === 0 && (
-              <li className="px-3 py-3 text-sm text-muted-foreground">Ничего не найдено</li>
-            )}
-          </ul>
-        </div>
+        <ul className="absolute z-30 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-lg">
+          <li>
+            <button
+              type="button"
+              onClick={() => pick("")}
+              className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted"
+            >
+              <span className="text-muted-foreground">{allLabel}</span>
+              {!value && <Check className="size-4 shrink-0 text-primary" />}
+            </button>
+          </li>
+          {filtered.map((i) => {
+            const active = i.id === value;
+            return (
+              <li key={i.id}>
+                <button
+                  type="button"
+                  onClick={() => pick(active ? "" : i.id)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted",
+                    active && "bg-primary/10 font-semibold text-primary hover:bg-primary/15",
+                  )}
+                >
+                  <span className="break-words">{i.label}</span>
+                  {active && <Check className="size-4 shrink-0 text-primary" />}
+                </button>
+              </li>
+            );
+          })}
+          {filtered.length === 0 && (
+            <li className="px-3 py-3 text-sm text-muted-foreground">Ничего не найдено</li>
+          )}
+        </ul>
       )}
     </div>
   );
