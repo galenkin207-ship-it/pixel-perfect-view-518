@@ -6,6 +6,7 @@ import { ChevronRight } from "lucide-react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
+import { DateInput } from "@/components/app/date-input";
 import { SearchableSelect } from "@/components/app/searchable-select";
 import { cn } from "@/lib/utils";
 import { allocationsFor, itemQty } from "@/lib/record-utils";
@@ -1070,20 +1071,18 @@ function ReportsPage() {
                   </div>
                   <div>
                     <FieldLabel>С даты</FieldLabel>
-                    <input
-                      type="date"
+                    <DateInput
                       value={statsFrom}
-                      onChange={(e) => setStatsFrom(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm sm:w-auto"
+                      onChange={setStatsFrom}
+                      className="mt-1 rounded-lg py-2 sm:w-auto"
                     />
                   </div>
                   <div>
                     <FieldLabel>По дату</FieldLabel>
-                    <input
-                      type="date"
+                    <DateInput
                       value={statsTo}
-                      onChange={(e) => setStatsTo(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm sm:w-auto"
+                      onChange={setStatsTo}
+                      className="mt-1 rounded-lg py-2 sm:w-auto"
                     />
                   </div>
                 </div>
@@ -1249,21 +1248,11 @@ function ReportsPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <FieldLabel>С даты</FieldLabel>
-                  <input
-                    type="date"
-                    value={rFrom}
-                    onChange={(e) => setRFrom(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-                  />
+                  <DateInput value={rFrom} onChange={setRFrom} className="mt-1 rounded-lg py-2" />
                 </div>
                 <div>
                   <FieldLabel>По дату</FieldLabel>
-                  <input
-                    type="date"
-                    value={rTo}
-                    onChange={(e) => setRTo(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-                  />
+                  <DateInput value={rTo} onChange={setRTo} className="mt-1 rounded-lg py-2" />
                 </div>
               </div>
               <Link
@@ -1338,7 +1327,8 @@ function ReportsPage() {
             query: "",
             submitter: "all",
             performer: "all",
-            date: "",
+            dateFrom: "",
+            dateTo: "",
             page: 1,
           }}
           className="mt-4 inline-block text-sm font-semibold text-primary"

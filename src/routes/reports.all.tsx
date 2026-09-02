@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar } from "@/components/app/bits";
+import { DateInput } from "@/components/app/date-input";
 import { RecordDetail } from "@/components/app/record-detail";
 import { SearchableSelect } from "@/components/app/searchable-select";
 import { StatusBadge } from "@/components/app/status-badge";
@@ -23,7 +24,8 @@ export type ReportsAllSearch = {
   query: string;
   submitter: string;
   performer: string;
-  date: string;
+  dateFrom: string;
+  dateTo: string;
   page: number;
 };
 
@@ -34,7 +36,8 @@ export const Route = createFileRoute("/reports/all")({
     query: typeof search["query"] === "string" ? search["query"] : "",
     submitter: typeof search["submitter"] === "string" ? search["submitter"] : "all",
     performer: typeof search["performer"] === "string" ? search["performer"] : "all",
-    date: typeof search["date"] === "string" ? search["date"] : "",
+    dateFrom: typeof search["dateFrom"] === "string" ? search["dateFrom"] : "",
+    dateTo: typeof search["dateTo"] === "string" ? search["dateTo"] : "",
     page: Number(search["page"]) > 0 ? Number(search["page"]) : 1,
   }),
   head: () => ({
@@ -56,7 +59,8 @@ function AllRecordsPage() {
   const { records, objects, employees, submitterNames } = useApp();
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { object: objectId, status, query, submitter, performer, date, page } = search;
+  const { object: objectId, status, query, submitter, performer, dateFrom, dateTo, page } =
+    search;
   const [openId, setOpenId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const openRecord = records.find((r) => r.id === openId) ?? null;
@@ -97,7 +101,8 @@ function AllRecordsPage() {
       (status === "all" || r.status === status) &&
       (submitter === "all" || r.created_by === submitter) &&
       (performer === "all" || matchesPerformer(r, performer)) &&
-      (date === "" || ruToIso(r.date) === date) &&
+      (dateFrom === "" || ruToIso(r.date) >= dateFrom) &&
+      (dateTo === "" || ruToIso(r.date) <= dateTo) &&
       r.items.some((i) => i.name.toLowerCase().includes(query.toLowerCase())),
   );
 
@@ -125,7 +130,8 @@ function AllRecordsPage() {
     query !== "" ||
     submitter !== "all" ||
     performer !== "all" ||
-    date !== "";
+    dateFrom !== "" ||
+    dateTo !== "";
 
   const clearFilters = () => {
     void navigate({
@@ -136,7 +142,8 @@ function AllRecordsPage() {
         query: "",
         submitter: "all",
         performer: "all",
-        date: "",
+        dateFrom: "",
+        dateTo: "",
         page: 1,
       },
       replace: true,
@@ -216,7 +223,7 @@ function AllRecordsPage() {
 
         <div
           className={cn(
-            "mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-6",
+            "mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-7",
             !filtersOpen && "hidden md:grid",
           )}
         >
@@ -265,14 +272,15 @@ function AllRecordsPage() {
               />
             </div>
           </label>
-          <label className="block">
-            <span className="label-caps">Дата</span>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => updateFilter({ date: e.target.value })}
-              className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
-            />
+          <label className="block sm:col-span-2 lg:col-span-2">
+            <span className="label-caps">Дата (с — по)</span>
+            <div className="mt-1 grid grid-cols-2 gap-2">
+              <DateInput
+                value={dateFrom}
+                onChange={(v) => updateFilter({ dateFrom: v })}
+              />
+              <DateInput value={dateTo} onChange={(v) => updateFilter({ dateTo: v })} />
+            </div>
           </label>
           <label className="block">
             <span className="label-caps">Статус</span>
