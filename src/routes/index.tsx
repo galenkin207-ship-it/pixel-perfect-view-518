@@ -96,12 +96,25 @@ function ObjectsPage() {
     startOfToday.setHours(0, 0, 0, 0);
     for (const r of relevantRecords) {
       if (!r.object_id) continue;
-      const recordDate = parseRuDate(r.date);
-      if (!recordDate) continue;
-      const diffDays = Math.round((startOfToday.getTime() - recordDate.getTime()) / 86_400_000);
       const entry = map.get(r.object_id) ?? { today: 0, active: false };
-      if (diffDays === 0) entry.today += 1;
-      if (diffDays >= 0 && diffDays < ACTIVE_WINDOW_DAYS) entry.active = true;
+
+      // Счётчик "сегодня" считает по факту создания записи (created_date),
+      // а не по дате, которой помечена сама работа (date) — мастер может
+      // задним числом указать другую дату выполнения.
+      const createdDate = parseRuDate(r.created_date ?? r.date);
+      if (createdDate) {
+        const createdDiffDays = Math.round(
+          (startOfToday.getTime() - createdDate.getTime()) / 86_400_000,
+        );
+        if (createdDiffDays === 0) entry.today += 1;
+      }
+
+      const recordDate = parseRuDate(r.date);
+      if (recordDate) {
+        const diffDays = Math.round((startOfToday.getTime() - recordDate.getTime()) / 86_400_000);
+        if (diffDays >= 0 && diffDays < ACTIVE_WINDOW_DAYS) entry.active = true;
+      }
+
       map.set(r.object_id, entry);
     }
     return map;
