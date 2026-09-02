@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Pencil, Trash2, X } from "lucide-react";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 
 import { FieldLabel, InitialsAvatar } from "@/components/app/bits";
@@ -51,7 +52,12 @@ export function RecordDetail({
   const crew =
     record.execution_type === "brigade" ? (record.brigade_members ?? []) : record.employees;
 
-  return (
+  // Рендерим через портал в document.body: на iOS position:fixed внутри
+  // прокручиваемого #app-scroll-container ведёт себя не как истинный fixed
+  // относительно вьюпорта (баг WebKit), из-за чего нижнее мобильное меню
+  // могло оставаться поверх этого окна. На Android такой проблемы нет, но
+  // портал безопасен в любом случае.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex bg-black/50 md:items-center md:justify-center md:p-6">
       <div className="h-full w-full overflow-y-auto bg-card p-5 md:max-h-[90vh] md:max-w-3xl md:rounded-3xl lg:max-w-4xl xl:max-w-5xl">
         <div className="flex items-start justify-between gap-3">
@@ -228,6 +234,7 @@ export function RecordDetail({
           />
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

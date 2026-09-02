@@ -7,8 +7,10 @@ import {
   Download,
   Image as ImageIcon,
   SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import ExcelJS from "exceljs";
 
 import { AppShell } from "@/components/app/app-shell";
@@ -154,17 +156,19 @@ function ReportDetailPage() {
   } | null>(null);
   const [expandedItemsByRecord, setExpandedItemsByRecord] = useState<Record<string, string[]>>({});
   const [photosOpenByRecord, setPhotosOpenByRecord] = useState<Record<string, boolean>>({});
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(!hasInitial);
 
-  // При переходе между мобильными "экранами" (день/запись/вид работ) страница
+  // При переходе между мобильными "экранами" (список/день) страница
   // рендерится в том же контейнере, реальной навигации не происходит — поэтому
   // скролл нужно сбрасывать руками, иначе новый экран открывается там, где
-  // была прокрутка на предыдущем.
+  // была прокрутка на предыдущем. Открытие/закрытие модалки с разбивкой по
+  // виду работ (mobileItem) — это оверлей поверх текущего экрана дня, а не
+  // переход на новый экран, поэтому скролл при этом трогать не нужно.
   useEffect(() => {
     const el = document.getElementById("app-scroll-container");
     if (el) el.scrollTop = 0;
     else window.scrollTo(0, 0);
-  }, [mobileDay, mobileRecord, mobileItem]);
+  }, [mobileDay]);
 
   const toggleExpandedItem = (recordId: string, item: string) => {
     setExpandedItemsByRecord((prev) => {
@@ -601,7 +605,8 @@ function ReportDetailPage() {
     : undefined;
 
   // ---------- мобильные экраны ----------
-  if (isMobile && applied && activeRecord && mobileItem) {
+  const itemModal = (() => {
+    if (!(isMobile && applied && activeRecord && mobileItem)) return null;
     const crew = crewOf(activeRecord);
     const itemDef = activeRecord.items.find((i) => i.name === mobileItem);
     const itemRows = breakdownOf(activeRecord).filter(
@@ -611,35 +616,49 @@ function ReportDetailPage() {
       ? (applied?.employee ? employeeItemQty(itemDef, applied.employee, crew) : itemQty(itemDef)) *
         itemDef.price
       : 0;
-    return (
-      <AppShell>
-        <MobileHeader title={mobileItem} onBack={() => setMobileItem(null)} />
-        <div className="mt-3 rounded-2xl border border-border bg-card p-4">
-          <h3 className="label-caps">Кто и сколько сделал</h3>
-          <div className="mt-2">
-            {itemRows.map((row, i) => (
-              <div
-                key={i}
-                className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border py-2.5 last:border-0"
-              >
-                <span className="text-sm font-semibold">{row.employee}</span>
-                <span className="font-mono text-sm font-bold">
-                  {row.qty} {row.unit}
-                </span>
-              </div>
-            ))}
-            {itemRows.length === 0 && <p className="text-sm text-muted-foreground">Нет разбивки</p>}
+    const close = () => {
+      setMobileRecord(null);
+      setMobileItem(null);
+    };
+    return createPortal(
+      <div className="fixed inset-0 z-50 flex items-end bg-black/50 md:items-center md:justify-center md:p-6">
+        <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-card p-5 md:max-h-[90vh] md:max-w-lg md:rounded-3xl">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-lg font-bold">{mobileItem}</h2>
+            <button onClick={close} aria-label="Закрыть">
+              <X className="size-5 text-muted-foreground" />
+            </button>
           </div>
-          {isAdmin && itemDef && (
-            <div className="mt-3 flex items-center justify-between rounded-xl bg-surface px-4 py-3">
-              <span className="text-sm font-semibold">Итого по виду работ</span>
-              <span className="font-mono font-bold text-primary">{money(itemTotal)}</span>
+          <div className="mt-3 rounded-2xl border border-border bg-surface p-4">
+            <h3 className="label-caps">Кто и сколько сделал</h3>
+            <div className="mt-2">
+              {itemRows.map((row, i) => (
+                <div
+                  key={i}
+                  className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border py-2.5 last:border-0"
+                >
+                  <span className="text-sm font-semibold">{row.employee}</span>
+                  <span className="font-mono text-sm font-bold">
+                    {row.qty} {row.unit}
+                  </span>
+                </div>
+              ))}
+              {itemRows.length === 0 && (
+                <p className="text-sm text-muted-foreground">Нет разбивки</p>
+              )}
             </div>
-          )}
+            {isAdmin && itemDef && (
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-card px-4 py-3">
+                <span className="text-sm font-semibold">Итого по виду работ</span>
+                <span className="font-mono font-bold text-primary">{money(itemTotal)}</span>
+              </div>
+            )}
+          </div>
         </div>
-      </AppShell>
+      </div>,
+      document.body,
     );
-  }
+  })();
 
   if (isMobile && applied && activeDay) {
     return (
@@ -710,6 +729,7 @@ function ReportDetailPage() {
             onClose={() => setDayPhotoViewer(null)}
           />
         )}
+        {itemModal}
       </AppShell>
     );
   }
@@ -921,7 +941,7 @@ function ReportDetailPage() {
                   </button>
 
                   {!isMobile && open && (
-                    <div className="space-y-2 border-t border-border bg-surface/40 p-3">
+                    <div className="space-y-2 border-t border-border bg-surface p-3">
                       {day.records.map((r) => {
                         const rOpen = openRecords.includes(r.id);
                         const openItems = expandedItemsByRecord[r.id] ?? [];
