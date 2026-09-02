@@ -131,11 +131,16 @@ export function SearchableSelect({
                   <button
                     type="button"
                     onClick={() => {
-                      onChange(i.id);
+                      // Клик по уже выбранному (подсвеченному) пункту снимает
+                      // выбор — подсветка сама подсказывает, что так можно.
+                      onChange(active ? "" : i.id);
                       setOpen(false);
                       setQuery("");
                     }}
-                    className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted"
+                    className={cn(
+                      "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted",
+                      active && "bg-primary/10 font-semibold text-primary hover:bg-primary/15",
+                    )}
                   >
                     <span className="break-words">{i.label}</span>
                     {active && <Check className="size-4 shrink-0 text-primary" />}
