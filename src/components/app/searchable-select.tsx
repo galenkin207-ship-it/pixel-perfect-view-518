@@ -130,7 +130,7 @@ export function SearchableSelect({
       </div>
 
       {open && (
-        <ul className="absolute z-30 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-lg">
+        <ul className="absolute z-30 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-lg md:max-h-[30rem] md:w-[200%]">
           <li>
             <button
               type="button"
