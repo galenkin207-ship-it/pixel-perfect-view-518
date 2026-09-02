@@ -56,7 +56,7 @@ export const Route = createFileRoute("/reports/all")({
 });
 
 function AllRecordsPage() {
-  const { records, objects, employees, submitterNames } = useApp();
+  const { records, objects, employees, submitterNames, workTypes } = useApp();
   const search = Route.useSearch();
   const navigate = useNavigate();
   const { object: objectId, status, query, submitter, performer, dateFrom, dateTo, page } =
@@ -95,6 +95,16 @@ function AllRecordsPage() {
     r.brigade_name === value ||
     (r.brigade_members ?? []).includes(value);
 
+  // Список для фильтра "Вид работы" — реальные названия работ из записей +
+  // справочник видов работ (чтобы можно было искать и по позициям, которые
+  // ещё не встречались ни в одной записи).
+  const workNames = Array.from(
+    new Set([
+      ...workTypes.map((w) => w.name),
+      ...records.flatMap((r) => r.items.map((i) => i.name)),
+    ]),
+  ).sort();
+
   const filtered = records.filter(
     (r) =>
       (objectId === "all" || r.object_id === objectId) &&
@@ -103,7 +113,7 @@ function AllRecordsPage() {
       (performer === "all" || matchesPerformer(r, performer)) &&
       (dateFrom === "" || ruToIso(r.date) >= dateFrom) &&
       (dateTo === "" || ruToIso(r.date) <= dateTo) &&
-      r.items.some((i) => i.name.toLowerCase().includes(query.toLowerCase())),
+      (query === "" || r.items.some((i) => i.name === query)),
   );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -240,13 +250,16 @@ function AllRecordsPage() {
             </div>
           </label>
           <label className="block">
-            <span className="label-caps">Поиск по работе</span>
-            <input
-              value={query}
-              onChange={(e) => updateFilter({ query: e.target.value })}
-              placeholder="Вид работы..."
-              className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
-            />
+            <span className="label-caps">Вид работы</span>
+            <div className="mt-1">
+              <SearchableSelect
+                items={workNames.map((n) => ({ id: n, label: n }))}
+                value={query}
+                onChange={(id) => updateFilter({ query: id })}
+                allLabel="Все виды работ"
+                searchPlaceholder="Поиск вида работы..."
+              />
+            </div>
           </label>
           <label className="block">
             <span className="label-caps">Сотрудник / Бригада</span>
