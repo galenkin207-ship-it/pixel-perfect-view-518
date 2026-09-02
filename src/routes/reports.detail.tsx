@@ -15,6 +15,7 @@ import ExcelJS from "exceljs";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
+import { DateInput } from "@/components/app/date-input";
 import { PhotoViewer } from "@/components/app/photo-viewer";
 import { SearchableSelect } from "@/components/app/searchable-select";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -791,21 +792,11 @@ function ReportDetailPage() {
           </div>
           <div>
             <FieldLabel>С даты</FieldLabel>
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-            />
+            <DateInput value={from} onChange={setFrom} className="mt-1 rounded-lg py-2" />
           </div>
           <div>
             <FieldLabel>По дату</FieldLabel>
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-            />
+            <DateInput value={to} onChange={setTo} className="mt-1 rounded-lg py-2" />
           </div>
           <div className="flex items-end gap-2">
             <button
