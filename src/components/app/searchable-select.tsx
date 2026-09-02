@@ -96,6 +96,15 @@ export function SearchableSelect({
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                // Backspace на пустом поле поиска сбрасывает уже выбранное
+                // значение — удобно на телефоне: не нужно точно попадать по
+                // маленькому крестику, достаточно нажать Backspace на
+                // клавиатуре, которая и так открыта для поиска.
+                if (e.key === "Backspace" && query === "" && value !== "") {
+                  onChange("");
+                }
+              }}
               placeholder={searchPlaceholder}
               className="w-full bg-transparent py-2.5 pr-3 pl-9 text-sm outline-none"
             />
