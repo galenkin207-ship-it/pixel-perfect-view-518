@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Search } from "lucide-react";
+import { Check, ChevronDown, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { smartFilter } from "@/lib/smart-search";
@@ -53,12 +53,39 @@ export function SearchableSelect({
         <span className={cn("truncate", !selected && "text-muted-foreground")}>
           {selected ? selected.label : allLabel}
         </span>
-        <ChevronDown
-          className={cn(
-            "size-4 shrink-0 text-muted-foreground transition-transform",
-            open && "rotate-180",
+        <span className="flex shrink-0 items-center gap-1">
+          {selected && (
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="Очистить выбор"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange("");
+                setOpen(false);
+                setQuery("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onChange("");
+                  setOpen(false);
+                  setQuery("");
+                }
+              }}
+              className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <X className="size-3.5" />
+            </span>
           )}
-        />
+          <ChevronDown
+            className={cn(
+              "size-4 text-muted-foreground transition-transform",
+              open && "rotate-180",
+            )}
+          />
+        </span>
       </button>
 
       {open && (
