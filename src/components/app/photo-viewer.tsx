@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { cn } from "@/lib/utils";
 
@@ -244,7 +245,10 @@ export function PhotoViewer({
     }
   };
 
-  return (
+  // Портал в document.body — иначе на iOS этот fixed-оверлей рендерится
+  // внутри прокручиваемого #app-scroll-container и нижнее мобильное меню
+  // может остаться поверх него (баг WebKit, на Android не проявляется).
+  return createPortal(
     <div
       className="fixed inset-0 z-70 flex flex-col bg-black/90"
       onClick={onClose}
@@ -391,6 +395,7 @@ export function PhotoViewer({
           ))}
         </div>
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }

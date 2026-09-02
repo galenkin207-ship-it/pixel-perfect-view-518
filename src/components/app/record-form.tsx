@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { Camera, Image as ImageIcon, Plus, Search, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 
 import { FieldLabel, PageHeading } from "@/components/app/bits";
@@ -939,7 +940,10 @@ function WorkTypePicker({
   const listRef = useRef<HTMLDivElement>(null);
   useBlurOnScroll(listRef);
 
-  return (
+  // Портал в document.body — иначе на iOS этот fixed-оверлей рендерится
+  // внутри прокручиваемого #app-scroll-container и нижнее мобильное меню
+  // может остаться поверх него (баг WebKit, на Android не проявляется).
+  return createPortal(
     <div
       data-pull-refresh-ignore
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 md:items-center md:p-4"
@@ -1074,6 +1078,7 @@ function WorkTypePicker({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
