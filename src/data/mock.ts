@@ -44,6 +44,11 @@ export type WorkRecord = {
   brigade_members?: string[];
   date: string;
   time: string;
+  // Дата фактического создания записи (dd.mm.yyyy), в отличие от `date` —
+  // даты, которой помечена сама работа и которую можно менять вручную.
+  // Опционально — у старых моковых данных может отсутствовать, тогда
+  // используется `date` как фолбэк.
+  created_date?: string;
   items: WorkItem[];
   total: number;
   comment: string;

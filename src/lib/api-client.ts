@@ -120,6 +120,7 @@ function apiRecordToWorkRecord(r: ApiRecord): WorkRecord {
     execution_type: "employee",
     employees: r.employees,
     date: isoToRu(r.date),
+    created_date: r.created_at ? isoToRu(r.created_at) : isoToRu(r.date),
     time: formatTime(r.created_at),
     items,
     total: Number(r.total),
