@@ -22,6 +22,7 @@ import { useApp } from "@/state/use-app";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useKeyboardOpen } from "@/hooks/use-keyboard-open";
 import { useSwipeNav } from "@/hooks/use-swipe-nav";
+import { useViewportHeight } from "@/hooks/use-viewport-height";
 import { InitialsAvatar } from "./bits";
 import { PullToRefresh } from "./pull-to-refresh";
 
@@ -67,6 +68,7 @@ export function AppShell({
   const isMobile = useIsMobile();
   const keyboardOpen = useKeyboardOpen();
   const hideMobileChrome = isMobile && keyboardOpen;
+  useViewportHeight();
 
   const home: NavItem[] = [
     { to: "/", label: "Объекты", icon: Building2 },
@@ -93,10 +95,10 @@ export function AppShell({
         : pathname.startsWith(to);
 
   return (
-    <div className="min-h-dvh bg-panel text-foreground md:h-screen">
-      <div className="flex h-dvh w-full overflow-hidden bg-panel md:h-full md:min-h-0">
+    <div className="min-h-[var(--app-vh,100dvh)] bg-panel text-foreground desktop:h-screen">
+      <div className="flex h-[var(--app-vh,100dvh)] w-full overflow-hidden bg-panel desktop:h-full desktop:min-h-0">
         {/* Desktop sidebar */}
-        <aside className="hidden w-[220px] shrink-0 flex-col overflow-y-auto border-r border-border bg-sidebar p-4 md:flex lg:w-[250px] xl:w-[280px]">
+        <aside className="hidden w-[220px] shrink-0 flex-col overflow-y-auto border-r border-border bg-sidebar p-4 desktop:flex lg:w-[250px] xl:w-[280px]">
           <Link to="/" className="mb-6 flex items-center gap-2 px-2">
             <img
               src="/icon-192.png"
@@ -167,12 +169,12 @@ export function AppShell({
         {/* Content */}
         <main
           id="app-scroll-container"
-          className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-background pb-28 md:pb-0"
+          className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-background pb-28 desktop:pb-0"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <PullToRefresh onRefresh={refreshData}>
             {/* Mobile top bar */}
-            <div className="flex items-center justify-between gap-2 px-2 pt-4 md:hidden">
+            <div className="flex items-center justify-between gap-2 px-2 pt-4 desktop:hidden">
               <Link to="/" className="flex items-center gap-2 text-sm font-bold">
                 <img
                   src="/icon-192.png"
@@ -212,7 +214,7 @@ export function AppShell({
               </div>
             </div>
 
-            <div className="w-full px-2 py-5 md:px-6 md:py-6 xl:px-10 xl:py-8">{children}</div>
+            <div className="w-full px-2 py-5 desktop:px-6 desktop:py-6 xl:px-10 xl:py-8">{children}</div>
           </PullToRefresh>
 
           {fab && (
@@ -221,7 +223,7 @@ export function AppShell({
               {...(fab.search ? { search: fab.search } : {})}
               aria-label={fab.label ?? "Новая запись"}
               className={cn(
-                "fixed right-5 bottom-28 z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:right-10 md:bottom-10",
+                "fixed right-5 bottom-28 z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 desktop:right-10 desktop:bottom-10",
                 hideMobileChrome && "hidden",
               )}
             >
@@ -253,7 +255,7 @@ export function AppShell({
           // position: fixed при этом не трогаем — статичность меню держится
           // за счёт interactive-widget в viewport meta, а не за счёт этих
           // отступов.
-          "fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-panel pt-2 pb-[max(0.25rem,env(safe-area-inset-bottom))] [transform:translateZ(0)] md:hidden",
+          "fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-panel pt-2 pb-[max(0.25rem,env(safe-area-inset-bottom))] [transform:translateZ(0)] desktop:hidden",
           hideMobileChrome && "hidden",
         )}
       >

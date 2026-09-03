@@ -748,7 +748,7 @@ function ReportDetailPage() {
       <section className="mt-4 rounded-2xl border border-border bg-card p-4">
         <button
           onClick={() => setFiltersOpen((v) => !v)}
-          className="flex w-full items-center gap-2 text-sm font-semibold md:hidden"
+          className="flex w-full items-center gap-2 text-sm font-semibold desktop:hidden"
         >
           <SlidersHorizontal className="size-4" />
           {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
@@ -756,8 +756,8 @@ function ReportDetailPage() {
 
         <div
           className={cn(
-            "grid gap-3 md:mt-0 md:grid-cols-3",
-            filtersOpen ? "mt-3" : "hidden md:grid",
+            "grid gap-3 desktop:mt-0 desktop:grid-cols-3",
+            filtersOpen ? "mt-3" : "hidden desktop:grid",
           )}
         >
           <div>
@@ -827,7 +827,7 @@ function ReportDetailPage() {
             </button>
           </div>
         </div>
-        <p className={cn("mt-3 text-xs text-muted-foreground", !filtersOpen && "hidden md:block")}>
+        <p className={cn("mt-3 text-xs text-muted-foreground", !filtersOpen && "hidden desktop:block")}>
           Укажите хотя бы одно поле. Оба сразу — отчёт по конкретному сотруднику именно на этом
           объекте.
         </p>
