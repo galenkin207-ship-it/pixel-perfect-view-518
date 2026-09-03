@@ -125,12 +125,7 @@ export function SearchableSelect({
             role="button"
             tabIndex={0}
             aria-label={open ? "Свернуть список" : "Развернуть список"}
-            onMouseDown={(e) => {
-              console.log("[DEBUG] chevron onMouseDown, open=", open);
-              e.preventDefault();
-            }}
             onClick={() => {
-              console.log("[DEBUG] chevron onClick FIRED, open=", open);
               if (open) {
                 setOpen(false);
               } else {

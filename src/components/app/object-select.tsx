@@ -114,11 +114,9 @@ export function ObjectSelect({
             role="button"
             tabIndex={0}
             aria-label={open ? "Свернуть список" : "Развернуть список"}
-            onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
               if (open) {
                 setOpen(false);
-                inputRef.current?.blur();
               } else {
                 inputRef.current?.focus();
               }
@@ -128,7 +126,6 @@ export function ObjectSelect({
                 e.preventDefault();
                 if (open) {
                   setOpen(false);
-                  inputRef.current?.blur();
                 } else {
                   inputRef.current?.focus();
                 }
