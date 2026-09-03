@@ -207,7 +207,7 @@ function AllRecordsPage() {
 
   return (
     <AppShell>
-      <div className="bg-background pt-5 pb-3 md:sticky md:top-0 md:z-20 md:border-b md:border-border md:pt-6 md:shadow-[0_8px_12px_-10px_rgba(15,23,42,0.35)] xl:pt-8">
+      <div className="bg-background pt-5 pb-3 desktop:sticky desktop:top-0 desktop:z-20 desktop:border-b desktop:border-border desktop:pt-6 desktop:shadow-[0_8px_12px_-10px_rgba(15,23,42,0.35)] xl:pt-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Все записи</h1>
@@ -225,7 +225,7 @@ function AllRecordsPage() {
 
         <button
           onClick={() => setFiltersOpen((v) => !v)}
-          className="mt-4 flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold md:hidden"
+          className="mt-4 flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold desktop:hidden"
         >
           <SlidersHorizontal className="size-4" />
           {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
@@ -234,7 +234,7 @@ function AllRecordsPage() {
         <div
           className={cn(
             "mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-7",
-            !filtersOpen && "hidden md:grid",
+            !filtersOpen && "hidden desktop:grid",
           )}
         >
           <label className="block">
