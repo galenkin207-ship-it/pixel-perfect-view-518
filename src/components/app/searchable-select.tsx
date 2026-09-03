@@ -125,15 +125,24 @@ export function SearchableSelect({
             role="button"
             tabIndex={0}
             aria-label={open ? "Свернуть список" : "Развернуть список"}
-            onMouseDown={(e) => {
-              // Предотвращаем стандартный blur/focus input'а до нашей логики,
-              // чтобы самим решить — свернуть список или развернуть.
-              e.preventDefault();
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
               if (open) {
                 setOpen(false);
                 inputRef.current?.blur();
               } else {
                 inputRef.current?.focus();
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                if (open) {
+                  setOpen(false);
+                  inputRef.current?.blur();
+                } else {
+                  inputRef.current?.focus();
+                }
               }
             }}
             className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"

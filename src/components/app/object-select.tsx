@@ -114,13 +114,24 @@ export function ObjectSelect({
             role="button"
             tabIndex={0}
             aria-label={open ? "Свернуть список" : "Развернуть список"}
-            onMouseDown={(e) => {
-              e.preventDefault();
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
               if (open) {
                 setOpen(false);
                 inputRef.current?.blur();
               } else {
                 inputRef.current?.focus();
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                if (open) {
+                  setOpen(false);
+                  inputRef.current?.blur();
+                } else {
+                  inputRef.current?.focus();
+                }
               }
             }}
             className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
