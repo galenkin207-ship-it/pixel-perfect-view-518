@@ -94,9 +94,9 @@ export function SearchableSelect({
               e.currentTarget.blur();
             }
           }}
-          className="w-full truncate rounded-lg border border-border bg-surface py-2 pr-14 pl-9 text-left text-sm placeholder:text-muted-foreground"
+          className="w-full truncate rounded-lg border border-border bg-surface py-2 pr-20 pl-9 text-left text-sm placeholder:text-muted-foreground"
         />
-        <span className="absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-1">
+        <span className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center">
           {value !== "" && (
             <span
               role="button"
@@ -116,7 +116,7 @@ export function SearchableSelect({
                   inputRef.current?.focus();
                 }
               }}
-              className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <X className="size-3.5" />
             </span>
@@ -145,7 +145,7 @@ export function SearchableSelect({
                 }
               }
             }}
-            className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <ChevronDown
               className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")}

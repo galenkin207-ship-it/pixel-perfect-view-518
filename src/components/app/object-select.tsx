@@ -83,9 +83,9 @@ export function ObjectSelect({
               e.currentTarget.blur();
             }
           }}
-          className="w-full truncate rounded-xl border border-border bg-surface py-3 pr-14 pl-11 text-left text-sm placeholder:text-muted-foreground"
+          className="w-full truncate rounded-xl border border-border bg-surface py-3 pr-20 pl-11 text-left text-sm placeholder:text-muted-foreground"
         />
-        <span className="absolute top-1/2 right-3 flex -translate-y-1/2 items-center gap-1">
+        <span className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center">
           {value !== "" && (
             <span
               role="button"
@@ -105,7 +105,7 @@ export function ObjectSelect({
                   inputRef.current?.focus();
                 }
               }}
-              className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <X className="size-3.5" />
             </span>
@@ -134,7 +134,7 @@ export function ObjectSelect({
                 }
               }
             }}
-            className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <ChevronDown
               className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")}
