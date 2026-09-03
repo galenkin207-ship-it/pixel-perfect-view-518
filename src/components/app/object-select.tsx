@@ -44,6 +44,7 @@ export function ObjectSelect({
     const onClickOutside = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         setOpen(false);
+        inputRef.current?.blur();
       }
     };
     document.addEventListener("mousedown", onClickOutside);
@@ -109,12 +110,25 @@ export function ObjectSelect({
               <X className="size-3.5" />
             </span>
           )}
-          <ChevronDown
-            className={cn(
-              "size-4 shrink-0 text-muted-foreground transition-transform",
-              open && "rotate-180",
-            )}
-          />
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label={open ? "Свернуть список" : "Развернуть список"}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              if (open) {
+                setOpen(false);
+                inputRef.current?.blur();
+              } else {
+                inputRef.current?.focus();
+              }
+            }}
+            className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <ChevronDown
+              className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")}
+            />
+          </span>
         </span>
       </div>
 
