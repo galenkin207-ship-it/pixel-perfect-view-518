@@ -133,7 +133,6 @@ export function SearchableSelect({
               console.log("[DEBUG] chevron onClick FIRED, open=", open);
               if (open) {
                 setOpen(false);
-                inputRef.current?.blur();
               } else {
                 inputRef.current?.focus();
               }
@@ -143,7 +142,6 @@ export function SearchableSelect({
                 e.preventDefault();
                 if (open) {
                   setOpen(false);
-                  inputRef.current?.blur();
                 } else {
                   inputRef.current?.focus();
                 }
