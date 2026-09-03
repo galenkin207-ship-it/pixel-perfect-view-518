@@ -22,6 +22,7 @@ import { useApp } from "@/state/use-app";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useKeyboardOpen } from "@/hooks/use-keyboard-open";
 import { useSwipeNav } from "@/hooks/use-swipe-nav";
+import { useViewportHeight } from "@/hooks/use-viewport-height";
 import { InitialsAvatar } from "./bits";
 import { PullToRefresh } from "./pull-to-refresh";
 
@@ -67,6 +68,7 @@ export function AppShell({
   const isMobile = useIsMobile();
   const keyboardOpen = useKeyboardOpen();
   const hideMobileChrome = isMobile && keyboardOpen;
+  useViewportHeight();
 
   const home: NavItem[] = [
     { to: "/", label: "Объекты", icon: Building2 },
@@ -93,8 +95,8 @@ export function AppShell({
         : pathname.startsWith(to);
 
   return (
-    <div className="min-h-dvh bg-panel text-foreground desktop:h-screen">
-      <div className="flex h-dvh w-full overflow-hidden bg-panel desktop:h-full desktop:min-h-0">
+    <div className="min-h-[var(--app-vh,100dvh)] bg-panel text-foreground desktop:h-screen">
+      <div className="flex h-[var(--app-vh,100dvh)] w-full overflow-hidden bg-panel desktop:h-full desktop:min-h-0">
         {/* Desktop sidebar */}
         <aside className="hidden w-[220px] shrink-0 flex-col overflow-y-auto border-r border-border bg-sidebar p-4 desktop:flex lg:w-[250px] xl:w-[280px]">
           <Link to="/" className="mb-6 flex items-center gap-2 px-2">
