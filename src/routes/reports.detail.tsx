@@ -19,6 +19,7 @@ import { DateInput } from "@/components/app/date-input";
 import { PhotoViewer } from "@/components/app/photo-viewer";
 import { SearchableSelect } from "@/components/app/searchable-select";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ruToIso } from "@/lib/api-client";
 import { allocationsFor, itemQty, recordTotal } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
 import type { WorkItem, WorkRecord } from "@/data/mock";
@@ -191,9 +192,14 @@ function ReportDetailPage() {
       if (applied.objectId && r.object_id !== applied.objectId) return false;
       if (applied.submitter && r.created_by !== applied.submitter) return false;
       if (applied.employee && !crewOf(r).includes(applied.employee)) return false;
-      const t = parseDate(r.date).getTime();
-      if (applied.from && t < new Date(applied.from).getTime()) return false;
-      if (applied.to && t > new Date(applied.to).getTime()) return false;
+      // Сравниваем как строки ISO (yyyy-mm-dd), а не через new Date(...):
+      // applied.from/to приходят из <input type="date"> в UTC-полночь, а
+      // parseDate(r.date) создаёт локальную полночь — из-за разницы часовых
+      // поясов при сравнении через getTime() пограничные даты "с" и "по"
+      // выпадали из выборки.
+      const iso = ruToIso(r.date);
+      if (applied.from && iso < applied.from) return false;
+      if (applied.to && iso > applied.to) return false;
       return true;
     });
     const map = new Map<string, WorkRecord[]>();
