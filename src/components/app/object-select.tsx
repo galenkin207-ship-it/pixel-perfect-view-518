@@ -64,6 +64,7 @@ export function ObjectSelect({
           ref={inputRef}
           value={query}
           placeholder={placeholder}
+          autoComplete="off"
           onFocus={(e) => {
             setOpen(true);
             e.target.select();
