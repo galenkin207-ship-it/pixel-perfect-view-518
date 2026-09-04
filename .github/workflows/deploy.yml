@@ -53,7 +53,7 @@ jobs:
             }
 
             cd /opt/uchet/frontend || rollback
-            npm install || rollback
+            npm ci || rollback
             npm run build || rollback
             sudo systemctl restart uchet-frontend || rollback
             sudo systemctl is-active uchet-frontend || rollback
