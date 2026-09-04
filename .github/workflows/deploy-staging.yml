@@ -52,7 +52,7 @@ jobs:
             }
 
             cd /opt/uchet-staging/frontend-src || rollback
-            npm_config_cache=/opt/npm-cache npm install || rollback
+            npm_config_cache=/opt/npm-cache npm ci || rollback
             npm_config_cache=/opt/npm-cache npm run build || rollback
             sudo systemctl restart uchet-frontend-staging || rollback
             sudo systemctl is-active uchet-frontend-staging || rollback

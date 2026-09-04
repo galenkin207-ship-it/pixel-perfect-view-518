@@ -13,7 +13,7 @@ import type {
   WorkType,
   RequestComment,
 } from "@/data/mock";
-import { api, ApiError } from "@/lib/api-client";
+import { api, ApiError, SESSION_EXPIRED_EVENT } from "@/lib/api-client";
 import { playNotificationChime } from "@/lib/notification-sound";
 import { isPushSupported, resyncPushSubscription } from "@/lib/push";
 import { buildNotificationItems } from "@/lib/notification-items";
@@ -75,6 +75,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
       )
       .catch(() => setSessionUser(null))
       .finally(() => setAuthChecked(true));
+  }, []);
+
+  // Реакция на истёкшую/отозванную сессию (см. api-client.ts) — раньше 401
+  // где-нибудь в фоновом опросе или мутации просто показывал общую ошибку
+  // ("не удалось сохранить запись") без объяснения причины, а если 401
+  // приходил уже на самой первой подгрузке данных — пользователь застревал
+  // на заставке загрузки навсегда (dataLoaded никогда не становился true).
+  // sessionExpiredHandledRef — защита от дублирующихся тостов/сбросов, если
+  // несколько параллельных запросов словят 401 одновременно (до того как
+  // React успеет перерендерить компонент с sessionUser = null).
+  const sessionExpiredHandledRef = useRef(false);
+  useEffect(() => {
+    sessionExpiredHandledRef.current = false;
+  }, [sessionUser?.id]);
+  useEffect(() => {
+    const onSessionExpired = () => {
+      if (sessionExpiredHandledRef.current) return;
+      sessionExpiredHandledRef.current = true;
+      setSessionUser(null);
+      setDataLoaded(false);
+      toast.error("Сессия истекла — войдите снова");
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
   }, []);
 
   const currentUser = sessionUser ?? EMPTY_USER;

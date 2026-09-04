@@ -22,6 +22,15 @@ class ApiError extends Error {
   }
 }
 
+// Имя кастомного события, которым api-client сообщает остальному приложению
+// об истёкшей/отозванной сессии (401 на любом эндпоинте, кроме самого логина).
+// Слушает его AppProvider (state/app-context.tsx) — сбрасывает sessionUser,
+// что автоматически перекидывает на /login через уже существующий эффект,
+// вместо того чтобы пользователь бесконечно видел заставку загрузки (если
+// 401 пришёл на самой первой подгрузке данных) или тихие ошибки фонового
+// опроса каждые 8 секунд без единой подсказки, что происходит.
+export const SESSION_EXPIRED_EVENT = "uchet:session-expired";
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const isFormData = init?.body instanceof FormData;
   const res = await fetch(`${BASE}${path}`, {
@@ -38,6 +47,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       message = body.error ?? message;
     } catch {
       /* тело не JSON — оставляем стандартное сообщение */
+    }
+    // 401 на /login значит "неверный логин/пароль" — это не истёкшая сессия
+    // (сессии ещё не было), обрабатывается обычным способом на самой форме.
+    if (res.status === 401 && path !== "/login" && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
     }
     throw new ApiError(res.status, message);
   }
