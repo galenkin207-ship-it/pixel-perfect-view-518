@@ -13,6 +13,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { isMyRecord } from "@/lib/record-utils";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/")({
@@ -77,8 +78,8 @@ function ObjectsPage() {
   // Записи, видимые для текущей роли: у "Кто подал" — только свои,
   // у куратора/администратора — записи всех пользователей.
   const relevantRecords = useMemo(
-    () => (isForeman ? records.filter((r) => r.created_by === currentUser.full_name) : records),
-    [records, isForeman, currentUser.full_name],
+    () => (isForeman ? records.filter((r) => isMyRecord(currentUser, r)) : records),
+    [records, isForeman, currentUser],
   );
 
   // Объекты, где уже есть записи.

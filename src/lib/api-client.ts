@@ -86,6 +86,7 @@ type ApiRecord = {
   object_name_raw: string;
   employees: string[];
   claimed_by: string;
+  created_by_user_id: number | null;
   date: string;
   total: string | number;
   comment: string;
@@ -128,6 +129,7 @@ function apiRecordToWorkRecord(r: ApiRecord): WorkRecord {
     photos: r.photos.map(photoUrl),
     status: r.status === "draft" ? "draft" : "done",
     created_by: r.claimed_by,
+    ...(r.created_by_user_id != null ? { created_by_user_id: String(r.created_by_user_id) } : {}),
     ...(r.modified_by ? { updated_by: r.modified_by } : {}),
     ...(updatedAt ? { updated_at: updatedAt } : {}),
   };
@@ -532,6 +534,7 @@ export const api = {
         id: number;
         text: string;
         submitted_by: string;
+        submitted_by_user_id: number | null;
         status: string;
         resolved_name: string | null;
         resolved_unit: string | null;
@@ -545,6 +548,7 @@ export const api = {
         comments: {
           id: number;
           author: string;
+          author_user_id: number | null;
           text: string;
           created_at: string;
           edited_at: string | null;
@@ -554,6 +558,7 @@ export const api = {
     return rows.map((r) => ({
       id: String(r.id),
       author: r.submitted_by,
+      ...(r.submitted_by_user_id != null ? { author_user_id: String(r.submitted_by_user_id) } : {}),
       requested_text: r.text,
       status: r.status as WorkRequest["status"],
       ...(r.resolved_name != null ? { resolved_name: r.resolved_name } : {}),
@@ -573,6 +578,7 @@ export const api = {
       comments: r.comments.map((c) => ({
         id: String(c.id),
         author: c.author,
+        ...(c.author_user_id != null ? { author_user_id: String(c.author_user_id) } : {}),
         own: false,
         text: c.text,
         time: formatTime(c.created_at),
@@ -586,6 +592,7 @@ export const api = {
     const c = await request<{
       id: number;
       author: string;
+      author_user_id: number | null;
       text: string;
       created_at: string;
       edited_at: string | null;
@@ -593,6 +600,7 @@ export const api = {
     return {
       id: String(c.id),
       author: c.author,
+      ...(c.author_user_id != null ? { author_user_id: String(c.author_user_id) } : {}),
       own: false,
       text: c.text,
       time: formatTime(c.created_at),
@@ -609,6 +617,7 @@ export const api = {
     const c = await request<{
       id: number;
       author: string;
+      author_user_id: number | null;
       text: string;
       created_at: string;
       edited_at: string | null;
@@ -619,6 +628,7 @@ export const api = {
     return {
       id: String(c.id),
       author: c.author,
+      ...(c.author_user_id != null ? { author_user_id: String(c.author_user_id) } : {}),
       own: false,
       text: c.text,
       time: formatTime(c.created_at),
@@ -639,12 +649,14 @@ export const api = {
       id: number;
       text: string;
       submitted_by: string;
+      submitted_by_user_id: number | null;
       status: string;
       created_at: string;
     }>("/requests", { method: "POST", body: JSON.stringify({ text }) });
     return {
       id: String(r.id),
       author: r.submitted_by,
+      ...(r.submitted_by_user_id != null ? { author_user_id: String(r.submitted_by_user_id) } : {}),
       requested_text: r.text,
       status: r.status as WorkRequest["status"],
       created_at: isoToRu(r.created_at),
@@ -659,6 +671,7 @@ export const api = {
       deleted?: boolean;
       text?: string;
       submitted_by?: string;
+      submitted_by_user_id?: number | null;
       status?: string;
       resolved_name?: string | null;
       resolved_unit?: string | null;
@@ -674,6 +687,7 @@ export const api = {
     return {
       id: String(r.id),
       author: r.submitted_by ?? "",
+      ...(r.submitted_by_user_id != null ? { author_user_id: String(r.submitted_by_user_id) } : {}),
       requested_text: r.text ?? "",
       status: (r.status ?? "deleted") as WorkRequest["status"],
       ...(r.resolved_name != null ? { resolved_name: r.resolved_name } : {}),
@@ -700,6 +714,7 @@ export const api = {
       id: number;
       text: string;
       submitted_by: string;
+      submitted_by_user_id: number | null;
       status: string;
       resolved_name: string | null;
       resolved_unit: string | null;
@@ -714,6 +729,7 @@ export const api = {
     return {
       id: String(r.id),
       author: r.submitted_by,
+      ...(r.submitted_by_user_id != null ? { author_user_id: String(r.submitted_by_user_id) } : {}),
       requested_text: r.text,
       status: r.status as WorkRequest["status"],
       ...(r.resolved_name != null ? { resolved_name: r.resolved_name } : {}),

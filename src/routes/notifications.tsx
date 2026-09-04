@@ -60,20 +60,17 @@ function NotificationsPage() {
   const [unreadOnly, setUnreadOnly] = useState(false);
 
   const items = useMemo(() => {
-    const list = buildNotificationItems(
-      requests,
-      isForeman,
-      currentUser.full_name,
-    );
+    const list = buildNotificationItems(requests, isForeman, currentUser);
     return sortNotificationItems(list);
-  }, [requests, isForeman, currentUser.full_name]);
+  }, [requests, isForeman, currentUser]);
 
-  const isUnread = (id: string, author: string) =>
-    author !== currentUser.full_name && !readNotificationIds.has(id);
-  const unread = items.filter((i) => isUnread(i.id, i.author)).length;
+  const isUnread = (id: string, author: string, authorUserId: string | undefined) =>
+    (authorUserId != null ? authorUserId !== currentUser.id : author !== currentUser.full_name) &&
+    !readNotificationIds.has(id);
+  const unread = items.filter((i) => isUnread(i.id, i.author, i.authorUserId)).length;
 
   const visibleItems = useMemo(
-    () => (unreadOnly ? items.filter((n) => isUnread(n.id, n.author)) : items),
+    () => (unreadOnly ? items.filter((n) => isUnread(n.id, n.author, n.authorUserId)) : items),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [items, unreadOnly, readNotificationIds, currentUser.full_name],
   );
@@ -194,7 +191,7 @@ function NotificationsPage() {
 
       <ul className="mt-5 space-y-2">
         {visibleItems.map((n) => {
-          const unreadItem = isUnread(n.id, n.author);
+          const unreadItem = isUnread(n.id, n.author, n.authorUserId);
           const selected = selectedIds.has(n.id);
 
           const inner = (

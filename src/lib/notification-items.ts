@@ -7,6 +7,12 @@ export type NotificationItem = {
   requestId: string;
   kind: NotificationKind;
   author: string;
+  // id автора события — известен для "request"/"deleted"/"comment" (у них
+  // есть author_user_id с бэкенда). Для "approved"/"rejected" — не известен:
+  // resolved_by/rejected_by на бэкенде хранят только ФИО решившего заявку,
+  // без user_id (отдельная колонка для этого пока не заведена), поэтому для
+  // этих двух видов сравнение "моё/чужое" по-прежнему идёт по ФИО.
+  authorUserId?: string;
   title: string;
   text: string;
   date: string;
@@ -22,11 +28,15 @@ export type NotificationItem = {
 export function buildNotificationItems(
   requests: WorkRequest[],
   isForeman: boolean,
-  currentUserFullName: string,
+  currentUser: { id: string; full_name: string },
   opts: { includeRequests?: boolean; includeMessages?: boolean } = {},
 ): NotificationItem[] {
   const { includeRequests = true, includeMessages = true } = opts;
-  const visible = isForeman ? requests.filter((r) => r.author === currentUserFullName) : requests;
+  const isMine = (authorUserId: string | undefined, author: string) =>
+    authorUserId != null ? authorUserId === currentUser.id : author === currentUser.full_name;
+  const visible = isForeman
+    ? requests.filter((r) => isMine(r.author_user_id, r.author))
+    : requests;
 
   const items: NotificationItem[] = [];
   for (const r of visible) {
@@ -36,6 +46,7 @@ export function buildNotificationItems(
         requestId: r.id,
         kind: "request",
         author: r.author,
+        ...(r.author_user_id != null ? { authorUserId: r.author_user_id } : {}),
         title: "Новая заявка на вид работ",
         text: r.requested_text,
         date: r.created_at,
@@ -50,6 +61,7 @@ export function buildNotificationItems(
           requestId: r.id,
           kind: "deleted",
           author: r.author,
+          ...(r.author_user_id != null ? { authorUserId: r.author_user_id } : {}),
           title: "Заявка удалена автором",
           text: r.requested_text,
           date: r.created_at,
@@ -93,6 +105,7 @@ export function buildNotificationItems(
           requestId: r.id,
           kind: "comment",
           author: c.author,
+          ...(c.author_user_id != null ? { authorUserId: c.author_user_id } : {}),
           title: `Сообщение по заявке: ${r.requested_text}`,
           text: c.text,
           // Дата самого сообщения, а не дата создания заявки — иначе вся
@@ -111,7 +124,7 @@ export function buildNotificationItems(
   // сделал. Раньше такие события всё равно попадали в список на странице
   // "Уведомления" (просто не считались непрочитанными), из-за чего
   // администратор/куратор видел там свои же отправленные сообщения.
-  return items.filter((item) => item.author !== currentUserFullName);
+  return items.filter((item) => !isMine(item.authorUserId, item.author));
 }
 
 export function sortNotificationItems(items: NotificationItem[]): NotificationItem[] {

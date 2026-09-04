@@ -221,7 +221,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!notifications.inAppEnabled) return;
 
     const isForeman = role === "user";
-    const items = buildNotificationItems(requests, isForeman, currentUser.full_name, {
+    const items = buildNotificationItems(requests, isForeman, currentUser, {
       includeRequests: notifications.inAppRequests,
       includeMessages: notifications.inAppMessages,
     });
@@ -252,7 +252,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     for (const item of items) {
       if (seen.has(item.id)) continue;
       seen.add(item.id);
-      if (item.author === currentUser.full_name) continue; // свои действия не уведомляем
+      // Свои собственные действия уже отфильтрованы внутри buildNotificationItems.
 
       const Icon = kindIcon[item.kind];
       toast(
@@ -303,7 +303,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     for (const r of records) {
       if (seen.has(r.id)) continue;
       seen.add(r.id);
-      if (r.created_by === currentUser.full_name) continue; // свои записи не уведомляем
+      if (
+        r.created_by_user_id != null
+          ? r.created_by_user_id === currentUser.id
+          : r.created_by === currentUser.full_name
+      )
+        continue; // свои записи не уведомляем
       if (r.status === "draft") continue; // черновики ещё не поданы
 
       const object = objects.find((o) => o.id === r.object_id);
@@ -378,9 +383,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // заявки, admin/curator — все.
   const notificationItems = useMemo(() => {
     const isForeman = role === "user";
-    const items = buildNotificationItems(requests, isForeman, currentUser.full_name);
+    const items = buildNotificationItems(requests, isForeman, currentUser);
     return items.filter((i) => !hiddenNotificationIds.has(i.id));
-  }, [requests, role, currentUser.full_name, hiddenNotificationIds]);
+  }, [requests, role, currentUser, hiddenNotificationIds]);
 
   const notificationsCount = useMemo(() => {
     return notificationItems.filter(
