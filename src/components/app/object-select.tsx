@@ -44,7 +44,6 @@ export function ObjectSelect({
     const onClickOutside = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         setOpen(false);
-        inputRef.current?.blur();
       }
     };
     document.addEventListener("mousedown", onClickOutside);
@@ -144,7 +143,10 @@ export function ObjectSelect({
       </div>
 
       {open && (
-        <ul className="absolute z-30 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-lg">
+        <ul
+          className="absolute z-30 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-lg"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
           {filtered.map((o) => {
             const active = o.id === value;
             return (

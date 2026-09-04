@@ -35,29 +35,6 @@ export function SearchableSelect({
   const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const ulRef = useRef<HTMLUListElement>(null);
-  const [debugInfo, setDebugInfo] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
-    const update = () => {
-      const vv = window.visualViewport;
-      const ulRect = ulRef.current?.getBoundingClientRect();
-      const ulBg = ulRef.current ? getComputedStyle(ulRef.current).backgroundColor : "no-ul";
-      setDebugInfo(
-        `innerH:${window.innerHeight} vvH:${vv?.height?.toFixed(0)} vvOffTop:${vv?.offsetTop?.toFixed(0)} vvOffLeft:${vv?.offsetLeft?.toFixed(0)} | ulTop:${ulRect?.top.toFixed(0)} ulH:${ulRect?.height.toFixed(0)} ulBg:${ulBg}`,
-      );
-    };
-    update();
-    const id = setInterval(update, 300);
-    window.visualViewport?.addEventListener("resize", update);
-    window.visualViewport?.addEventListener("scroll", update);
-    return () => {
-      clearInterval(id);
-      window.visualViewport?.removeEventListener("resize", update);
-      window.visualViewport?.removeEventListener("scroll", update);
-    };
-  }, [open]);
 
   const selected = items.find((i) => i.id === value) ?? null;
   const filtered = useMemo(() => smartFilter(items, query, (i) => i.label), [items, query]);
@@ -75,7 +52,6 @@ export function SearchableSelect({
     const onClickOutside = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         setOpen(false);
-        inputRef.current?.blur();
       }
     };
     document.addEventListener("mousedown", onClickOutside);
@@ -178,28 +154,9 @@ export function SearchableSelect({
       </div>
 
       {open && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 999999,
-            background: "lime",
-            color: "black",
-            fontSize: 9,
-            lineHeight: 1.3,
-            padding: "2px 4px",
-            wordBreak: "break-all",
-          }}
-        >
-          {debugInfo}
-        </div>
-      )}
-      {open && (
         <ul
-          ref={ulRef}
           className="absolute z-30 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-lg md:max-h-[30rem] md:w-[200%]"
+          style={{ WebkitOverflowScrolling: "touch" }}
         >
           <li>
             <button
