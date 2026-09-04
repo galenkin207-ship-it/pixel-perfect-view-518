@@ -52,7 +52,6 @@ export function SearchableSelect({
     const onClickOutside = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         setOpen(false);
-        inputRef.current?.blur();
       }
     };
     document.addEventListener("mousedown", onClickOutside);
@@ -73,6 +72,7 @@ export function SearchableSelect({
           ref={inputRef}
           value={query}
           placeholder={allLabel}
+          autoComplete="nope"
           onFocus={(e) => {
             setOpen(true);
             e.target.select();
@@ -155,7 +155,10 @@ export function SearchableSelect({
       </div>
 
       {open && (
-        <ul className="absolute z-30 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-lg md:max-h-[30rem] md:w-[200%]">
+        <ul
+          className="absolute z-30 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-lg md:max-h-[30rem] md:w-[200%]"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
           <li>
             <button
               type="button"
