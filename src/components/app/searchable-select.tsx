@@ -130,6 +130,7 @@ export function SearchableSelect({
               if (open) {
                 setOpen(false);
               } else {
+                setOpen(true);
                 inputRef.current?.focus();
               }
             }}
@@ -139,6 +140,7 @@ export function SearchableSelect({
                 if (open) {
                   setOpen(false);
                 } else {
+                  setOpen(true);
                   inputRef.current?.focus();
                 }
               }

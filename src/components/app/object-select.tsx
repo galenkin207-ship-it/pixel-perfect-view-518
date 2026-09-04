@@ -119,6 +119,7 @@ export function ObjectSelect({
               if (open) {
                 setOpen(false);
               } else {
+                setOpen(true);
                 inputRef.current?.focus();
               }
             }}
@@ -128,6 +129,7 @@ export function ObjectSelect({
                 if (open) {
                   setOpen(false);
                 } else {
+                  setOpen(true);
                   inputRef.current?.focus();
                 }
               }
