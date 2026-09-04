@@ -72,7 +72,7 @@ export function SearchableSelect({
           ref={inputRef}
           value={query}
           placeholder={allLabel}
-          autoComplete="off"
+          autoComplete="nope"
           onFocus={(e) => {
             setOpen(true);
             e.target.select();
