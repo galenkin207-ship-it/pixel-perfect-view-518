@@ -38,11 +38,22 @@ export function recordTotal(items: WorkItem[]) {
   return items.reduce((s, i) => s + itemQty(i) * i.price, 0);
 }
 
+/** "Моя запись" — по id автора, если он известен, иначе по ФИО (см. canEditRecord). */
+export function isMyRecord(
+  currentUser: { id: string; full_name: string },
+  record: { created_by: string; created_by_user_id?: string },
+) {
+  return record.created_by_user_id != null
+    ? record.created_by_user_id === currentUser.id
+    : record.created_by === currentUser.full_name;
+}
+
 /** Кто может редактировать запись: свои — автор, любые — куратор и администратор. */
 export function canEditRecord(
   role: "user" | "curator" | "admin",
-  fullName: string,
-  record: { created_by: string },
+  currentUser: { id: string; full_name: string },
+  record: { created_by: string; created_by_user_id?: string },
 ) {
-  return role === "admin" || role === "curator" || record.created_by === fullName;
+  if (role === "admin" || role === "curator") return true;
+  return isMyRecord(currentUser, record);
 }

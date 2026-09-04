@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { itemQty } from "@/lib/record-utils";
+import { itemQty, isMyRecord } from "@/lib/record-utils";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/objects/$id")({
@@ -78,9 +78,7 @@ function ObjectRecordsPage() {
   // только свои записи, иначе — все. Иначе кнопка на этой странице и на
   // главной экране будет решать по-разному, есть ли у объекта записи, и
   // состояние "закреплён/скрыт" разъедется.
-  const hasRecords = isForeman
-    ? list.some((r) => r.created_by === currentUser.full_name)
-    : list.length > 0;
+  const hasRecords = isForeman ? list.some((r) => isMyRecord(currentUser, r)) : list.length > 0;
   const isPinned = pinnedObjectIds.includes(object.id);
   const isHidden = hiddenObjectIds.includes(object.id);
   // Показан ли объект сейчас на главном экране — та же логика, что и на

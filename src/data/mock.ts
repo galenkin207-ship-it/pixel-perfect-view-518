@@ -55,6 +55,10 @@ export type WorkRecord = {
   photos: string[];
   status: RecordStatus;
   created_by: string;
+  // id пользователя-автора — есть не у всех записей (например, у очень старых,
+  // созданных до появления этого поля на бэкенде); тогда владение определяется
+  // по created_by (ФИО) как раньше. См. canEditRecord в lib/record-utils.ts.
+  created_by_user_id?: string;
   updated_by?: string;
   updated_at?: string;
   started_at?: string;
@@ -65,6 +69,9 @@ export type WorkRecord = {
 export type RequestComment = {
   id: string;
   author: string;
+  // id автора сообщения — есть не у всех сообщений (старые, до появления
+  // этого поля на бэкенде); тогда владение определяется по author (ФИО).
+  author_user_id?: string;
   own: boolean;
   text: string;
   time: string;
@@ -80,6 +87,10 @@ export type RequestComment = {
 export type WorkRequest = {
   id: string;
   author: string;
+  // id автора заявки — есть не у всех заявок (старые, до появления этого
+  // поля на бэкенде, либо автор с тех пор был удалён); тогда владение
+  // определяется по author (ФИО) как раньше.
+  author_user_id?: string;
   requested_text: string;
   status: "pending" | "approved" | "rejected" | "deleted";
   resolved_name?: string;

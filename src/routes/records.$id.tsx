@@ -46,7 +46,7 @@ function EditRecordPage() {
   const { returnTo, returnSearch } = Route.useSearch();
   const { records, role, currentUser } = useApp();
   const record = records.find((r) => r.id === id);
-  const allowed = record ? canEditRecord(role, currentUser.full_name, record) : false;
+  const allowed = record ? canEditRecord(role, currentUser, record) : false;
 
   return (
     <AppShell>

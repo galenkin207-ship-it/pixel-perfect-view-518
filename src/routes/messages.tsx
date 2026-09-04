@@ -107,7 +107,13 @@ function MessagesPage() {
   // обратно после отправки (когда текст очищается программно, а не вводом).
   const commentRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
-  const visible = isForeman ? requests.filter((r) => r.author === currentUser.full_name) : requests;
+  const visible = isForeman
+    ? requests.filter((r) =>
+        r.author_user_id != null
+          ? r.author_user_id === currentUser.id
+          : r.author === currentUser.full_name,
+      )
+    : requests;
   const pending = visible.filter((r) => r.status === "pending");
   const history = visible.filter((r) => r.status !== "pending");
 
@@ -425,7 +431,10 @@ function MessagesPage() {
                 <>
                   <div className="mt-2 space-y-2">
                     {r.comments.map((c) => {
-                      const own = c.author === currentUser.full_name;
+                      const own =
+                        c.author_user_id != null
+                          ? c.author_user_id === currentUser.id
+                          : c.author === currentUser.full_name;
                       const isEditing = editingCommentId === c.id;
                       return (
                         <div

@@ -34,7 +34,7 @@ export function RecordDetail({
   const [deleting, setDeleting] = useState(false);
   const object = objects.find((o) => o.id === record.object_id);
   const isAdmin = role === "admin";
-  const canEdit = canEditRecord(role, currentUser.full_name, record);
+  const canEdit = canEditRecord(role, currentUser, record);
 
   const handleDelete = async () => {
     setDeleting(true);
