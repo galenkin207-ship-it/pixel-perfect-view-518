@@ -21,9 +21,17 @@ export function useViewportHeight() {
   useEffect(() => {
     const root = document.documentElement;
 
+    // Намеренно используем только window.innerHeight (layout viewport), а
+    // не visualViewport.height. Раньше здесь также стоял слушатель
+    // visualViewport resize — но это событие срабатывает и при открытии
+    // экранной клавиатуры, а не только при повороте экрана/ресайзе окна.
+    // Из-за этого контейнер приложения на миг "проседал" до уменьшенной
+    // клавиатурой высоты visualViewport, ещё до того как layout viewport
+    // успевал синхронизироваться — в этом кратком зазоре снизу на секунду
+    // проступал тёмный фон body (--shell). Клавиатуру отдельно обрабатывает
+    // use-keyboard-open.ts, это не задача этого хука.
     const setVh = () => {
-      const height = window.visualViewport?.height ?? window.innerHeight;
-      root.style.setProperty("--app-vh", `${height}px`);
+      root.style.setProperty("--app-vh", `${window.innerHeight}px`);
     };
 
     setVh();
@@ -38,12 +46,10 @@ export function useViewportHeight() {
 
     window.addEventListener("resize", setVh);
     window.addEventListener("orientationchange", onOrientationChange);
-    window.visualViewport?.addEventListener("resize", setVh);
 
     return () => {
       window.removeEventListener("resize", setVh);
       window.removeEventListener("orientationchange", onOrientationChange);
-      window.visualViewport?.removeEventListener("resize", setVh);
     };
   }, []);
 }
