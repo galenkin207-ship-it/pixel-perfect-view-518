@@ -114,6 +114,7 @@ export function ObjectSelect({
             role="button"
             tabIndex={0}
             aria-label={open ? "Свернуть список" : "Развернуть список"}
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
               if (open) {
                 setOpen(false);
