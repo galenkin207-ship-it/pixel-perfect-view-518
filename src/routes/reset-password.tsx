@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 import { api, ApiError } from "@/lib/api-client";
@@ -17,8 +18,17 @@ export const Route = createFileRoute("/reset-password")({
 
 function ResetPasswordPage() {
   const { token } = Route.useSearch();
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
+  // Намеренно НЕконтролируемые поля (через ref, а не useState+value+onChange).
+  // Когда браузер сам предлагает сгенерированный пароль ("Suggest Strong
+  // Password" в Chrome/Safari) и подставляет его, это не всегда доходит до
+  // React как событие onChange — из-за этого поле визуально пустело или не
+  // совпадало с тем, что реально уйдёт на сервер. Читаем значения напрямую
+  // из DOM в момент отправки — так подставленный браузером пароль всегда
+  // подхватывается, откуда бы он ни взялся.
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -39,6 +49,8 @@ function ResetPasswordPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const password = passwordRef.current?.value ?? "";
+    const confirm = confirmRef.current?.value ?? "";
     if (password.length < 6) {
       toast.error("Пароль должен быть не короче 6 символов");
       return;
@@ -87,25 +99,43 @@ function ResetPasswordPage() {
           <form onSubmit={submit} className="mt-6 rounded-2xl bg-card p-5">
             <label className="block">
               <span className="label-caps">Новый пароль</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="new-password"
-                className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
-                placeholder="Минимум 6 символов"
-              />
+              <div className="relative mt-1">
+                <input
+                  ref={passwordRef}
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  className="w-full rounded-xl border border-border bg-surface px-3 py-2.5 pr-10 text-sm"
+                  placeholder="Минимум 6 символов"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/80"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </label>
             <label className="mt-3 block">
               <span className="label-caps">Повторите пароль</span>
-              <input
-                type="password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                autoComplete="new-password"
-                className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
-                placeholder="Ещё раз"
-              />
+              <div className="relative mt-1">
+                <input
+                  ref={confirmRef}
+                  type={showConfirm ? "text" : "password"}
+                  autoComplete="new-password"
+                  className="w-full rounded-xl border border-border bg-surface px-3 py-2.5 pr-10 text-sm"
+                  placeholder="Ещё раз"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm((v) => !v)}
+                  aria-label={showConfirm ? "Скрыть пароль" : "Показать пароль"}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/80"
+                >
+                  {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </label>
             <button
               type="submit"

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 import { useApp } from "@/state/use-app";
@@ -24,6 +25,7 @@ function LoginPage() {
   const { login } = useApp();
   const [loginValue, setLoginValue] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
 
@@ -64,14 +66,24 @@ function LoginPage() {
           </label>
           <label className="mt-3 block">
             <span className="label-caps">Пароль</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm"
-              placeholder="••••••"
-            />
+            <div className="relative mt-1">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                className="w-full rounded-xl border border-border bg-surface px-3 py-2.5 pr-10 text-sm"
+                placeholder="••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/80"
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
           </label>
           <button
             type="submit"
@@ -85,7 +97,7 @@ function LoginPage() {
             onClick={() => setForgotOpen((v) => !v)}
             className="mt-3 w-full text-center text-xs text-white/50 underline-offset-2 hover:underline"
           >
-            Забыли пароль?
+            Забыли логин или пароль?
           </button>
         </form>
 
@@ -124,8 +136,8 @@ function ForgotPasswordCard({ onClose }: { onClose: () => void }) {
       {sent ? (
         <>
           <p className="text-sm text-white/80">
-            Если такой email зарегистрирован в системе, на него отправлено письмо со ссылкой для
-            установки нового пароля. Ссылка действует 1 час.
+            Если такой email зарегистрирован в системе, на него отправлено письмо с логином и
+            ссылкой для установки нового пароля. Ссылка действует 1 час.
           </p>
           <button
             type="button"
@@ -149,7 +161,8 @@ function ForgotPasswordCard({ onClose }: { onClose: () => void }) {
             />
           </label>
           <p className="mt-2 text-xs text-white/50">
-            Если email не привязан или письмо не пришло — обратитесь к администратору.
+            Пришлём логин и ссылку для установки нового пароля. Если email не привязан или письмо
+            не пришло — обратитесь к администратору.
           </p>
           <div className="mt-3 flex gap-2">
             <button
@@ -157,7 +170,7 @@ function ForgotPasswordCard({ onClose }: { onClose: () => void }) {
               disabled={sending}
               className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
             >
-              {sending ? "Отправляем..." : "Отправить ссылку"}
+              {sending ? "Отправляем..." : "Отправить"}
             </button>
             <button
               type="button"
