@@ -44,6 +44,11 @@ const PHOTO_MAX_RAW_SIZE_BYTES = 30 * 1024 * 1024;
 // при accept="image/*"), сервер молча пропускал его (continue) без единого
 // сообщения пользователю — отсюда "не все фото присутствуют".
 const PHOTO_ALLOWED_EXT = /\.(jpe?g|png|webp|heic|heif)$/i;
+// ВАЖНО: должно совпадать с PHOTO_MAX_PER_RECORD на бэкенде
+// (uchet-backend/src/routes/records.js). Проверяем и на клиенте, чтобы
+// мастер узнавал о лимите сразу при выборе фото, а не только после неудачной
+// попытки автосохранения записи с уже выбранными снимками.
+const PHOTO_MAX_PER_RECORD = 30;
 
 async function compressImage(file: File): Promise<File> {
   try {
@@ -500,6 +505,21 @@ export function RecordForm({
       );
     }
     if (toProcess.length === 0) return;
+
+    // Тот же лимит, что и на бэкенде — сообщаем сразу, а не после неудачного
+    // автосохранения записи с уже выбранными фото.
+    const currentCount = photos.length + pendingFiles.length;
+    const roomLeft = PHOTO_MAX_PER_RECORD - currentCount;
+    if (roomLeft <= 0) {
+      toast.error(`Достигнут лимит ${PHOTO_MAX_PER_RECORD} фото на запись`);
+      return;
+    }
+    if (toProcess.length > roomLeft) {
+      toast.error(
+        `Можно добавить ещё максимум ${roomLeft} фото (лимит ${PHOTO_MAX_PER_RECORD} на запись) — добавлены первые ${roomLeft}`,
+      );
+      toProcess.length = roomLeft;
+    }
 
     setCompressingPhotos(true);
     const task = (async () => {
