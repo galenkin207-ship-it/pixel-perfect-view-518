@@ -801,14 +801,14 @@ export const api = {
     await request<{ deleted: number }>(`/records/${recordId}`, { method: "DELETE" });
   },
 
-  async uploadPhotos(recordId: string, files: File[]): Promise<string[]> {
+  async uploadPhotos(recordId: string, files: File[]): Promise<{ photos: string[]; skipped: string[] }> {
     const form = new FormData();
     for (const f of files) form.append("photos", f);
-    const result = await request<{ photos: string[] }>(`/records/${recordId}/photos`, {
-      method: "POST",
-      body: form,
-    });
-    return result.photos.map(photoUrl);
+    const result = await request<{ photos: string[]; skipped?: string[] }>(
+      `/records/${recordId}/photos`,
+      { method: "POST", body: form },
+    );
+    return { photos: result.photos.map(photoUrl), skipped: result.skipped ?? [] };
   },
 
   async deletePhoto(recordId: string, photoUrlToDelete: string): Promise<void> {
