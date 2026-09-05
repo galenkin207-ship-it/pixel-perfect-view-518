@@ -79,7 +79,7 @@ function LoginPage() {
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/80"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>
@@ -95,7 +95,7 @@ function LoginPage() {
           <button
             type="button"
             onClick={() => setForgotOpen((v) => !v)}
-            className="mt-3 w-full text-center text-xs text-white/50 underline-offset-2 hover:underline"
+            className="mt-3 w-full text-center text-xs text-muted-foreground underline-offset-2 hover:underline hover:text-foreground"
           >
             Забыли логин или пароль?
           </button>
@@ -135,14 +135,14 @@ function ForgotPasswordCard({ onClose }: { onClose: () => void }) {
     <div className="mt-3 rounded-2xl bg-card p-5">
       {sent ? (
         <>
-          <p className="text-sm text-white/80">
+          <p className="text-sm text-foreground">
             Если такой email зарегистрирован в системе, на него отправлено письмо с логином и
             ссылкой для установки нового пароля. Ссылка действует 1 час.
           </p>
           <button
             type="button"
             onClick={onClose}
-            className="mt-3 text-xs text-white/50 underline-offset-2 hover:underline"
+            className="mt-3 text-xs text-muted-foreground underline-offset-2 hover:underline hover:text-foreground"
           >
             Закрыть
           </button>
@@ -160,7 +160,7 @@ function ForgotPasswordCard({ onClose }: { onClose: () => void }) {
               placeholder="you@example.com"
             />
           </label>
-          <p className="mt-2 text-xs text-white/50">
+          <p className="mt-2 text-xs text-muted-foreground">
             Пришлём логин и ссылку для установки нового пароля. Если email не привязан или письмо
             не пришло — обратитесь к администратору.
           </p>
@@ -175,7 +175,7 @@ function ForgotPasswordCard({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-border px-4 py-2.5 text-sm text-white/70"
+              className="rounded-xl border border-border px-4 py-2.5 text-sm text-foreground"
             >
               Отмена
             </button>

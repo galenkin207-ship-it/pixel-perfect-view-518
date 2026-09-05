@@ -36,7 +36,7 @@ function ResetPasswordPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-shell px-5 py-10">
         <div className="w-full max-w-sm rounded-2xl bg-card p-5 text-center">
-          <p className="text-sm text-white/80">
+          <p className="text-sm text-foreground">
             Ссылка неполная или повреждена — в ней нет кода восстановления.
           </p>
           <Link to="/login" className="mt-4 inline-block text-sm text-primary underline">
@@ -85,7 +85,7 @@ function ResetPasswordPage() {
 
         {done ? (
           <div className="mt-6 rounded-2xl bg-card p-5">
-            <p className="text-sm text-white/80">
+            <p className="text-sm text-foreground">
               Пароль успешно обновлён. Теперь можно войти с новым паролем.
             </p>
             <Link
@@ -111,7 +111,7 @@ function ResetPasswordPage() {
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/80"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
@@ -131,7 +131,7 @@ function ResetPasswordPage() {
                   type="button"
                   onClick={() => setShowConfirm((v) => !v)}
                   aria-label={showConfirm ? "Скрыть пароль" : "Показать пароль"}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/80"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
