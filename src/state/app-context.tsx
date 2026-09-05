@@ -23,6 +23,14 @@ const EMPTY_USER: AppUser = { id: "", login: "", password: "", full_name: "", ro
 export function AppProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Эти страницы работают без сессии в принципе — держать их за общим
+  // экраном-заставкой ниже (пока идёт /api/me) не нужно, а на медленной сети
+  // ещё и вредно: пока пользователь заполняет форму (например, подтверждает
+  // предложенный браузером пароль на /reset-password), фоновая проверка может
+  // завершиться и пересоздать всё дерево компонентов заново — введённое
+  // значение в несохранённом (uncontrolled) поле теряется вместе со старыми
+  // DOM-узлами.
+  const isPublicAuthPage = pathname === "/login" || pathname === "/reset-password";
 
   const [themeMode, setThemeMode] = useState<ThemeMode>("system");
   const [systemTheme, setSystemTheme] = useState<"light" | "dark">("light");
@@ -376,14 +384,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // сессии, это и есть весь смысл восстановления).
   useEffect(() => {
     if (!authChecked) return;
-    const isPublicAuthPage = pathname === "/login" || pathname === "/reset-password";
     if (!sessionUser && !isPublicAuthPage) {
       void navigate({ to: "/login" });
     }
     if (sessionUser && pathname === "/login") {
       void navigate({ to: "/" });
     }
-  }, [authChecked, sessionUser, pathname, navigate]);
+  }, [authChecked, sessionUser, pathname, isPublicAuthPage, navigate]);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -1041,8 +1048,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // Пока не выяснили статус сессии — показываем заставку вместо мигания
-  // защищённым контентом или преждевременного редиректа.
-  if (!authChecked || (sessionUser && !dataLoaded)) {
+  // защищённым контентом или преждевременного редиректа. Кроме публичных
+  // страниц входа/сброса пароля: им сессия не нужна, а держать их за
+  // заставкой рискованно — см. комментарий у isPublicAuthPage выше.
+  if (!isPublicAuthPage && (!authChecked || (sessionUser && !dataLoaded))) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-shell">
         <div className="flex flex-col items-center gap-4 animate-in fade-in zoom-in-95 duration-500">
