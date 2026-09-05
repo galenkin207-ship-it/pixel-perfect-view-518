@@ -102,6 +102,8 @@ function ResetPasswordPage() {
               <div className="relative mt-1">
                 <input
                   ref={passwordRef}
+                  id="new-password"
+                  name="new-password"
                   type={showPassword ? "text" : "password"}
                   autoComplete="new-password"
                   className="w-full rounded-xl border border-border bg-surface px-3 py-2.5 pr-10 text-sm"
@@ -122,6 +124,8 @@ function ResetPasswordPage() {
               <div className="relative mt-1">
                 <input
                   ref={confirmRef}
+                  id="confirm-password"
+                  name="confirm-password"
                   type={showConfirm ? "text" : "password"}
                   autoComplete="new-password"
                   className="w-full rounded-xl border border-border bg-surface px-3 py-2.5 pr-10 text-sm"
