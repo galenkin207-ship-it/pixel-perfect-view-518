@@ -31,7 +31,7 @@ class ApiError extends Error {
 // опроса каждые 8 секунд без единой подсказки, что происходит.
 export const SESSION_EXPIRED_EVENT = "uchet:session-expired";
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, attempt = 0): Promise<T> {
   const isFormData = init?.body instanceof FormData;
   const res = await fetch(`${BASE}${path}`, {
     credentials: "include",
@@ -41,6 +41,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       : { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
   if (!res.ok) {
+    // 503 от бэкенда значит "БД на секунду недоступна" (см. attachUser в
+    // uchet-backend/src/auth.js) — НЕ то же самое, что истёкшая сессия.
+    // Обычно это долей секунды сразу после рестарта бэкенда при деплое.
+    // Даём один быстрый повтор вместо того, чтобы сразу показывать ошибку
+    // или (что было раньше при 401 в этом случае) разлогинивать пользователя
+    // с абсолютно рабочей сессией.
+    if (res.status === 503 && attempt === 0) {
+      await new Promise((r) => setTimeout(r, 800));
+      return request<T>(path, init, attempt + 1);
+    }
     let message = `HTTP ${res.status}`;
     try {
       const body = await res.json();
