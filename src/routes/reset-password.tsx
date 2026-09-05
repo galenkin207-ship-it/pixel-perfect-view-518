@@ -32,6 +32,21 @@ function ResetPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
+  // type тоже переключаем НАПРЯМУЮ через ref, а не через JSX-выражение вида
+  // type={showPassword ? "text" : "password"}. Если type — вычисляемый
+  // React-пропс, он переприменяется при ЛЮБОМ ре-рендере компонента (даже
+  // не связанном с этой кнопкой — например, из-за фоновой проверки сессии
+  // где-то в дереве выше). Судя по всему, Chrome в качестве защиты сбрасывает
+  // именно свой сгенерированный пароль, если страница программно трогает
+  // атрибут type у поля в момент/после подтверждения — сторонние менеджеры
+  // паролей под эту защиту не попадают, потому и работают нормально.
+  const toggleVisibility = (ref: React.RefObject<HTMLInputElement | null>, setShow: (fn: (v: boolean) => boolean) => void) => {
+    if (ref.current) {
+      ref.current.type = ref.current.type === "password" ? "text" : "password";
+    }
+    setShow((v) => !v);
+  };
+
   if (!token) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-shell px-5 py-10">
@@ -100,45 +115,45 @@ function ResetPasswordPage() {
             <label className="block">
               <span className="label-caps">Новый пароль</span>
               <div className="relative mt-1">
+                <button
+                  type="button"
+                  onClick={() => toggleVisibility(passwordRef, setShowPassword)}
+                  aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
                 <input
                   ref={passwordRef}
                   id="new-password"
                   name="new-password"
-                  type={showPassword ? "text" : "password"}
+                  type="password"
                   autoComplete="new-password"
-                  className="w-full rounded-xl border border-border bg-surface px-3 py-2.5 pr-10 text-sm"
+                  className="w-full rounded-xl border border-border bg-surface py-2.5 pr-3 pl-9 text-sm"
                   placeholder="Минимум 6 символов"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
               </div>
             </label>
             <label className="mt-3 block">
               <span className="label-caps">Повторите пароль</span>
               <div className="relative mt-1">
+                <button
+                  type="button"
+                  onClick={() => toggleVisibility(confirmRef, setShowConfirm)}
+                  aria-label={showConfirm ? "Скрыть пароль" : "Показать пароль"}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
                 <input
                   ref={confirmRef}
                   id="confirm-password"
                   name="confirm-password"
-                  type={showConfirm ? "text" : "password"}
+                  type="password"
                   autoComplete="new-password"
-                  className="w-full rounded-xl border border-border bg-surface px-3 py-2.5 pr-10 text-sm"
+                  className="w-full rounded-xl border border-border bg-surface py-2.5 pr-3 pl-9 text-sm"
                   placeholder="Ещё раз"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm((v) => !v)}
-                  aria-label={showConfirm ? "Скрыть пароль" : "Показать пароль"}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
               </div>
             </label>
             <button
