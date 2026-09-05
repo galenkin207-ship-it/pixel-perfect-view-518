@@ -1045,7 +1045,7 @@ function ReportsPage() {
               <button
                 type="button"
                 onClick={() => setStatsOpen((v) => !v)}
-                className="shrink-0 text-sm font-semibold text-primary"
+                className="shrink-0 text-sm font-semibold text-primary cursor-pointer hover:underline"
               >
                 {statsOpen ? "Свернуть статистику" : "Показать статистику"}
               </button>
