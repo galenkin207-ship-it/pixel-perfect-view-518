@@ -22,8 +22,14 @@ export function EmployeeSelect({
     [all, query],
   );
 
-  const toggle = (name: string) =>
-    onChange(value.includes(name) ? value.filter((v) => v !== name) : [...value, name]);
+  const toggle = (name: string) => {
+    if (value.includes(name)) {
+      onChange(value.filter((v) => v !== name));
+    } else {
+      onChange([...value, name]);
+      setQuery("");
+    }
+  };
 
   return (
     <div className="relative">
@@ -62,14 +68,6 @@ export function EmployeeSelect({
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                // Backspace на пустом поле поиска убирает последнего
-                // добавленного сотрудника — удобно на телефоне, не нужно
-                // точно попадать по крестику на маленьком чипе.
-                if (e.key === "Backspace" && query === "" && value.length > 0) {
-                  onChange(value.slice(0, -1));
-                }
-              }}
               placeholder="Поиск сотрудника..."
               className="w-full bg-transparent py-3 pr-3 pl-9 text-sm outline-none"
             />
