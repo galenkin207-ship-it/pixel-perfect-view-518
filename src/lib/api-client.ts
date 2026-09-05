@@ -196,6 +196,21 @@ export const api = {
       "/me",
     );
   },
+  // Всегда успешный ответ независимо от того, найден email в базе или нет —
+  // это осознанно на бэкенде (см. uchet-backend/src/routes/auth.js), чтобы
+  // нельзя было перебором проверять чужие email на регистрацию в системе.
+  async forgotPassword(email: string): Promise<{ ok: true; message: string }> {
+    return request<{ ok: true; message: string }>("/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+  async resetPassword(token: string, password: string): Promise<{ ok: true }> {
+    return request<{ ok: true }>("/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    });
+  },
 
   async listObjects(): Promise<WorkObject[]> {
     const rows = await request<
@@ -480,6 +495,7 @@ export const api = {
         role: Role;
         active: boolean;
         is_submitter?: boolean;
+        email?: string | null;
       }[]
     >("/users");
     return rows.map((u) => ({
@@ -490,6 +506,7 @@ export const api = {
       role: u.role,
       active: u.active,
       is_submitter: u.is_submitter ?? false,
+      email: u.email ?? null,
     }));
   },
 
@@ -501,6 +518,7 @@ export const api = {
     full_name: string;
     role: Role;
     is_submitter?: boolean;
+    email?: string;
   }): Promise<AppUser> {
     const row = await request<{
       id: number;
@@ -508,6 +526,7 @@ export const api = {
       full_name: string;
       role: Role;
       is_submitter?: boolean;
+      email?: string | null;
     }>("/users", {
       method: "POST",
       body: JSON.stringify(input),
@@ -520,6 +539,7 @@ export const api = {
       role: row.role,
       active: true,
       is_submitter: row.is_submitter ?? false,
+      email: row.email ?? null,
     };
   },
 
@@ -531,6 +551,7 @@ export const api = {
       active?: boolean;
       password?: string;
       is_submitter?: boolean;
+      email?: string;
     },
   ): Promise<AppUser> {
     const row = await request<{
@@ -540,6 +561,7 @@ export const api = {
       role: Role;
       active: boolean;
       is_submitter?: boolean;
+      email?: string | null;
     }>(`/users/${id}`, { method: "PUT", body: JSON.stringify(input) });
     return {
       id: String(row.id),
@@ -549,6 +571,7 @@ export const api = {
       role: row.role,
       active: row.active,
       is_submitter: row.is_submitter ?? false,
+      email: row.email ?? null,
     };
   },
 

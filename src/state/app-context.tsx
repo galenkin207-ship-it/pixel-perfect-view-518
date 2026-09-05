@@ -371,10 +371,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     navigate,
   ]);
 
-  // Редирект неавторизованных на /login (кроме самой страницы логина).
+  // Редирект неавторизованных на /login (кроме самой страницы логина и
+  // страницы сброса пароля по ссылке из письма — туда переходят как раз без
+  // сессии, это и есть весь смысл восстановления).
   useEffect(() => {
     if (!authChecked) return;
-    if (!sessionUser && pathname !== "/login") {
+    const isPublicAuthPage = pathname === "/login" || pathname === "/reset-password";
+    if (!sessionUser && !isPublicAuthPage) {
       void navigate({ to: "/login" });
     }
     if (sessionUser && pathname === "/login") {
@@ -649,6 +652,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     full_name: string;
     role: Role;
     is_submitter?: boolean;
+    email?: string;
   }): Promise<AppUser> => {
     try {
       const created = await api.createUser(input);
@@ -673,6 +677,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       active?: boolean;
       password?: string;
       is_submitter?: boolean;
+      email?: string;
     },
   ): Promise<AppUser> => {
     try {

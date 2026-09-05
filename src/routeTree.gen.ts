@@ -11,9 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuditLogRouteImport } from './routes/audit-log'
+import { Route as BrigadesRouteImport } from './routes/brigades'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as WorkTypesRouteImport } from './routes/work-types'
 import { Route as ObjectsIdRouteImport } from './routes/objects.$id'
 import { Route as ObjectsArchiveRouteImport } from './routes/objects.archive'
@@ -35,6 +37,11 @@ const AuditLogRoute = AuditLogRouteImport.update({
   path: '/audit-log',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BrigadesRoute = BrigadesRouteImport.update({
+  id: '/brigades',
+  path: '/brigades',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -48,6 +55,11 @@ const MessagesRoute = MessagesRouteImport.update({
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WorkTypesRoute = WorkTypesRouteImport.update({
@@ -104,9 +116,11 @@ const ProfileManageSectionRoute = ProfileManageSectionRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audit-log': typeof AuditLogRoute
+  '/brigades': typeof BrigadesRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/notifications': typeof NotificationsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/work-types': typeof WorkTypesRoute
   '/objects/$id': typeof ObjectsIdRoute
   '/objects/archive': typeof ObjectsArchiveRoute
@@ -121,9 +135,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audit-log': typeof AuditLogRoute
+  '/brigades': typeof BrigadesRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/notifications': typeof NotificationsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/work-types': typeof WorkTypesRoute
   '/objects/$id': typeof ObjectsIdRoute
   '/objects/archive': typeof ObjectsArchiveRoute
@@ -139,9 +155,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/audit-log': typeof AuditLogRoute
+  '/brigades': typeof BrigadesRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/notifications': typeof NotificationsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/work-types': typeof WorkTypesRoute
   '/objects/$id': typeof ObjectsIdRoute
   '/objects/archive': typeof ObjectsArchiveRoute
@@ -158,9 +176,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/audit-log'
+    | '/brigades'
     | '/login'
     | '/messages'
     | '/notifications'
+    | '/reset-password'
     | '/work-types'
     | '/objects/$id'
     | '/objects/archive'
@@ -175,9 +195,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/audit-log'
+    | '/brigades'
     | '/login'
     | '/messages'
     | '/notifications'
+    | '/reset-password'
     | '/work-types'
     | '/objects/$id'
     | '/objects/archive'
@@ -192,9 +214,11 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/audit-log'
+    | '/brigades'
     | '/login'
     | '/messages'
     | '/notifications'
+    | '/reset-password'
     | '/work-types'
     | '/objects/$id'
     | '/objects/archive'
@@ -210,9 +234,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuditLogRoute: typeof AuditLogRoute
+  BrigadesRoute: typeof BrigadesRoute
   LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRoute
   NotificationsRoute: typeof NotificationsRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   WorkTypesRoute: typeof WorkTypesRoute
   ObjectsIdRoute: typeof ObjectsIdRoute
   ObjectsArchiveRoute: typeof ObjectsArchiveRoute
@@ -241,6 +267,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuditLogRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/brigades': {
+      id: '/brigades'
+      path: '/brigades'
+      fullPath: '/brigades'
+      preLoaderRoute: typeof BrigadesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -260,6 +293,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/work-types': {
@@ -338,9 +378,11 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuditLogRoute: AuditLogRoute,
+  BrigadesRoute: BrigadesRoute,
   LoginRoute: LoginRoute,
   MessagesRoute: MessagesRoute,
   NotificationsRoute: NotificationsRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   WorkTypesRoute: WorkTypesRoute,
   ObjectsIdRoute: ObjectsIdRoute,
   ObjectsArchiveRoute: ObjectsArchiveRoute,
