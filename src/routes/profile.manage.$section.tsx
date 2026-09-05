@@ -1579,6 +1579,7 @@ function UsersSection() {
     login: "",
     password: "",
     full_name: "",
+    email: "",
     role: "user" as Role,
     is_submitter: false,
   });
@@ -1586,6 +1587,7 @@ function UsersSection() {
   const [editId, setEditId] = useState("");
   const [draft, setDraft] = useState({
     full_name: "",
+    email: "",
     role: "user" as Role,
     newPassword: "",
     is_submitter: false,
@@ -1612,7 +1614,7 @@ function UsersSection() {
   return (
     <div className="space-y-4">
       <Card title="Добавить пользователя">
-        <div className="grid gap-3 md:grid-cols-[1fr_1.2fr_1.4fr_1fr_auto] md:items-end">
+        <div className="grid gap-3 md:grid-cols-[1fr_1.2fr_1.4fr_1.6fr_1fr_auto] md:items-end">
           <label className="block">
             <span className="label-caps">Логин</span>
             <input
@@ -1664,6 +1666,16 @@ function UsersSection() {
             />
           </label>
           <label className="block">
+            <span className="label-caps">Email (для восстановления пароля)</span>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              className={cn(input, "mt-1")}
+              placeholder="необязательно"
+            />
+          </label>
+          <label className="block">
             <span className="label-caps">Роль</span>
             <select
               value={form.role}
@@ -1701,11 +1713,13 @@ function UsersSection() {
                   full_name: form.full_name.trim(),
                   role: form.role,
                   is_submitter: form.is_submitter,
+                  ...(form.email.trim() ? { email: form.email.trim() } : {}),
                 });
                 setForm({
                   login: "",
                   password: "",
                   full_name: "",
+                  email: "",
                   role: "user",
                   is_submitter: false,
                 });
@@ -1749,7 +1763,10 @@ function UsersSection() {
                       </span>
                     )}
                   </p>
-                  <p className="text-xs text-muted-foreground">{roleLabels[u.role]}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {roleLabels[u.role]}
+                    {u.email ? ` · ${u.email}` : ""}
+                  </p>
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <button
@@ -1759,6 +1776,7 @@ function UsersSection() {
                       setEditId((e) => (e === u.id ? "" : u.id));
                       setDraft({
                         full_name: u.full_name,
+                        email: u.email ?? "",
                         role: u.role,
                         newPassword: "",
                         is_submitter: u.is_submitter ?? false,
@@ -1792,13 +1810,23 @@ function UsersSection() {
 
               {editId === u.id && (
                 <div className="mt-3 space-y-3 rounded-xl bg-card p-3">
-                  <div className="grid gap-3 md:grid-cols-[1.4fr_1fr_auto]">
+                  <div className="grid gap-3 md:grid-cols-[1.4fr_1.4fr_1fr_auto]">
                     <label className="block">
                       <span className="label-caps">ФИО</span>
                       <input
                         value={draft.full_name}
                         onChange={(e) => setDraft((d) => ({ ...d, full_name: e.target.value }))}
                         className={cn(input, "mt-1")}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="label-caps">Email (для восстановления пароля)</span>
+                      <input
+                        type="email"
+                        value={draft.email}
+                        onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))}
+                        className={cn(input, "mt-1")}
+                        placeholder="необязательно"
                       />
                     </label>
                     <label className="block">
@@ -1872,6 +1900,7 @@ function UsersSection() {
                           full_name: draft.full_name.trim(),
                           role: draft.role,
                           is_submitter: draft.is_submitter,
+                          email: draft.email.trim(),
                           ...(newPassword ? { password: newPassword } : {}),
                         });
                         toast.success(
