@@ -30,9 +30,25 @@ function toIso(ru?: string) {
 const PHOTO_TARGET_SIZE_BYTES = 450 * 1024; // ~450 КБ
 const PHOTO_MAX_DIMENSION = 1600;
 const PHOTO_MIN_QUALITY = 0.4;
-// Совсем огромные/битые файлы даже не пытаемся декодировать в браузере —
-// сразу отклоняем (страховка, совпадает по духу с лимитом на бэкенде).
+// ВАЖНО: должно совпадать с PHOTO_MAX_FILE_SIZE_BYTES на бэкенде
+// (uchet-backend/src/routes/records.js, multer limits.fileSize). Раньше тут
+// стояло 30 МБ, а на бэкенде — 15 МБ: несжимаемый HEIC (см. compressImage
+// ниже — HEIC не проходит через canvas и уходит на сервер как есть) с
+// современного телефона проходил эту проверку, но падал на сервере с
+// невнятной ошибкой, и заодно валил весь пакет фото в том же запросе,
+// включая остальные нормальные снимки.
 const PHOTO_MAX_RAW_SIZE_BYTES = 30 * 1024 * 1024;
+// Должно совпадать с ALLOWED_EXT на бэкенде. Раньше клиент вообще не
+// проверял тип файла — если из галереи прилетало что-то не-изображение
+// (видео, live-photo и т.п., бывает на некоторых прошивках Android даже
+// при accept="image/*"), сервер молча пропускал его (continue) без единого
+// сообщения пользователю — отсюда "не все фото присутствуют".
+const PHOTO_ALLOWED_EXT = /\.(jpe?g|png|webp|heic|heif)$/i;
+// ВАЖНО: должно совпадать с PHOTO_MAX_PER_RECORD на бэкенде
+// (uchet-backend/src/routes/records.js). Проверяем и на клиенте, чтобы
+// мастер узнавал о лимите сразу при выборе фото, а не только после неудачной
+// попытки автосохранения записи с уже выбранными снимками.
+const PHOTO_MAX_PER_RECORD = 30;
 
 async function compressImage(file: File): Promise<File> {
   try {
@@ -262,7 +278,7 @@ export function RecordForm({
       if (filesToUpload.length > 0) {
         try {
           const uploaded = await api.uploadPhotos(saved.id, filesToUpload);
-          commitUploadedPhotos(saved.id, filesToUpload, uploaded);
+          commitUploadedPhotos(saved.id, filesToUpload, uploaded.photos, uploaded.skipped);
         } catch (photoErr) {
           console.error("Автосохранение: не удалось загрузить фото:", photoErr);
           const detail = photoErr instanceof Error ? photoErr.message : String(photoErr);
@@ -389,7 +405,7 @@ export function RecordForm({
       if (pendingFiles.length > 0) {
         try {
           const uploaded = await api.uploadPhotos(saved.id, pendingFiles);
-          commitUploadedPhotos(saved.id, pendingFiles, uploaded);
+          commitUploadedPhotos(saved.id, pendingFiles, uploaded.photos, uploaded.skipped);
         } catch (photoErr) {
           console.error("Не удалось загрузить фото:", photoErr);
           const detail = photoErr instanceof Error ? photoErr.message : String(photoErr);
@@ -465,20 +481,45 @@ export function RecordForm({
     lastAddSignatureRef.current = signature;
     lastAddTimeRef.current = now;
 
-    const rejected: string[] = [];
+    const tooLarge: string[] = [];
+    const unsupported: string[] = [];
     const toProcess: File[] = [];
     for (const f of arr) {
-      if (f.size > PHOTO_MAX_RAW_SIZE_BYTES) rejected.push(f.name);
+      if (f.size > PHOTO_MAX_RAW_SIZE_BYTES) tooLarge.push(f.name);
+      else if (!PHOTO_ALLOWED_EXT.test(f.name)) unsupported.push(f.name);
       else toProcess.push(f);
     }
-    if (rejected.length > 0) {
+    if (tooLarge.length > 0) {
+      const mb = Math.round(PHOTO_MAX_RAW_SIZE_BYTES / (1024 * 1024));
       toast.error(
-        rejected.length === 1
-          ? `Файл «${rejected[0]}» повреждён или слишком большой`
-          : `Некоторые файлы повреждены или слишком большие: ${rejected.join(", ")}`,
+        tooLarge.length === 1
+          ? `Файл «${tooLarge[0]}» слишком большой (максимум ${mb} МБ)`
+          : `Слишком большие файлы (максимум ${mb} МБ): ${tooLarge.join(", ")}`,
+      );
+    }
+    if (unsupported.length > 0) {
+      toast.error(
+        unsupported.length === 1
+          ? `Файл «${unsupported[0]}» не поддерживается (нужен JPG, PNG, WEBP или HEIC)`
+          : `Не поддерживаются (нужен JPG, PNG, WEBP или HEIC): ${unsupported.join(", ")}`,
       );
     }
     if (toProcess.length === 0) return;
+
+    // Тот же лимит, что и на бэкенде — сообщаем сразу, а не после неудачного
+    // автосохранения записи с уже выбранными фото.
+    const currentCount = photos.length + pendingFiles.length;
+    const roomLeft = PHOTO_MAX_PER_RECORD - currentCount;
+    if (roomLeft <= 0) {
+      toast.error(`Достигнут лимит ${PHOTO_MAX_PER_RECORD} фото на запись`);
+      return;
+    }
+    if (toProcess.length > roomLeft) {
+      toast.error(
+        `Можно добавить ещё максимум ${roomLeft} фото (лимит ${PHOTO_MAX_PER_RECORD} на запись) — добавлены первые ${roomLeft}`,
+      );
+      toProcess.length = roomLeft;
+    }
 
     setCompressingPhotos(true);
     const task = (async () => {
@@ -549,6 +590,7 @@ export function RecordForm({
     recordId: string,
     uploadedFiles: File[],
     fullPhotosList: string[],
+    skippedNames: string[] = [],
   ) => {
     setPhotos(fullPhotosList);
     setRecordPhotos(recordId, fullPhotosList);
@@ -557,7 +599,11 @@ export function RecordForm({
       const next: File[] = [];
       removedIndices = [];
       prevFiles.forEach((f, i) => {
-        if (uploadedFiles.includes(f)) removedIndices.push(i);
+        // Файлы, которые сервер пропустил (неподдерживаемый формат или не
+        // удалось сохранить), оставляем среди pendingFiles — иначе они
+        // молча пропадали бы и из "ещё не отправлено", и из "уже
+        // загружено", хотя пользователь их так и не увидел бы в записи.
+        if (uploadedFiles.includes(f) && !skippedNames.includes(f.name)) removedIndices.push(i);
         else next.push(f);
       });
       return next;
@@ -570,6 +616,13 @@ export function RecordForm({
       });
       return next;
     });
+    if (skippedNames.length > 0) {
+      toast.error(
+        skippedNames.length === 1
+          ? `Файл «${skippedNames[0]}» не удалось загрузить — попробуйте другой формат (JPG/PNG/HEIC)`
+          : `Не удалось загрузить: ${skippedNames.join(", ")} — попробуйте другой формат (JPG/PNG/HEIC)`,
+      );
+    }
   };
 
   return (
