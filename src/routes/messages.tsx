@@ -721,6 +721,16 @@ function MessagesPage() {
               ? "inset-0 left-0 top-0 h-full max-h-full w-full max-w-full translate-x-0 translate-y-0 rounded-none bg-background p-4"
               : "max-h-[85vh] w-[calc(100%-2rem)] bg-transparent p-0 sm:max-w-xl",
           )}
+          // Диалог открывается программно по URL (?request=...), а не через
+          // DialogTrigger — Radix пытается сам поставить/вернуть фокус, но
+          // возвращать его некуда (triggerRef всегда null), а при холодном
+          // старте из push-уведомления (SW делает полную навигацию, а не
+          // SPA-переход) автофокус ловит момент до первого жеста в
+          // документе — из-за этого на iOS появлялся паразитный focus-ring
+          // и терялся первый тап по стрелке «Переписки». Отключаем оба
+          // автофокуса Radix, раз они всё равно не нужны для этого диалога.
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
         >
           <DialogTitle className="sr-only">Заявка</DialogTitle>
           {dialogRequest &&
