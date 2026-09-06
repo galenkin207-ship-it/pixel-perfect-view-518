@@ -967,6 +967,26 @@ function ReportsPage() {
   const statsMaxValue = Math.max(1, ...statsRows.map((r) => r.totalValue));
   const statsTotalPositions = statsRows.reduce((s, r) => s + r.positions, 0);
 
+  const statsActiveWorkers = useMemo(() => {
+    const employeesSet = new Set<string>();
+    for (const r of statsInRange) {
+      const crew = crewOf(r);
+      for (const item of r.items) {
+        const allocs = item.allocations?.length ? item.allocations : allocationsFor(item, crew);
+        for (const a of allocs) {
+          if (a.qty > 0) employeesSet.add(a.employee);
+        }
+      }
+    }
+    return employeesSet.size;
+  }, [statsInRange]);
+
+  const statsTotalValue = useMemo(
+    () => statsRows.reduce((s, r) => s + r.totalValue, 0),
+    [statsRows],
+  );
+  const statsAvgPerPosition = statsTotalPositions ? statsTotalValue / statsTotalPositions : 0;
+
   return (
     <AppShell>
       <PageHeading context={roleLabels[role]} title="Отчёты" />
@@ -1090,15 +1110,15 @@ function ReportsPage() {
                 <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <div className="rounded-xl bg-surface p-3">
                     <p className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-                      Записей за период
+                      Активных сотрудников/бригад
                     </p>
-                    <p className="mt-1 text-2xl font-bold">{statsInRange.length}</p>
+                    <p className="mt-1 text-2xl font-bold">{statsActiveWorkers}</p>
                   </div>
                   <div className="rounded-xl bg-surface p-3">
                     <p className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-                      Позиций всего
+                      Средняя сумма за позицию
                     </p>
-                    <p className="mt-1 text-2xl font-bold">{statsTotalPositions}</p>
+                    <p className="mt-1 text-2xl font-bold">{formatMoney(statsAvgPerPosition)}</p>
                   </div>
                   <div className="rounded-xl bg-surface p-3">
                     <p className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
