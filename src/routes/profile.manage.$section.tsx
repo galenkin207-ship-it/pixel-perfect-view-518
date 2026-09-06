@@ -1614,7 +1614,7 @@ function UsersSection() {
   return (
     <div className="space-y-4">
       <Card title="Добавить пользователя">
-        <div className="grid gap-3 md:grid-cols-[1fr_1.2fr_1.4fr_1.6fr_1fr_auto] md:items-end">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <label className="block">
             <span className="label-caps">Логин</span>
             <input
@@ -1665,7 +1665,7 @@ function UsersSection() {
               className={cn(input, "mt-1")}
             />
           </label>
-          <label className="block">
+          <label className="block sm:col-span-2 lg:col-span-1">
             <span className="label-caps">Email (для восстановления пароля)</span>
             <input
               type="email"
@@ -1687,7 +1687,7 @@ function UsersSection() {
               <option value="admin">Администратор</option>
             </select>
           </label>
-          <label className="flex items-center gap-2 text-sm font-medium">
+          <label className="flex items-center gap-2 self-end pb-2.5 text-sm font-medium">
             <input
               type="checkbox"
               checked={form.is_submitter}
@@ -1696,6 +1696,8 @@ function UsersSection() {
             />
             Показывать в списке «Кто подал»
           </label>
+        </div>
+        <div className="mt-4 flex justify-end">
           <button
             type="button"
             disabled={saving}
