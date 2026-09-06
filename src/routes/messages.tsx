@@ -85,16 +85,24 @@ function MessagesPage() {
   const isForeman = role === "user";
   const [selected, setSelected] = useState<string[]>([]);
   const [draft, setDraft] = useState<Record<string, string>>({});
-  // Свёрнутость блока переписки по каждой заявке. По умолчанию свёрнуто в
-  // общем списке — разворачивается по тапу. При открытии заявки из
-  // уведомления (диалог) переписка всегда показывается развёрнутой,
-  // независимо от этого состояния.
+  // Свёрнутость блока переписки по каждой заявке в общем списке. По
+  // умолчанию свёрнуто — разворачивается по тапу.
   const [expandedChats, setExpandedChats] = useState<Record<string, boolean>>({});
+  // Свёрнутость переписки внутри диалога заявки — отдельное состояние, не
+  // общее со списком (иначе тап по стрелке в диалоге незаметно переключал бы
+  // ту же карточку в фоновом списке вместо самого диалога). По умолчанию
+  // развёрнуто, сбрасывается в развёрнутое при открытии диалога — см. эффект
+  // ниже.
+  const [dialogChatExpanded, setDialogChatExpanded] = useState(true);
   // Разворачивание переписки прямо в списке (не через диалог из уведомлений)
   // считается тем, что пользователь посмотрел заявку целиком — помечаем
   // прочитанным сразу всё, что с ней связано (саму заявку, решение по ней и
   // сообщения переписки), а не только сообщения.
-  const toggleChat = (r: WorkRequest) => {
+  const toggleChat = (r: WorkRequest, inDialog: boolean) => {
+    if (inDialog) {
+      setDialogChatExpanded((v) => !v);
+      return;
+    }
     const willExpand = !(expandedChats[r.id] ?? false);
     setExpandedChats((s) => ({ ...s, [r.id]: willExpand }));
     if (willExpand) markNotificationsRead(notificationIdsForRequest(r));
@@ -216,6 +224,7 @@ function MessagesPage() {
   useEffect(() => {
     if (!dialogRequest) return;
     markNotificationsRead(notificationIdsForRequest(dialogRequest));
+    setDialogChatExpanded(true);
   }, [dialogRequest, markNotificationsRead]);
 
   const [sendingComment, setSendingComment] = useState<string | null>(null);
@@ -410,12 +419,12 @@ function MessagesPage() {
 
         {(() => {
           const canComment = role !== "curator" && r.status !== "deleted";
-          const chatExpanded = inDialog || !!expandedChats[r.id];
+          const chatExpanded = inDialog ? dialogChatExpanded : !!expandedChats[r.id];
           return (
             <div className="mt-3">
               <button
                 type="button"
-                onClick={() => toggleChat(r)}
+                onClick={() => toggleChat(r, inDialog)}
                 className="flex w-full items-center justify-between gap-2 rounded-lg py-1 text-left text-xs font-semibold tracking-[0.02em] text-muted-foreground"
               >
                 <span>Переписка{r.comments.length > 0 ? ` · ${r.comments.length}` : ""}</span>
