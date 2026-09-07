@@ -158,16 +158,50 @@ function PositionDetailContent({
   );
 }
 
+const WEEKDAYS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+
+function photoDateKey(iso: string) {
+  return String(iso).slice(0, 10);
+}
+
+function formatPhotoDateHeader(dateKey: string) {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const dt = new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
+  const ru = `${String(d ?? 1).padStart(2, "0")}.${String(m ?? 1).padStart(2, "0")}.${y ?? ""}`;
+  return `${WEEKDAYS[dt.getDay()]}, ${ru}`;
+}
+
+// Группирует уже отсортированные по дате фото в последовательные блоки по дате,
+// сохраняя исходный индекс каждого фото в общем массиве (нужен для PhotoViewer,
+// который должен листать фото сквозь границы дат, а не только внутри группы).
+function groupPhotosByDate(photos: ObjectPhoto[]) {
+  const groups: { dateKey: string; items: { photo: ObjectPhoto; index: number }[] }[] = [];
+  photos.forEach((photo, index) => {
+    const key = photoDateKey(photo.date);
+    const last = groups[groups.length - 1];
+    if (last && last.dateKey === key) {
+      last.items.push({ photo, index });
+    } else {
+      groups.push({ dateKey: key, items: [{ photo, index }] });
+    }
+  });
+  return groups;
+}
+
 function PhotoGrid({
   photos,
   loading,
   onPhotoClick,
-  size = "size-24",
+  itemClassName = "size-24 shrink-0",
+  gridClassName = "flex flex-wrap gap-2",
+  headerClassName = "bg-background/95",
 }: {
   photos: ObjectPhoto[] | null;
   loading: boolean;
   onPhotoClick: (index: number) => void;
-  size?: string;
+  itemClassName?: string;
+  gridClassName?: string;
+  headerClassName?: string;
 }) {
   if (loading) {
     return <p className="text-sm text-muted-foreground">Загрузка...</p>;
@@ -175,16 +209,34 @@ function PhotoGrid({
   if (!photos || photos.length === 0) {
     return <p className="text-sm text-muted-foreground">Фото по этому объекту пока нет</p>;
   }
+  const groups = groupPhotosByDate(photos);
   return (
-    <div className="flex flex-wrap gap-2">
-      {photos.map((p, i) => (
-        <button
-          key={`${p.record_id}-${p.file_path}`}
-          onClick={() => onPhotoClick(i)}
-          className={cn(size, "shrink-0 overflow-hidden rounded-xl border border-border bg-muted")}
-        >
-          <img src={p.file_path} alt="Фото объекта" className="size-full object-cover" />
-        </button>
+    <div className="space-y-4">
+      {groups.map((group) => (
+        <div key={group.dateKey}>
+          <p
+            className={cn(
+              "sticky top-0 z-10 -mx-1 mb-2 px-1 py-1.5 text-xs font-semibold text-muted-foreground backdrop-blur",
+              headerClassName,
+            )}
+          >
+            {formatPhotoDateHeader(group.dateKey)}
+          </p>
+          <div className={gridClassName}>
+            {group.items.map(({ photo, index }) => (
+              <button
+                key={`${photo.record_id}-${photo.file_path}`}
+                onClick={() => onPhotoClick(index)}
+                className={cn(
+                  itemClassName,
+                  "overflow-hidden rounded-xl border border-border bg-muted",
+                )}
+              >
+                <img src={photo.file_path} alt="Фото объекта" className="size-full object-cover" />
+              </button>
+            ))}
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -422,6 +474,7 @@ function ObjectRecordsPage() {
             photos={photosData}
             loading={photosLoading}
             onPhotoClick={(i) => setPhotoViewerIndex(i)}
+            headerClassName="bg-background/95"
           />
         </div>
         {photoViewerIndex !== null && photosData && (
@@ -622,27 +675,14 @@ function ObjectRecordsPage() {
                 </button>
               </div>
               <div className="mt-4">
-                {photosLoading ? (
-                  <p className="text-sm text-muted-foreground">Загрузка...</p>
-                ) : photosData && photosData.length > 0 ? (
-                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-                    {photosData.map((p, i) => (
-                      <button
-                        key={`${p.record_id}-${p.file_path}`}
-                        onClick={() => setPhotoViewerIndex(i)}
-                        className="aspect-square overflow-hidden rounded-xl border border-border bg-muted"
-                      >
-                        <img
-                          src={p.file_path}
-                          alt="Фото объекта"
-                          className="size-full object-cover"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Фото по этому объекту пока нет</p>
-                )}
+                <PhotoGrid
+                  photos={photosData}
+                  loading={photosLoading}
+                  onPhotoClick={(i) => setPhotoViewerIndex(i)}
+                  itemClassName="aspect-square"
+                  gridClassName="grid grid-cols-4 gap-2 sm:grid-cols-6"
+                  headerClassName="bg-card/95"
+                />
               </div>
             </div>
           </div>,
