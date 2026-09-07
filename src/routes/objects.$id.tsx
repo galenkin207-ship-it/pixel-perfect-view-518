@@ -198,7 +198,7 @@ function PhotoGrid({
 }: {
   photos: ObjectPhoto[] | null;
   loading: boolean;
-  onPhotoClick: (index: number) => void;
+  onPhotoClick: (dateKey: string, indexInGroup: number) => void;
   itemClassName?: string;
   gridClassName?: string;
   headerClassName?: string;
@@ -223,10 +223,10 @@ function PhotoGrid({
             {formatPhotoDateHeader(group.dateKey)}
           </p>
           <div className={gridClassName}>
-            {group.items.map(({ photo, index }) => (
+            {group.items.map(({ photo }, indexInGroup) => (
               <button
                 key={`${photo.record_id}-${photo.file_path}`}
-                onClick={() => onPhotoClick(index)}
+                onClick={() => onPhotoClick(group.dateKey, indexInGroup)}
                 className={cn(
                   itemClassName,
                   "overflow-hidden rounded-xl border border-border bg-muted",
@@ -282,6 +282,7 @@ function ObjectRecordsPage() {
   const [photosLoading, setPhotosLoading] = useState(false);
   const [photosData, setPhotosData] = useState<ObjectPhoto[] | null>(null);
   const [photoViewerIndex, setPhotoViewerIndex] = useState<number | null>(null);
+  const [photoViewerDateKey, setPhotoViewerDateKey] = useState<string | null>(null);
 
   const hasActiveFilters = dateFrom !== "" || dateTo !== "";
 
@@ -441,7 +442,18 @@ function ObjectRecordsPage() {
     setPhotosOpen(false);
     setMobilePhotosOpen(false);
     setPhotoViewerIndex(null);
+    setPhotoViewerDateKey(null);
   };
+
+  const closePhotoViewer = () => {
+    setPhotoViewerIndex(null);
+    setPhotoViewerDateKey(null);
+  };
+
+  const dayPhotos =
+    photosData && photoViewerDateKey
+      ? photosData.filter((p) => photoDateKey(p.date) === photoViewerDateKey)
+      : [];
 
   if (isMobile && mobilePositionId) {
     const position = positions.find((p) => positionId(p) === mobilePositionId);
@@ -473,15 +485,18 @@ function ObjectRecordsPage() {
           <PhotoGrid
             photos={photosData}
             loading={photosLoading}
-            onPhotoClick={(i) => setPhotoViewerIndex(i)}
+            onPhotoClick={(dateKey, indexInGroup) => {
+              setPhotoViewerDateKey(dateKey);
+              setPhotoViewerIndex(indexInGroup);
+            }}
             headerClassName="bg-background/95"
           />
         </div>
-        {photoViewerIndex !== null && photosData && (
+        {photoViewerIndex !== null && dayPhotos.length > 0 && (
           <PhotoViewer
-            photos={photosData.map((p) => p.file_path)}
+            photos={dayPhotos.map((p) => p.file_path)}
             initialIndex={photoViewerIndex}
-            onClose={() => setPhotoViewerIndex(null)}
+            onClose={closePhotoViewer}
           />
         )}
       </AppShell>
@@ -678,7 +693,10 @@ function ObjectRecordsPage() {
                 <PhotoGrid
                   photos={photosData}
                   loading={photosLoading}
-                  onPhotoClick={(i) => setPhotoViewerIndex(i)}
+                  onPhotoClick={(dateKey, indexInGroup) => {
+                    setPhotoViewerDateKey(dateKey);
+                    setPhotoViewerIndex(indexInGroup);
+                  }}
                   itemClassName="aspect-square"
                   gridClassName="grid grid-cols-4 gap-2 sm:grid-cols-6"
                   headerClassName="bg-card/95"
@@ -689,11 +707,11 @@ function ObjectRecordsPage() {
           document.body,
         )}
 
-      {photoViewerIndex !== null && photosData && (
+      {photoViewerIndex !== null && dayPhotos.length > 0 && (
         <PhotoViewer
-          photos={photosData.map((p) => p.file_path)}
+          photos={dayPhotos.map((p) => p.file_path)}
           initialIndex={photoViewerIndex}
-          onClose={() => setPhotoViewerIndex(null)}
+          onClose={closePhotoViewer}
         />
       )}
     </AppShell>
