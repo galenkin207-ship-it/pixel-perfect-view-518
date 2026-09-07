@@ -4,6 +4,7 @@ import {
   ArchiveRestore,
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   Image as ImageIcon,
   Pin,
   PinOff,
@@ -53,7 +54,6 @@ export const Route = createFileRoute("/objects/$id")({
 });
 
 type WorkSummaryPosition = {
-  key: string;
   name: string;
   unit: string;
   work_type_id: string | null;
@@ -61,7 +61,6 @@ type WorkSummaryPosition = {
 };
 
 type WorkSummaryDetail = {
-  key: string;
   name: string;
   unit: string;
   qty: number;
@@ -74,6 +73,19 @@ type ObjectPhoto = { record_id: number; date: string; file_path: string };
 
 const ROW_HOVER =
   "relative border border-transparent bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)] hover:brightness-110";
+
+// GET /work-summary больше не отдаёт отдельный id позиции — строим его сами
+// из work_type_id (если позиция привязана к справочнику) или пары name+unit
+// (для "ручных" позиций без привязки), чтобы было что использовать как React
+// key и как идентификатор для выбора раскрытой строки/загруженной детали.
+function positionId(p: { work_type_id: string | null; name: string; unit: string }) {
+  return p.work_type_id ?? `${p.name}::${p.unit}`;
+}
+
+function formatQty(n: number) {
+  const rounded = Math.round(n * 1000) / 1000;
+  return rounded.toLocaleString("ru-RU", { maximumFractionDigits: 3 });
+}
 
 function MobileHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
@@ -107,6 +119,12 @@ function PositionDetailContent({
     <div className="space-y-3">
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
         <span>
+          Объём:{" "}
+          <span className="font-mono font-semibold text-foreground">
+            {formatQty(detail.qty)} {detail.unit}
+          </span>
+        </span>
+        <span>
           Дней работали: <span className="font-semibold text-foreground">{detail.days}</span>
         </span>
         <span>
@@ -128,7 +146,7 @@ function PositionDetailContent({
               {e.employee}
             </span>
             <span className="shrink-0 font-mono text-sm font-bold tabular-nums">
-              {e.qty} {detail.unit}
+              {formatQty(e.qty)} {detail.unit}
             </span>
           </div>
         ))}
@@ -201,9 +219,9 @@ function ObjectRecordsPage() {
   const [positions, setPositions] = useState<WorkSummaryPosition[]>([]);
   const [positionsLoading, setPositionsLoading] = useState(true);
 
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
-  const [mobilePositionKey, setMobilePositionKey] = useState<string | null>(null);
-  const [detailKey, setDetailKey] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [mobilePositionId, setMobilePositionId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [detailData, setDetailData] = useState<WorkSummaryDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -242,7 +260,7 @@ function ObjectRecordsPage() {
     const el = document.getElementById("app-scroll-container");
     if (el) el.scrollTop = 0;
     else window.scrollTo(0, 0);
-  }, [mobilePositionKey, mobilePhotosOpen]);
+  }, [mobilePositionId, mobilePhotosOpen]);
 
   if (!object) {
     return (
@@ -269,8 +287,6 @@ function ObjectRecordsPage() {
   // Показан ли объект сейчас на главном экране — та же логика, что и на
   // самой главной странице и в шторке "Добавить объект".
   const shownOnHome = !isHidden && (hasRecords || isPinned);
-
-  const shellFab = isArchived ? {} : { fab: { to: "/records/new", search: { object: id } } };
 
   const toggleHome = async () => {
     setPinBusy(true);
@@ -314,14 +330,14 @@ function ObjectRecordsPage() {
     }
   };
 
-  const loadDetail = async (key: string) => {
-    setDetailKey(key);
+  const loadDetail = async (position: WorkSummaryPosition) => {
+    setDetailId(positionId(position));
     setDetailData(null);
     setDetailLoading(true);
     try {
       const res = await api.getObjectWorkSummaryDetail(
         id,
-        key,
+        position,
         dateFrom || undefined,
         dateTo || undefined,
       );
@@ -333,18 +349,19 @@ function ObjectRecordsPage() {
     }
   };
 
-  const handlePositionClick = (key: string) => {
+  const handlePositionClick = (position: WorkSummaryPosition) => {
+    const posId = positionId(position);
     if (isMobile) {
-      setMobilePositionKey(key);
-      void loadDetail(key);
+      setMobilePositionId(posId);
+      void loadDetail(position);
       return;
     }
-    if (expandedKey === key) {
-      setExpandedKey(null);
+    if (expandedId === posId) {
+      setExpandedId(null);
       return;
     }
-    setExpandedKey(key);
-    void loadDetail(key);
+    setExpandedId(posId);
+    void loadDetail(position);
   };
 
   const openPhotos = async () => {
@@ -367,22 +384,22 @@ function ObjectRecordsPage() {
     setPhotoViewerIndex(null);
   };
 
-  if (isMobile && mobilePositionKey) {
-    const position = positions.find((p) => p.key === mobilePositionKey);
+  if (isMobile && mobilePositionId) {
+    const position = positions.find((p) => positionId(p) === mobilePositionId);
     return (
-      <AppShell {...shellFab}>
+      <AppShell>
         <MobileHeader
           title={position?.name ?? ""}
           onBack={() => {
-            setMobilePositionKey(null);
-            setDetailKey(null);
+            setMobilePositionId(null);
+            setDetailId(null);
             setDetailData(null);
           }}
         />
         <div className="mt-4">
           <PositionDetailContent
             loading={detailLoading}
-            detail={detailKey === mobilePositionKey ? detailData : null}
+            detail={detailId === mobilePositionId ? detailData : null}
           />
         </div>
       </AppShell>
@@ -391,7 +408,7 @@ function ObjectRecordsPage() {
 
   if (isMobile && mobilePhotosOpen) {
     return (
-      <AppShell {...shellFab}>
+      <AppShell>
         <MobileHeader title="Фото объекта" onBack={closePhotos} />
         <div className="mt-4">
           <PhotoGrid
@@ -412,7 +429,7 @@ function ObjectRecordsPage() {
   }
 
   return (
-    <AppShell {...shellFab}>
+    <AppShell>
       <div className="bg-background pt-5 pb-3 desktop:sticky desktop:top-0 desktop:z-20 desktop:border-b desktop:border-border desktop:pt-6 desktop:shadow-[0_8px_12px_-10px_rgba(15,23,42,0.35)] xl:pt-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <PageHeading context={object.address} title={object.name} />
@@ -518,32 +535,37 @@ function ObjectRecordsPage() {
           </p>
         ) : (
           positions.map((p) => {
-            const isOpen = expandedKey === p.key;
+            const posId = positionId(p);
+            const isOpen = expandedId === posId;
             return (
-              <div key={p.key} className={ROW_HOVER}>
+              <div key={posId} className={ROW_HOVER}>
                 <button
                   type="button"
-                  onClick={() => handlePositionClick(p.key)}
+                  onClick={() => handlePositionClick(p)}
                   className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3 text-left"
                 >
                   <span className="flex min-w-0 flex-1 items-center gap-1.5 text-base font-semibold break-words text-foreground">
                     {p.name}
-                    <ChevronDown
-                      className={cn(
-                        "size-4 shrink-0 text-muted-foreground transition-transform",
-                        isOpen && "rotate-180",
-                      )}
-                    />
+                    {isMobile ? (
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown
+                        className={cn(
+                          "size-4 shrink-0 text-muted-foreground transition-transform",
+                          isOpen && "rotate-180",
+                        )}
+                      />
+                    )}
                   </span>
                   <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 font-mono text-sm font-bold tabular-nums text-primary">
-                    {p.qty} {p.unit}
+                    {formatQty(p.qty)} {p.unit}
                   </span>
                 </button>
                 {isOpen && (
                   <div className="border-t border-border bg-card px-4 py-3">
                     <PositionDetailContent
                       loading={detailLoading}
-                      detail={detailKey === p.key ? detailData : null}
+                      detail={detailId === posId ? detailData : null}
                     />
                   </div>
                 )}

@@ -331,7 +331,6 @@ export const api = {
     to?: string,
   ): Promise<{
     positions: {
-      key: string;
       name: string;
       unit: string;
       work_type_id: string | null;
@@ -347,11 +346,10 @@ export const api = {
 
   async getObjectWorkSummaryDetail(
     objectId: string,
-    key: string,
+    position: { work_type_id: string | null; name: string; unit: string },
     from?: string,
     to?: string,
   ): Promise<{
-    key: string;
     name: string;
     unit: string;
     qty: number;
@@ -360,12 +358,15 @@ export const api = {
     employees: { employee: string; qty: number }[];
   }> {
     const params = new URLSearchParams();
+    if (position.work_type_id != null) {
+      params.set("work_type_id", position.work_type_id);
+    } else {
+      params.set("name", position.name);
+      params.set("unit", position.unit);
+    }
     if (from) params.set("from", from);
     if (to) params.set("to", to);
-    const qs = params.toString();
-    return request(
-      `/objects/${objectId}/work-summary/${encodeURIComponent(key)}${qs ? `?${qs}` : ""}`,
-    );
+    return request(`/objects/${objectId}/work-summary-detail?${params.toString()}`);
   },
 
   async getObjectPhotos(
