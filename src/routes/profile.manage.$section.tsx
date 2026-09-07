@@ -447,12 +447,15 @@ function WorkTypesList() {
 
       <ul className="mt-3 max-h-[min(70vh,900px)] divide-y divide-border overflow-auto rounded-xl border border-border">
         {slice.map((w, i) => (
-          <li key={w.id} className="bg-surface">
+          <li
+            key={w.id}
+            className="relative bg-surface transition-all duration-200 hover:z-10 hover:border hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)] hover:brightness-110"
+          >
             <button
               type="button"
               onClick={() => open(w.id)}
               className={cn(
-                "flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-muted",
+                "flex w-full items-start gap-3 px-3 py-2.5 text-left",
                 openId === w.id && "bg-primary/10",
               )}
             >
@@ -825,12 +828,15 @@ function EmployeesList({
 
       <ul className="mt-3 max-h-[min(70vh,900px)] divide-y divide-border overflow-auto rounded-xl border border-border">
         {slice.map((e, i) => (
-          <li key={e.id} className="bg-surface">
+          <li
+            key={e.id}
+            className="relative bg-surface transition-all duration-200 hover:z-10 hover:border hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)] hover:brightness-110"
+          >
             <button
               type="button"
               onClick={() => open(e.id)}
               className={cn(
-                "flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted",
+                "flex w-full items-center gap-3 px-3 py-2.5 text-left",
                 openId === e.id && "bg-primary/10",
               )}
             >
@@ -1132,7 +1138,10 @@ function ObjectsStatusList() {
         {filtered.map((o) => {
           const archived = o.status === "archived";
           return (
-            <li key={o.id} className="bg-surface">
+            <li
+              key={o.id}
+              className="relative bg-surface transition-all duration-200 hover:z-10 hover:border hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)] hover:brightness-110"
+            >
               <div
                 className={cn(
                   "flex flex-wrap items-center justify-between gap-3 px-3 py-2.5",
