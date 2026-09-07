@@ -185,55 +185,6 @@ function Bulk({
   );
 }
 
-function Autocomplete({
-  items,
-  value,
-  onChange,
-  placeholder,
-}: {
-  items: { id: string; label: string }[];
-  value: string;
-  onChange: (id: string) => void;
-  placeholder: string;
-}) {
-  const [q, setQ] = useState("");
-  const found = smartFilter(items, q, (i) => i.label);
-  return (
-    <div>
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder={placeholder}
-        className={input}
-      />
-      {q.trim() && (
-        <ul className="mt-2 max-h-56 overflow-auto rounded-xl border border-border bg-surface">
-          {found.slice(0, 30).map((i) => (
-            <li key={i.id}>
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(i.id);
-                  setQ("");
-                }}
-                className={cn(
-                  "block w-full px-3 py-2 text-left text-sm break-words whitespace-normal hover:bg-muted",
-                  value === i.id && "bg-primary/10 text-primary",
-                )}
-              >
-                {i.label}
-              </button>
-            </li>
-          ))}
-          {!found.length && (
-            <li className="px-3 py-2 text-sm text-muted-foreground">Ничего не найдено</li>
-          )}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 function ManagePage() {
   const { section } = Route.useParams();
   const navigate = useNavigate();
@@ -299,15 +250,6 @@ function ManagePage() {
         </div>
       </div>
     </AppShell>
-  );
-}
-
-function TwoCol({ left, right }: { left: React.ReactNode; right: React.ReactNode }) {
-  return (
-    <div className="grid gap-4 xl:grid-cols-2 2xl:gap-6">
-      <div className="space-y-4">{left}</div>
-      <div className="space-y-4">{right}</div>
-    </div>
   );
 }
 
@@ -676,142 +618,112 @@ function StringSection({
   addButton,
   bulkPlaceholder,
   bulkButton,
-  searchPlaceholder,
-  items,
   onAdd,
   onBulk,
-  onRename,
-  onRemove,
 }: {
   addTitle: string;
   fieldLabel: string;
   addButton: string;
   bulkPlaceholder: string;
   bulkButton: string;
-  searchPlaceholder: string;
-  items: { id: string; label: string }[];
   onAdd: (v: string) => Promise<void>;
   onBulk: (lines: string[]) => Promise<number>;
-  onRename: (id: string, v: string) => Promise<void>;
-  onRemove: (id: string) => Promise<void>;
 }) {
   const [value, setValue] = useState("");
   const [adding, setAdding] = useState(false);
-  const [editId, setEditId] = useState("");
-  const [draft, setDraft] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [removing, setRemoving] = useState(false);
-  const edited = items.find((i) => i.id === editId);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [openItem, setOpenItem] = useState("");
 
   return (
-    <TwoCol
-      left={
-        <>
-          <Card title={addTitle}>
-            <label className="block">
-              <span className="label-caps">{fieldLabel}</span>
-              <input
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                className={cn(input, "mt-1")}
-              />
-            </label>
-            <button
-              type="button"
-              disabled={adding}
-              className={cn(primaryBtn, "disabled:opacity-60")}
-              onClick={async () => {
-                if (!value.trim()) {
-                  toast.error("Заполните поле");
-                  return;
-                }
-                setAdding(true);
-                try {
-                  await onAdd(value.trim());
-                  setValue("");
-                  toast.success("Добавлено");
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Не удалось добавить");
-                } finally {
-                  setAdding(false);
-                }
-              }}
-            >
-              {adding ? "Сохранение..." : addButton}
-            </button>
-          </Card>
-
-          <Card title="Изменить или удалить">
-            <Autocomplete
-              items={items}
-              value={editId}
-              onChange={(id) => {
-                setEditId(id);
-                setDraft(items.find((i) => i.id === id)?.label ?? "");
-              }}
-              placeholder={searchPlaceholder}
+    <Accordion
+      type="single"
+      collapsible
+      value={openItem}
+      onValueChange={setOpenItem}
+      className="rounded-2xl border border-border bg-card"
+    >
+      <AccordionItem value="add" className="border-b border-border px-4">
+        <AccordionTrigger className="font-semibold hover:no-underline">
+          {addTitle}
+        </AccordionTrigger>
+        <AccordionContent className="space-y-3">
+          <label className="block">
+            <span className="label-caps">{fieldLabel}</span>
+            <input
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              className={cn(input, "mt-1")}
             />
-            {edited && (
-              <div className="space-y-3 rounded-xl bg-surface p-3">
-                <input
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  className={cn(input, "bg-card")}
-                />
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={saving}
-                    className={cn(primaryBtn, "disabled:opacity-60")}
-                    onClick={async () => {
-                      setSaving(true);
-                      try {
-                        await onRename(editId, draft.trim());
-                        toast.success("Сохранено");
-                      } catch (err) {
-                        toast.error(err instanceof Error ? err.message : "Не удалось сохранить");
-                      } finally {
-                        setSaving(false);
-                      }
-                    }}
-                  >
-                    {saving ? "Сохранение..." : "Сохранить"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={removing}
-                    className={cn(ghostBtn, "text-status-rejected disabled:opacity-60")}
-                    onClick={async () => {
-                      setRemoving(true);
-                      try {
-                        await onRemove(editId);
-                        setEditId("");
-                        toast.success("Удалено");
-                      } catch (err) {
-                        toast.error(err instanceof Error ? err.message : "Не удалось удалить");
-                      } finally {
-                        setRemoving(false);
-                      }
-                    }}
-                  >
-                    <Trash2 className="mr-1 inline size-3.5" />
-                    {removing ? "Удаление..." : "Удалить"}
-                  </button>
-                </div>
-              </div>
-            )}
-          </Card>
-        </>
-      }
-      right={
-        <Bulk
-          title="Пакетная загрузка"
-          button={bulkButton}
-          placeholder={bulkPlaceholder}
-          onSubmit={onBulk}
-        />
-      }
-    />
+          </label>
+          <button
+            type="button"
+            disabled={adding}
+            className={cn(primaryBtn, "disabled:opacity-60")}
+            onClick={async () => {
+              if (!value.trim()) {
+                toast.error("Заполните поле");
+                return;
+              }
+              setAdding(true);
+              try {
+                await onAdd(value.trim());
+                setValue("");
+                toast.success("Добавлено");
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Не удалось добавить");
+              } finally {
+                setAdding(false);
+              }
+            }}
+          >
+            {adding ? "Сохранение..." : addButton}
+          </button>
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="bulk" className="border-b-0 px-4">
+        <AccordionTrigger className="font-semibold hover:no-underline">
+          Пакетная загрузка
+        </AccordionTrigger>
+        <AccordionContent className="space-y-3">
+          <textarea
+            value={bulkText}
+            onChange={(e) => setBulkText(e.target.value)}
+            rows={10}
+            placeholder={bulkPlaceholder}
+            className={cn(input, "min-h-[200px] resize-y font-mono text-xs leading-relaxed")}
+          />
+          <button
+            type="button"
+            disabled={bulkSaving}
+            className={cn(primaryBtn, "disabled:opacity-60")}
+            onClick={async () => {
+              const lines = bulkText
+                .split("\n")
+                .map((l) => l.trim())
+                .filter(Boolean);
+              if (!lines.length) {
+                toast.error("Вставьте данные для загрузки");
+                return;
+              }
+              setBulkSaving(true);
+              try {
+                const n = await onBulk(lines);
+                setBulkText("");
+                toast.success(`Загружено позиций: ${n}`);
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Не удалось загрузить");
+              } finally {
+                setBulkSaving(false);
+              }
+            }}
+          >
+            {bulkSaving ? "Загрузка..." : bulkButton}
+          </button>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   );
 }
 
@@ -835,8 +747,6 @@ function EmployeesSection() {
         addButton="Добавить сотрудника"
         bulkButton="Загрузить сотрудников"
         bulkPlaceholder={"По одному ФИО на строку\n\nПример:\nИванов И.И.\nПетров П.П."}
-        searchPlaceholder="Начните вводить ФИО..."
-        items={full.map((e) => ({ id: e.id, label: e.name }))}
         onAdd={(v) => addEmployee(v)}
         onBulk={async (lines) => {
           let ok = 0;
@@ -850,8 +760,6 @@ function EmployeesSection() {
           }
           return ok;
         }}
-        onRename={(id, v) => renameEmployee(id, v)}
-        onRemove={(id) => deleteEmployee(id)}
       />
       <EmployeesList employees={full} onRename={renameEmployee} onRemove={deleteEmployee} />
     </>
@@ -1054,188 +962,159 @@ function EmployeesList({
 
 /* 3. Объекты */
 function ObjectsSection() {
-  const { objects, addObject, updateObject, deleteObject } = useApp();
+  const { addObject } = useApp();
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [adding, setAdding] = useState(false);
-  const [editId, setEditId] = useState("");
-  const [draft, setDraft] = useState({ name: "", address: "" });
-  const [saving, setSaving] = useState(false);
-  const [removing, setRemoving] = useState(false);
-  const edited = objects.find((o) => o.id === editId);
-
-  const select = (id: string) => {
-    const o = objects.find((x) => x.id === id);
-    if (!o) return;
-    setEditId(id);
-    setDraft({ name: o.name, address: o.address ?? "" });
-  };
+  const [bulkText, setBulkText] = useState("");
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [openItem, setOpenItem] = useState("");
 
   return (
     <>
-      <TwoCol
-        left={
-          <>
-            <Card title="Добавить объект">
-              <label className="block">
-                <span className="label-caps">Название объекта</span>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className={cn(input, "mt-1")}
-                />
-              </label>
-              <label className="block">
-                <span className="label-caps">Адрес (необязательно)</span>
-                <input
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className={cn(input, "mt-1")}
-                />
-              </label>
-              <button
-                type="button"
-                disabled={adding}
-                className={cn(primaryBtn, "disabled:opacity-60")}
-                onClick={async () => {
-                  if (!name.trim()) {
-                    toast.error("Заполните название");
-                    return;
-                  }
-                  setAdding(true);
-                  try {
-                    await addObject({
-                      name: name.trim(),
-                      address: address.trim(),
-                      progress_percent: 0,
-                    });
-                    setName("");
-                    setAddress("");
-                    toast.success("Добавлено");
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message : "Не удалось добавить");
-                  } finally {
-                    setAdding(false);
-                  }
-                }}
-              >
-                {adding ? "Сохранение..." : "Добавить объект"}
-              </button>
-            </Card>
-
-            <Card title="Изменить или удалить">
-              <Autocomplete
-                items={objects.map((o) => ({ id: o.id, label: o.name }))}
-                value={editId}
-                onChange={select}
-                placeholder="Начните вводить название объекта..."
+      <Accordion
+        type="single"
+        collapsible
+        value={openItem}
+        onValueChange={setOpenItem}
+        className="rounded-2xl border border-border bg-card"
+      >
+        <AccordionItem value="add" className="border-b border-border px-4">
+          <AccordionTrigger className="font-semibold hover:no-underline">
+            Добавить объект
+          </AccordionTrigger>
+          <AccordionContent className="space-y-3">
+            <label className="block">
+              <span className="label-caps">Название объекта</span>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={cn(input, "mt-1")}
               />
-              {edited && (
-                <div className="space-y-3 rounded-xl bg-surface p-3">
-                  <label className="block">
-                    <span className="label-caps">Название</span>
-                    <input
-                      value={draft.name}
-                      onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-                      className={cn(input, "mt-1 bg-card")}
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="label-caps">Адрес (необязательно)</span>
-                    <input
-                      value={draft.address}
-                      onChange={(e) => setDraft((d) => ({ ...d, address: e.target.value }))}
-                      className={cn(input, "mt-1 bg-card")}
-                    />
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={saving}
-                      className={cn(primaryBtn, "disabled:opacity-60")}
-                      onClick={async () => {
-                        if (!draft.name.trim()) {
-                          toast.error("Заполните название");
-                          return;
-                        }
-                        setSaving(true);
-                        try {
-                          await updateObject(editId, {
-                            name: draft.name.trim(),
-                            address: draft.address.trim(),
-                            progress_percent: edited?.progress_percent ?? 0,
-                          });
-                          toast.success("Сохранено");
-                        } catch (err) {
-                          toast.error(err instanceof Error ? err.message : "Не удалось сохранить");
-                        } finally {
-                          setSaving(false);
-                        }
-                      }}
-                    >
-                      {saving ? "Сохранение..." : "Сохранить"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={removing}
-                      className={cn(ghostBtn, "text-status-rejected disabled:opacity-60")}
-                      onClick={async () => {
-                        setRemoving(true);
-                        try {
-                          await deleteObject(editId);
-                          setEditId("");
-                          toast.success("Удалено");
-                        } catch (err) {
-                          toast.error(err instanceof Error ? err.message : "Не удалось удалить");
-                        } finally {
-                          setRemoving(false);
-                        }
-                      }}
-                    >
-                      <Trash2 className="mr-1 inline size-3.5" />
-                      {removing ? "Удаление..." : "Удалить"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </Card>
-          </>
-        }
-        right={
-          <Bulk
-            title="Пакетная загрузка"
-            button="Загрузить объекты"
-            placeholder={
-              "По одному названию объекта на строку\n\nПример:\nОбъект №42\nСклад на Заречной"
-            }
-            onSubmit={async (lines) => {
-              let ok = 0;
-              for (const objName of lines) {
-                try {
-                  await addObject({ name: objName, address: "", progress_percent: 0 });
-                  ok++;
-                } catch {
-                  /* пропускаем строку, которая не загрузилась, и продолжаем остальные */
+            </label>
+            <label className="block">
+              <span className="label-caps">Адрес (необязательно)</span>
+              <input
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className={cn(input, "mt-1")}
+              />
+            </label>
+            <button
+              type="button"
+              disabled={adding}
+              className={cn(primaryBtn, "disabled:opacity-60")}
+              onClick={async () => {
+                if (!name.trim()) {
+                  toast.error("Заполните название");
+                  return;
                 }
+                setAdding(true);
+                try {
+                  await addObject({
+                    name: name.trim(),
+                    address: address.trim(),
+                    progress_percent: 0,
+                  });
+                  setName("");
+                  setAddress("");
+                  toast.success("Добавлено");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Не удалось добавить");
+                } finally {
+                  setAdding(false);
+                }
+              }}
+            >
+              {adding ? "Сохранение..." : "Добавить объект"}
+            </button>
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value="bulk" className="border-b-0 px-4">
+          <AccordionTrigger className="font-semibold hover:no-underline">
+            Пакетная загрузка
+          </AccordionTrigger>
+          <AccordionContent className="space-y-3">
+            <textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              rows={10}
+              placeholder={
+                "По одному названию объекта на строку\n\nПример:\nОбъект №42\nСклад на Заречной"
               }
-              return ok;
-            }}
-          />
-        }
-      />
+              className={cn(input, "min-h-[200px] resize-y font-mono text-xs leading-relaxed")}
+            />
+            <button
+              type="button"
+              disabled={bulkSaving}
+              className={cn(primaryBtn, "disabled:opacity-60")}
+              onClick={async () => {
+                const lines = bulkText
+                  .split("\n")
+                  .map((l) => l.trim())
+                  .filter(Boolean);
+                if (!lines.length) {
+                  toast.error("Вставьте данные для загрузки");
+                  return;
+                }
+                setBulkSaving(true);
+                try {
+                  let ok = 0;
+                  for (const objName of lines) {
+                    try {
+                      await addObject({ name: objName, address: "", progress_percent: 0 });
+                      ok++;
+                    } catch {
+                      /* пропускаем строку, которая не загрузилась, и продолжаем остальные */
+                    }
+                  }
+                  setBulkText("");
+                  toast.success(`Загружено позиций: ${ok}`);
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Не удалось загрузить");
+                } finally {
+                  setBulkSaving(false);
+                }
+              }}
+            >
+              {bulkSaving ? "Загрузка..." : "Загрузить объекты"}
+            </button>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
       <ObjectsStatusList />
     </>
   );
 }
 
 /* Список всех объектов со статусом "активен / в архиве" — завершение объекта
-   переносит его в раздел «Архив объектов» на главной, без удаления данных. */
+   переносит его в раздел «Архив объектов» на главной, без удаления данных.
+   Клик по строке открывает переименование/удаление, как в разделах "Виды
+   работ" и "Сотрудники"; кнопка "Завершить" остаётся отдельным действием. */
 function ObjectsStatusList() {
-  const { objects, archiveObject, restoreObject } = useApp();
+  const { objects, updateObject, deleteObject, archiveObject, restoreObject } = useApp();
   const [q, setQ] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState("");
+  const [draft, setDraft] = useState({ name: "", address: "" });
+  const [confirmId, setConfirmId] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   const filtered = useMemo(() => smartFilter(objects, q, (o) => o.name), [objects, q]);
+
+  const open = (id: string) => {
+    const o = objects.find((x) => x.id === id);
+    if (!o) return;
+    setConfirmId("");
+    if (openId === id) {
+      setOpenId("");
+      return;
+    }
+    setOpenId(id);
+    setDraft({ name: o.name, address: o.address ?? "" });
+  };
 
   return (
     <section className="mt-4 rounded-2xl border border-border bg-card p-4">
@@ -1243,8 +1122,8 @@ function ObjectsStatusList() {
         <div>
           <h2 className="font-semibold">Все объекты и их статус</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Завершённые объекты попадают в раздел «Архив» на главной — данные и записи по ним
-            сохраняются.
+            Нажмите на строку, чтобы отредактировать или удалить. Завершённые объекты попадают в
+            раздел «Архив» на главной — данные и записи по ним сохраняются.
           </p>
         </div>
         <input
@@ -1259,44 +1138,146 @@ function ObjectsStatusList() {
         {filtered.map((o) => {
           const archived = o.status === "archived";
           return (
-            <li
-              key={o.id}
-              className="flex flex-wrap items-center justify-between gap-3 bg-surface px-3 py-2.5"
-            >
-              <div className="min-w-0">
-                <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                  {o.name}
-                  {archived && (
-                    <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                      В архиве
-                    </span>
-                  )}
-                </p>
-                {o.address && <p className="truncate text-xs text-muted-foreground">{o.address}</p>}
-              </div>
-              <button
-                type="button"
-                disabled={busyId === o.id}
-                className={cn(ghostBtn, "shrink-0 disabled:opacity-60")}
-                onClick={async () => {
-                  setBusyId(o.id);
-                  try {
-                    if (archived) {
-                      await restoreObject(o.id);
-                      toast.success("Объект возвращён в активную работу");
-                    } else {
-                      await archiveObject(o.id);
-                      toast.success("Объект перенесён в архив");
-                    }
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message : "Не удалось изменить статус");
-                  } finally {
-                    setBusyId(null);
-                  }
-                }}
+            <li key={o.id} className="bg-surface">
+              <div
+                className={cn(
+                  "flex flex-wrap items-center justify-between gap-3 px-3 py-2.5",
+                  openId === o.id && "bg-primary/10",
+                )}
               >
-                {busyId === o.id ? "..." : archived ? "Вернуть из архива" : "Завершить"}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => open(o.id)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                    {o.name}
+                    {archived && (
+                      <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                        В архиве
+                      </span>
+                    )}
+                  </p>
+                  {o.address && (
+                    <p className="truncate text-xs text-muted-foreground">{o.address}</p>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  disabled={busyId === o.id}
+                  className={cn(ghostBtn, "shrink-0 disabled:opacity-60")}
+                  onClick={async () => {
+                    setBusyId(o.id);
+                    try {
+                      if (archived) {
+                        await restoreObject(o.id);
+                        toast.success("Объект возвращён в активную работу");
+                      } else {
+                        await archiveObject(o.id);
+                        toast.success("Объект перенесён в архив");
+                      }
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Не удалось изменить статус");
+                    } finally {
+                      setBusyId(null);
+                    }
+                  }}
+                >
+                  {busyId === o.id ? "..." : archived ? "Вернуть из архива" : "Завершить"}
+                </button>
+              </div>
+
+              {openId === o.id && (
+                <div className="space-y-3 border-t border-border bg-card p-3">
+                  <label className="block">
+                    <span className="label-caps">Название</span>
+                    <input
+                      value={draft.name}
+                      onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+                      className={cn(input, "mt-1")}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="label-caps">Адрес (необязательно)</span>
+                    <input
+                      value={draft.address}
+                      onChange={(e) => setDraft((d) => ({ ...d, address: e.target.value }))}
+                      className={cn(input, "mt-1")}
+                    />
+                  </label>
+                  {confirmId === o.id ? (
+                    <div className="rounded-xl border border-border bg-surface p-3">
+                      <p className="text-sm">Удалить «{o.name}» из справочника объектов?</p>
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          disabled={removing}
+                          className={cn(primaryBtn, "bg-status-rejected disabled:opacity-60")}
+                          onClick={async () => {
+                            setRemoving(true);
+                            try {
+                              await deleteObject(o.id);
+                              setConfirmId("");
+                              setOpenId("");
+                              toast.success("Объект удалён из справочника");
+                            } catch (err) {
+                              toast.error(err instanceof Error ? err.message : "Не удалось удалить");
+                            } finally {
+                              setRemoving(false);
+                            }
+                          }}
+                        >
+                          {removing ? "Удаление..." : "Да, удалить"}
+                        </button>
+                        <button type="button" className={ghostBtn} onClick={() => setConfirmId("")}>
+                          Отмена
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={saving}
+                        className={cn(primaryBtn, "disabled:opacity-60")}
+                        onClick={async () => {
+                          if (!draft.name.trim()) {
+                            toast.error("Заполните название");
+                            return;
+                          }
+                          setSaving(true);
+                          try {
+                            await updateObject(o.id, {
+                              name: draft.name.trim(),
+                              address: draft.address.trim(),
+                              progress_percent: o.progress_percent,
+                            });
+                            setOpenId("");
+                            toast.success("Сохранено");
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : "Не удалось сохранить");
+                          } finally {
+                            setSaving(false);
+                          }
+                        }}
+                      >
+                        {saving ? "Сохранение..." : "Сохранить"}
+                      </button>
+                      <button
+                        type="button"
+                        className={cn(ghostBtn, "text-status-rejected")}
+                        onClick={() => setConfirmId(o.id)}
+                      >
+                        <Trash2 className="mr-1 inline size-3.5" />
+                        Удалить
+                      </button>
+                      <button type="button" className={ghostBtn} onClick={() => setOpenId("")}>
+                        Закрыть
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </li>
           );
         })}
