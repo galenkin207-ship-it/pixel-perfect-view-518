@@ -223,11 +223,11 @@ export function AppShell({
               {...(fab.search ? { search: fab.search } : {})}
               aria-label={fab.label ?? "Новая запись"}
               className={cn(
-                "fixed right-5 bottom-28 z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 desktop:right-10 desktop:bottom-10",
+                "fixed right-5 bottom-28 z-30 flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[0_10px_20px_-6px_rgba(15,23,42,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:shadow-[0_16px_28px_-6px_rgba(15,23,42,0.55)] active:translate-y-0 active:scale-100 desktop:right-10 desktop:bottom-10",
                 hideMobileChrome && "hidden",
               )}
             >
-              <Plus className="size-6" />
+              <Plus className="size-7" />
             </Link>
           )}
         </main>

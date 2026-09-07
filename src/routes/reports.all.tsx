@@ -217,7 +217,7 @@ function AllRecordsPage() {
           </div>
           <Link
             to="/records/new"
-            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+            className="rounded-xl bg-primary px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-[0_10px_20px_-6px_rgba(15,23,42,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:shadow-[0_16px_28px_-6px_rgba(15,23,42,0.55)] active:translate-y-0 active:scale-100"
           >
             Новая запись
           </Link>
