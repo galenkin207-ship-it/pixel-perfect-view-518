@@ -370,7 +370,14 @@ function ObjectRecordsPage() {
     setPhotosLoading(true);
     try {
       const res = await api.getObjectPhotos(id, dateFrom || undefined, dateTo || undefined);
-      setPhotosData(res.photos);
+      // Сначала свежие: бэкенд не гарантирует порядок, сортируем по дате (ISO,
+      // строковое сравнение корректно) с тай-брейком по record_id для одной даты.
+      const sorted = [...res.photos].sort((a, b) => {
+        const cmp = String(b.date).localeCompare(String(a.date));
+        if (cmp !== 0) return cmp;
+        return b.record_id - a.record_id;
+      });
+      setPhotosData(sorted);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Не удалось загрузить фото объекта");
     } finally {
