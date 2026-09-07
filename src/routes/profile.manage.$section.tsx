@@ -449,7 +449,7 @@ function WorkTypesList() {
         {slice.map((w, i) => (
           <li
             key={w.id}
-            className="relative bg-surface transition-all duration-200 hover:z-10 hover:border hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)] hover:brightness-110"
+            className="relative border border-transparent bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)] hover:brightness-110"
           >
             <button
               type="button"
@@ -830,7 +830,7 @@ function EmployeesList({
         {slice.map((e, i) => (
           <li
             key={e.id}
-            className="relative bg-surface transition-all duration-200 hover:z-10 hover:border hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)] hover:brightness-110"
+            className="relative border border-transparent bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)] hover:brightness-110"
           >
             <button
               type="button"
@@ -1140,7 +1140,7 @@ function ObjectsStatusList() {
           return (
             <li
               key={o.id}
-              className="relative bg-surface transition-all duration-200 hover:z-10 hover:border hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)] hover:brightness-110"
+              className="relative border border-transparent bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)] hover:brightness-110"
             >
               <div
                 className={cn(
