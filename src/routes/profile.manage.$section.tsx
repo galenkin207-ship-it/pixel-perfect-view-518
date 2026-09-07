@@ -429,23 +429,21 @@ function WorkTypesList() {
   return (
     <section className="mt-4 rounded-2xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-semibold">Все виды работ</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Всего позиций: {filtered.length}. Нажмите на строку, чтобы отредактировать или удалить.
-            Удаление не затрагивает уже сохранённые записи.
-          </p>
-        </div>
-        <input
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setPage(0);
-          }}
-          placeholder="Поиск по названию..."
-          className={cn(input, "sm:w-72")}
-        />
+        <h2 className="font-semibold">Все виды работ</h2>
+        <p className="text-xs text-muted-foreground sm:text-right">
+          Всего позиций: {filtered.length}. Нажмите на строку, чтобы отредактировать или удалить.
+          Удаление не затрагивает уже сохранённые записи.
+        </p>
       </div>
+      <input
+        value={q}
+        onChange={(e) => {
+          setQ(e.target.value);
+          setPage(0);
+        }}
+        placeholder="Поиск по названию..."
+        className={cn(input, "mt-3")}
+      />
 
       <ul className="mt-3 max-h-[min(70vh,900px)] divide-y divide-border overflow-auto rounded-xl border border-border">
         {slice.map((w, i) => (
@@ -809,23 +807,21 @@ function EmployeesList({
   return (
     <section className="mt-4 rounded-2xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-semibold">Все сотрудники</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Всего: {filtered.length}. Список отсортирован по алфавиту. Нажмите на строку, чтобы
-            переименовать или удалить.
-          </p>
-        </div>
-        <input
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setPage(0);
-          }}
-          placeholder="Поиск по ФИО..."
-          className={cn(input, "sm:w-72")}
-        />
+        <h2 className="font-semibold">Все сотрудники</h2>
+        <p className="text-xs text-muted-foreground sm:text-right">
+          Всего: {filtered.length}. Список отсортирован по алфавиту. Нажмите на строку, чтобы
+          переименовать или удалить.
+        </p>
       </div>
+      <input
+        value={q}
+        onChange={(e) => {
+          setQ(e.target.value);
+          setPage(0);
+        }}
+        placeholder="Поиск по ФИО..."
+        className={cn(input, "mt-3")}
+      />
 
       <ul className="mt-3 max-h-[min(70vh,900px)] divide-y divide-border overflow-auto rounded-xl border border-border">
         {slice.map((e, i) => (
@@ -1119,20 +1115,18 @@ function ObjectsStatusList() {
   return (
     <section className="mt-4 rounded-2xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-semibold">Все объекты и их статус</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Нажмите на строку, чтобы отредактировать или удалить. Завершённые объекты попадают в
-            раздел «Архив» на главной — данные и записи по ним сохраняются.
-          </p>
-        </div>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Поиск по названию..."
-          className={cn(input, "sm:w-72")}
-        />
+        <h2 className="font-semibold">Все объекты и их статус</h2>
+        <p className="text-xs text-muted-foreground sm:text-right">
+          Нажмите на строку, чтобы отредактировать или удалить. Завершённые объекты попадают в
+          раздел «Архив» на главной — данные и записи по ним сохраняются.
+        </p>
       </div>
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Поиск по названию..."
+        className={cn(input, "mt-3")}
+      />
 
       <ul className="mt-3 max-h-[min(70vh,900px)] divide-y divide-border overflow-auto rounded-xl border border-border">
         {filtered.map((o) => {
