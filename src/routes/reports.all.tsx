@@ -178,7 +178,7 @@ function AllRecordsPage() {
       {withClear && hasActiveFilters && (
         <button
           onClick={clearFilters}
-          className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="hidden items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground desktop:flex"
         >
           <X className="size-3.5" />
           Очистить
@@ -223,13 +223,30 @@ function AllRecordsPage() {
           </Link>
         </div>
 
-        <button
-          onClick={() => setFiltersOpen((v) => !v)}
-          className="mt-4 flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold desktop:hidden"
-        >
-          <SlidersHorizontal className="size-4" />
-          {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
-        </button>
+        <div className="mt-4 flex items-center gap-2 desktop:hidden">
+          <button
+            onClick={() => setFiltersOpen((v) => !v)}
+            className="relative flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold"
+          >
+            <SlidersHorizontal className="size-4" />
+            {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
+            {!filtersOpen && hasActiveFilters && (
+              <span
+                aria-label="Есть активные фильтры"
+                className="absolute -top-0.5 -right-0.5 block size-2 rounded-full bg-primary ring-2 ring-surface"
+              />
+            )}
+          </button>
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <X className="size-3.5" />
+              Очистить
+            </button>
+          )}
+        </div>
 
         <div
           className={cn(
