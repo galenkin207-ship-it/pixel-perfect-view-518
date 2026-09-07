@@ -449,13 +449,13 @@ function WorkTypesList() {
         {slice.map((w, i) => (
           <li
             key={w.id}
-            className="relative bg-surface transition-all duration-200 hover:z-10 hover:rounded-lg hover:border hover:border-border hover:shadow-[0_8px_20px_-8px_rgba(15,23,42,0.45)]"
+            className="relative bg-surface transition-all duration-200 hover:z-10 hover:border hover:border-border/60 hover:shadow-[0_8px_20px_-8px_rgba(15,23,42,0.45)] hover:brightness-110"
           >
             <button
               type="button"
               onClick={() => open(w.id)}
               className={cn(
-                "flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-muted",
+                "flex w-full items-start gap-3 px-3 py-2.5 text-left",
                 openId === w.id && "bg-primary/10",
               )}
             >
@@ -830,13 +830,13 @@ function EmployeesList({
         {slice.map((e, i) => (
           <li
             key={e.id}
-            className="relative bg-surface transition-all duration-200 hover:z-10 hover:rounded-lg hover:border hover:border-border hover:shadow-[0_8px_20px_-8px_rgba(15,23,42,0.45)]"
+            className="relative bg-surface transition-all duration-200 hover:z-10 hover:border hover:border-border/60 hover:shadow-[0_8px_20px_-8px_rgba(15,23,42,0.45)] hover:brightness-110"
           >
             <button
               type="button"
               onClick={() => open(e.id)}
               className={cn(
-                "flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted",
+                "flex w-full items-center gap-3 px-3 py-2.5 text-left",
                 openId === e.id && "bg-primary/10",
               )}
             >
@@ -1140,7 +1140,7 @@ function ObjectsStatusList() {
           return (
             <li
               key={o.id}
-              className="relative bg-surface transition-all duration-200 hover:z-10 hover:rounded-lg hover:border hover:border-border hover:shadow-[0_8px_20px_-8px_rgba(15,23,42,0.45)]"
+              className="relative bg-surface transition-all duration-200 hover:z-10 hover:border hover:border-border/60 hover:shadow-[0_8px_20px_-8px_rgba(15,23,42,0.45)] hover:brightness-110"
             >
               <div
                 className={cn(
