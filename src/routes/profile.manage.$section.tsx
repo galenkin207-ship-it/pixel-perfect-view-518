@@ -23,6 +23,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
 import { cn } from "@/lib/utils";
@@ -307,198 +313,143 @@ function TwoCol({ left, right }: { left: React.ReactNode; right: React.ReactNode
 
 /* 1. Виды работ */
 function WorkTypesSection() {
-  const { workTypes, units, addWorkType, updateWorkType, deleteWorkType } = useApp();
+  const { workTypes, units, addWorkType } = useApp();
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("");
   const [price, setPrice] = useState("");
   const [adding, setAdding] = useState(false);
-  const [editId, setEditId] = useState("");
-  const edited = workTypes.find((w) => w.id === editId);
-  const [draft, setDraft] = useState({ name: "", unit: "", price: "" });
-  const [saving, setSaving] = useState(false);
-  const [removing, setRemoving] = useState(false);
-
-  const select = (id: string) => {
-    const w = workTypes.find((x) => x.id === id);
-    if (!w) return;
-    setEditId(id);
-    setDraft({ name: w.name, unit: w.unit, price: String(w.price) });
-  };
+  const [bulkText, setBulkText] = useState("");
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [openItem, setOpenItem] = useState("");
 
   return (
     <>
-      <TwoCol
-        left={
-          <>
-            <Card title="Добавить одну позицию">
+      <Accordion
+        type="single"
+        collapsible
+        value={openItem}
+        onValueChange={setOpenItem}
+        className="rounded-2xl border border-border bg-card"
+      >
+        <AccordionItem value="add" className="border-b border-border px-4">
+          <AccordionTrigger className="font-semibold hover:no-underline">
+            Добавить одну позицию
+          </AccordionTrigger>
+          <AccordionContent className="space-y-3">
+            <label className="block">
+              <span className="label-caps">Название вида работ</span>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={cn(input, "mt-1")}
+              />
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="block">
+                <span className="label-caps">Ед. изм.</span>
+                <UnitSelect value={unit} onChange={setUnit} units={units} />
+              </div>
               <label className="block">
-                <span className="label-caps">Название вида работ</span>
+                <span className="label-caps">Цена, руб./ед.</span>
                 <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  inputMode="decimal"
                   className={cn(input, "mt-1")}
                 />
               </label>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="block">
-                  <span className="label-caps">Ед. изм.</span>
-                  <UnitSelect value={unit} onChange={setUnit} units={units} />
-                </div>
-                <label className="block">
-                  <span className="label-caps">Цена, руб./ед.</span>
-                  <input
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    inputMode="decimal"
-                    className={cn(input, "mt-1")}
-                  />
-                </label>
-              </div>
-              <button
-                type="button"
-                disabled={adding}
-                className={cn(primaryBtn, "disabled:opacity-60")}
-                onClick={async () => {
-                  if (!name.trim() || !unit.trim()) {
-                    toast.error("Заполните название и ед. изм.");
-                    return;
-                  }
-                  setAdding(true);
-                  try {
-                    await addWorkType({
-                      name: name.trim(),
-                      unit: unit.trim(),
-                      price: Number(price) || 0,
-                    });
-                    setName("");
-                    setUnit("");
-                    setPrice("");
-                    toast.success("Добавлено в справочник");
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message : "Не удалось добавить");
-                  } finally {
-                    setAdding(false);
-                  }
-                }}
-              >
-                {adding ? "Сохранение..." : "Добавить в справочник"}
-              </button>
-            </Card>
-
-            <Card title="Изменить или удалить">
-              <Autocomplete
-                items={workTypes.map((w) => ({ id: w.id, label: w.name }))}
-                value={editId}
-                onChange={select}
-                placeholder="Начните вводить название..."
-              />
-              {edited && (
-                <div className="space-y-3 rounded-xl bg-surface p-3">
-                  <label className="block">
-                    <span className="label-caps">Название</span>
-                    <input
-                      value={draft.name}
-                      onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-                      className={cn(input, "mt-1 bg-card")}
-                    />
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="block">
-                      <span className="label-caps">Ед. изм.</span>
-                      <UnitSelect
-                        value={draft.unit}
-                        onChange={(v) => setDraft((d) => ({ ...d, unit: v }))}
-                        units={units}
-                        className="bg-card"
-                      />
-                    </div>
-                    <label className="block">
-                      <span className="label-caps">Цена, руб./ед.</span>
-                      <input
-                        value={draft.price}
-                        onChange={(e) => setDraft((d) => ({ ...d, price: e.target.value }))}
-                        className={cn(input, "mt-1 bg-card")}
-                      />
-                    </label>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={saving}
-                      className={cn(primaryBtn, "disabled:opacity-60")}
-                      onClick={async () => {
-                        setSaving(true);
-                        try {
-                          await updateWorkType(editId, {
-                            name: draft.name.trim(),
-                            unit: draft.unit.trim(),
-                            price: Number(String(draft.price).replace(",", ".")) || 0,
-                          });
-                          toast.success("Сохранено");
-                        } catch (err) {
-                          toast.error(err instanceof Error ? err.message : "Не удалось сохранить");
-                        } finally {
-                          setSaving(false);
-                        }
-                      }}
-                    >
-                      {saving ? "Сохранение..." : "Сохранить"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={removing}
-                      className={cn(ghostBtn, "text-status-rejected disabled:opacity-60")}
-                      onClick={async () => {
-                        setRemoving(true);
-                        try {
-                          await deleteWorkType(editId);
-                          setEditId("");
-                          toast.success("Удалено");
-                        } catch (err) {
-                          toast.error(err instanceof Error ? err.message : "Не удалось удалить");
-                        } finally {
-                          setRemoving(false);
-                        }
-                      }}
-                    >
-                      <Trash2 className="mr-1 inline size-3.5" />
-                      {removing ? "Удаление..." : "Удалить"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </Card>
-          </>
-        }
-        right={
-          <Bulk
-            title="Пакетная загрузка"
-            button="Загрузить позиции"
-            placeholder={
-              "Формат: Название [Tab или ;] Ед.изм. [Tab или ;] Цена\n\nПример:\nМонтаж плинтуса;м.п;350\nШтукатурка стен;м²;620\n\nМожно вставлять прямо из Excel — колонки разделяются табуляцией."
-            }
-            onSubmit={async (lines) => {
-              const parsed = lines
-                .map((l) => l.split(/\t|;/).map((s) => s.trim()))
-                .filter((p) => p[0]);
-              let ok = 0;
-              for (const p of parsed) {
+            </div>
+            <button
+              type="button"
+              disabled={adding}
+              className={cn(primaryBtn, "disabled:opacity-60")}
+              onClick={async () => {
+                if (!name.trim() || !unit.trim()) {
+                  toast.error("Заполните название и ед. изм.");
+                  return;
+                }
+                setAdding(true);
                 try {
                   await addWorkType({
-                    name: p[0]!,
-                    unit: p[1] || "шт",
-                    price: Number((p[2] || "0").replace(",", ".")) || 0,
+                    name: name.trim(),
+                    unit: unit.trim(),
+                    price: Number(price) || 0,
                   });
-                  ok++;
-                } catch {
-                  /* пропускаем строку, которая не загрузилась, и продолжаем остальные */
+                  setName("");
+                  setUnit("");
+                  setPrice("");
+                  toast.success("Добавлено в справочник");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Не удалось добавить");
+                } finally {
+                  setAdding(false);
                 }
+              }}
+            >
+              {adding ? "Сохранение..." : "Добавить в справочник"}
+            </button>
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value="bulk" className="border-b-0 px-4">
+          <AccordionTrigger className="font-semibold hover:no-underline">
+            Пакетная загрузка
+          </AccordionTrigger>
+          <AccordionContent className="space-y-3">
+            <textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              rows={10}
+              placeholder={
+                "Формат: Название [Tab или ;] Ед.изм. [Tab или ;] Цена\n\nПример:\nМонтаж плинтуса;м.п;350\nШтукатурка стен;м²;620\n\nМожно вставлять прямо из Excel — колонки разделяются табуляцией."
               }
-              return ok;
-            }}
-          />
-        }
-      />
+              className={cn(input, "min-h-[200px] resize-y font-mono text-xs leading-relaxed")}
+            />
+            <button
+              type="button"
+              disabled={bulkSaving}
+              className={cn(primaryBtn, "disabled:opacity-60")}
+              onClick={async () => {
+                const lines = bulkText
+                  .split("\n")
+                  .map((l) => l.trim())
+                  .filter(Boolean);
+                if (!lines.length) {
+                  toast.error("Вставьте данные для загрузки");
+                  return;
+                }
+                setBulkSaving(true);
+                try {
+                  const parsed = lines
+                    .map((l) => l.split(/\t|;/).map((s) => s.trim()))
+                    .filter((p) => p[0]);
+                  let ok = 0;
+                  for (const p of parsed) {
+                    try {
+                      await addWorkType({
+                        name: p[0]!,
+                        unit: p[1] || "шт",
+                        price: Number((p[2] || "0").replace(",", ".")) || 0,
+                      });
+                      ok++;
+                    } catch {
+                      /* пропускаем строку, которая не загрузилась, и продолжаем остальные */
+                    }
+                  }
+                  setBulkText("");
+                  toast.success(`Загружено позиций: ${ok}`);
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Не удалось загрузить");
+                } finally {
+                  setBulkSaving(false);
+                }
+              }}
+            >
+              {bulkSaving ? "Загрузка..." : "Загрузить позиции"}
+            </button>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
       <WorkTypesList />
     </>
   );
