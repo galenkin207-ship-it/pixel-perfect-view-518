@@ -1,12 +1,23 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { Archive, ArchiveRestore, ImageIcon, Pin, PinOff } from "lucide-react";
-import { useState } from "react";
+import {
+  Archive,
+  ArchiveRestore,
+  ChevronDown,
+  ChevronLeft,
+  Image as ImageIcon,
+  Pin,
+  PinOff,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar, PageHeading } from "@/components/app/bits";
-import { RecordDetail } from "@/components/app/record-detail";
-import { StatusBadge } from "@/components/app/status-badge";
+import { DateInput } from "@/components/app/date-input";
+import { PhotoViewer } from "@/components/app/photo-viewer";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,26 +28,149 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { itemQty, isMyRecord } from "@/lib/record-utils";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { api } from "@/lib/api-client";
+import { isMyRecord } from "@/lib/record-utils";
+import { cn } from "@/lib/utils";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/objects/$id")({
   head: () => ({
     meta: [
-      { title: "Записи по объекту — Учёт работ" },
+      { title: "Виды работ по объекту — Учёт работ" },
       {
         name: "description",
-        content: "Выполненные работы по объекту: вид работы, объём, исполнитель и статус.",
+        content: "Выполненные виды работ по объекту, объёмы и фотографии.",
       },
-      { property: "og:title", content: "Записи по объекту — Учёт работ" },
+      { property: "og:title", content: "Виды работ по объекту — Учёт работ" },
       {
         property: "og:description",
-        content: "Хронология выполненных работ на строительном объекте.",
+        content: "Сводка по видам работ на строительном объекте с фильтром по датам.",
       },
     ],
   }),
   component: ObjectRecordsPage,
 });
+
+type WorkSummaryPosition = {
+  key: string;
+  name: string;
+  unit: string;
+  work_type_id: string | null;
+  qty: number;
+};
+
+type WorkSummaryDetail = {
+  key: string;
+  name: string;
+  unit: string;
+  qty: number;
+  days: number;
+  people_count: number;
+  employees: { employee: string; qty: number }[];
+};
+
+type ObjectPhoto = { record_id: number; date: string; file_path: string };
+
+const ROW_HOVER =
+  "relative border border-transparent bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)] hover:brightness-110";
+
+function MobileHeader({ title, onBack }: { title: string; onBack: () => void }) {
+  return (
+    <div className="flex items-start gap-2">
+      <button
+        onClick={onBack}
+        className="mt-0.5 flex shrink-0 items-center gap-1 rounded-lg border border-border px-3 py-2 text-sm font-semibold"
+      >
+        <ChevronLeft className="size-4" />
+        Назад
+      </button>
+      <h1 className="min-w-0 flex-1 text-lg leading-snug font-bold break-words whitespace-normal">
+        {title}
+      </h1>
+    </div>
+  );
+}
+
+function PositionDetailContent({
+  loading,
+  detail,
+}: {
+  loading: boolean;
+  detail: WorkSummaryDetail | null;
+}) {
+  if (loading) {
+    return <p className="px-1 py-2 text-sm text-muted-foreground">Загрузка...</p>;
+  }
+  if (!detail) return null;
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        <span>
+          Дней работали: <span className="font-semibold text-foreground">{detail.days}</span>
+        </span>
+        <span>
+          Сотрудников участвовало:{" "}
+          <span className="font-semibold text-foreground">{detail.people_count}</span>
+        </span>
+      </div>
+      <div className="overflow-hidden rounded-xl border border-border bg-surface">
+        {detail.employees.map((e, i) => (
+          <div
+            key={e.employee}
+            className={cn(
+              "flex items-center justify-between gap-3 px-3 py-2.5",
+              i > 0 && "border-t border-border",
+            )}
+          >
+            <span className="flex min-w-0 items-center gap-2 text-sm break-words">
+              <InitialsAvatar name={e.employee} />
+              {e.employee}
+            </span>
+            <span className="shrink-0 font-mono text-sm font-bold tabular-nums">
+              {e.qty} {detail.unit}
+            </span>
+          </div>
+        ))}
+        {detail.employees.length === 0 && (
+          <p className="px-3 py-4 text-sm text-muted-foreground">Нет данных</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PhotoGrid({
+  photos,
+  loading,
+  onPhotoClick,
+  size = "size-24",
+}: {
+  photos: ObjectPhoto[] | null;
+  loading: boolean;
+  onPhotoClick: (index: number) => void;
+  size?: string;
+}) {
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">Загрузка...</p>;
+  }
+  if (!photos || photos.length === 0) {
+    return <p className="text-sm text-muted-foreground">Фото по этому объекту пока нет</p>;
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {photos.map((p, i) => (
+        <button
+          key={`${p.record_id}-${p.file_path}`}
+          onClick={() => onPhotoClick(i)}
+          className={cn(size, "shrink-0 overflow-hidden rounded-xl border border-border bg-muted")}
+        >
+          <img src={p.file_path} alt="Фото объекта" className="size-full object-cover" />
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function ObjectRecordsPage() {
   const { id } = useParams({ from: "/objects/$id" });
@@ -52,15 +186,63 @@ function ObjectRecordsPage() {
     showObjectOnHome,
     hideObjectFromHome,
   } = useApp();
+  const isMobile = useIsMobile();
   const object = objects.find((o) => o.id === id);
-  const list = records.filter((r) => r.object_id === id);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const openRecord = records.find((r) => r.id === openId) ?? null;
   const [busy, setBusy] = useState(false);
   const [pinBusy, setPinBusy] = useState(false);
   const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false);
   const canManage = role === "curator" || role === "admin";
   const isForeman = role === "user";
+
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const [positions, setPositions] = useState<WorkSummaryPosition[]>([]);
+  const [positionsLoading, setPositionsLoading] = useState(true);
+
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [mobilePositionKey, setMobilePositionKey] = useState<string | null>(null);
+  const [detailKey, setDetailKey] = useState<string | null>(null);
+  const [detailData, setDetailData] = useState<WorkSummaryDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const [photosOpen, setPhotosOpen] = useState(false);
+  const [mobilePhotosOpen, setMobilePhotosOpen] = useState(false);
+  const [photosLoading, setPhotosLoading] = useState(false);
+  const [photosData, setPhotosData] = useState<ObjectPhoto[] | null>(null);
+  const [photoViewerIndex, setPhotoViewerIndex] = useState<number | null>(null);
+
+  const hasActiveFilters = dateFrom !== "" || dateTo !== "";
+
+  useEffect(() => {
+    let cancelled = false;
+    setPositionsLoading(true);
+    api
+      .getObjectWorkSummary(id, dateFrom || undefined, dateTo || undefined)
+      .then((res) => {
+        if (!cancelled) setPositions(res.positions);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          toast.error(err instanceof Error ? err.message : "Не удалось загрузить виды работ");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setPositionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, dateFrom, dateTo]);
+
+  // При смене мобильного "экрана" (список/деталь позиции/фото) скроллим
+  // наверх — иначе новый экран открывается там, где была прокрутка списка.
+  useEffect(() => {
+    const el = document.getElementById("app-scroll-container");
+    if (el) el.scrollTop = 0;
+    else window.scrollTo(0, 0);
+  }, [mobilePositionKey, mobilePhotosOpen]);
 
   if (!object) {
     return (
@@ -74,16 +256,21 @@ function ObjectRecordsPage() {
   }
 
   const isArchived = object.status === "archived";
+  const objectRecords = records.filter((r) => r.object_id === id);
   // Признак "есть записи" считаем так же, как на главной: у "Кто подал" —
   // только свои записи, иначе — все. Иначе кнопка на этой странице и на
   // главной экране будет решать по-разному, есть ли у объекта записи, и
   // состояние "закреплён/скрыт" разъедется.
-  const hasRecords = isForeman ? list.some((r) => isMyRecord(currentUser, r)) : list.length > 0;
+  const hasRecords = isForeman
+    ? objectRecords.some((r) => isMyRecord(currentUser, r))
+    : objectRecords.length > 0;
   const isPinned = pinnedObjectIds.includes(object.id);
   const isHidden = hiddenObjectIds.includes(object.id);
   // Показан ли объект сейчас на главном экране — та же логика, что и на
   // самой главной странице и в шторке "Добавить объект".
   const shownOnHome = !isHidden && (hasRecords || isPinned);
+
+  const shellFab = isArchived ? {} : { fab: { to: "/records/new", search: { object: id } } };
 
   const toggleHome = async () => {
     setPinBusy(true);
@@ -127,12 +314,117 @@ function ObjectRecordsPage() {
     }
   };
 
+  const loadDetail = async (key: string) => {
+    setDetailKey(key);
+    setDetailData(null);
+    setDetailLoading(true);
+    try {
+      const res = await api.getObjectWorkSummaryDetail(
+        id,
+        key,
+        dateFrom || undefined,
+        dateTo || undefined,
+      );
+      setDetailData(res);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Не удалось загрузить детали по виду работ");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handlePositionClick = (key: string) => {
+    if (isMobile) {
+      setMobilePositionKey(key);
+      void loadDetail(key);
+      return;
+    }
+    if (expandedKey === key) {
+      setExpandedKey(null);
+      return;
+    }
+    setExpandedKey(key);
+    void loadDetail(key);
+  };
+
+  const openPhotos = async () => {
+    if (isMobile) setMobilePhotosOpen(true);
+    else setPhotosOpen(true);
+    setPhotosLoading(true);
+    try {
+      const res = await api.getObjectPhotos(id, dateFrom || undefined, dateTo || undefined);
+      setPhotosData(res.photos);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Не удалось загрузить фото объекта");
+    } finally {
+      setPhotosLoading(false);
+    }
+  };
+
+  const closePhotos = () => {
+    setPhotosOpen(false);
+    setMobilePhotosOpen(false);
+    setPhotoViewerIndex(null);
+  };
+
+  if (isMobile && mobilePositionKey) {
+    const position = positions.find((p) => p.key === mobilePositionKey);
+    return (
+      <AppShell {...shellFab}>
+        <MobileHeader
+          title={position?.name ?? ""}
+          onBack={() => {
+            setMobilePositionKey(null);
+            setDetailKey(null);
+            setDetailData(null);
+          }}
+        />
+        <div className="mt-4">
+          <PositionDetailContent
+            loading={detailLoading}
+            detail={detailKey === mobilePositionKey ? detailData : null}
+          />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (isMobile && mobilePhotosOpen) {
+    return (
+      <AppShell {...shellFab}>
+        <MobileHeader title="Фото объекта" onBack={closePhotos} />
+        <div className="mt-4">
+          <PhotoGrid
+            photos={photosData}
+            loading={photosLoading}
+            onPhotoClick={(i) => setPhotoViewerIndex(i)}
+          />
+        </div>
+        {photoViewerIndex !== null && photosData && (
+          <PhotoViewer
+            photos={photosData.map((p) => p.file_path)}
+            initialIndex={photoViewerIndex}
+            onClose={() => setPhotoViewerIndex(null)}
+          />
+        )}
+      </AppShell>
+    );
+  }
+
   return (
-    <AppShell {...(isArchived ? {} : { fab: { to: "/records/new", search: { object: id } } })}>
+    <AppShell {...shellFab}>
       <div className="bg-background pt-5 pb-3 desktop:sticky desktop:top-0 desktop:z-20 desktop:border-b desktop:border-border desktop:pt-6 desktop:shadow-[0_8px_12px_-10px_rgba(15,23,42,0.35)] xl:pt-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <PageHeading context={object.address} title={object.name} />
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void openPhotos()}
+              className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted"
+            >
+              <ImageIcon className="size-3.5" />
+              Фото
+            </button>
             {!isArchived && (
               <button
                 type="button"
@@ -188,85 +480,78 @@ function ObjectRecordsPage() {
           </p>
         )}
 
-        <div className="mt-5 hidden grid-cols-[2.4fr_1.1fr_1.2fr_1.1fr_1fr_1.2fr] gap-3 rounded-t-2xl border border-border bg-card px-4 py-3 lg:grid">
-          <span className="label-caps">Вид работы</span>
-          <span className="label-caps">Кто подал</span>
-          <span className="label-caps">Сотрудник / Бригада</span>
-          <span className="label-caps">Дата</span>
-          <span className="label-caps">Статус</span>
-          <span className="label-caps">Изменено</span>
+        <div className="mt-4 flex items-center gap-2 desktop:hidden">
+          <button
+            onClick={() => setFiltersOpen((v) => !v)}
+            className="relative flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold"
+          >
+            <SlidersHorizontal className="size-4" />
+            {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
+            {!filtersOpen && hasActiveFilters && (
+              <span
+                aria-label="Есть активные фильтры"
+                className="absolute -top-0.5 -right-0.5 block size-2 rounded-full bg-primary ring-2 ring-surface"
+              />
+            )}
+          </button>
+        </div>
+
+        <div className={cn("mt-3 max-w-sm", !filtersOpen && "hidden desktop:block")}>
+          <label className="block">
+            <span className="label-caps">Дата (с — по)</span>
+            <div className="mt-1 grid grid-cols-2 gap-2">
+              <DateInput value={dateFrom} onChange={setDateFrom} />
+              <DateInput value={dateTo} onChange={setDateTo} />
+            </div>
+          </label>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border lg:rounded-t-none lg:border-t-0">
-        {list.map((r) => {
-          const performer =
-            r.execution_type === "brigade" ? (r.brigade_name ?? "") : r.employees.join(", ");
-          return (
-            <div key={r.id} className="border-b border-border last:border-0">
-              <button
-                onClick={() => setOpenId(r.id)}
-                className="grid h-auto w-full auto-rows-min grid-cols-1 gap-2 px-4 py-3 text-left hover:bg-muted/40 lg:grid-cols-[2.4fr_1.1fr_1.2fr_1.1fr_1fr_1.2fr] lg:items-start lg:gap-3"
-              >
-                <span className="flex flex-col gap-1">
-                  {r.items.map((item, i) => (
-                    <span
-                      key={i}
-                      className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
-                    >
-                      <span className="text-base font-semibold break-words text-foreground">
-                        {item.name}
-                      </span>
-                      <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 font-mono text-sm font-bold tabular-nums text-primary">
-                        {itemQty(item)} {item.unit}
-                      </span>
-                    </span>
-                  ))}
-                </span>
-                <span className="flex items-center gap-2 text-sm break-words">
-                  <InitialsAvatar name={r.created_by} />
-                  {r.created_by}
-                </span>
-                <span className="text-sm break-words">{performer}</span>
-                <span className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
-                  <span>
-                    {r.date.slice(0, 5)}, {r.time}
-                  </span>
-                  {r.photos.length > 0 && (
-                    <span
-                      className="flex items-center gap-0.5 font-semibold text-primary"
-                      title={`${r.photos.length} фото`}
-                    >
-                      <ImageIcon className="size-4" />
-                      {r.photos.length}
-                    </span>
-                  )}
-                </span>
-                <span className="flex items-center gap-2">
-                  <StatusBadge status={r.status} />
-                </span>
-                <span className="text-xs text-muted-foreground break-words">
-                  {r.updated_by ? (
-                    <>
-                      <span className="font-semibold text-foreground">{r.updated_by}</span>
-                      {r.updated_at ? <> · {r.updated_at}</> : null}
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </span>
-              </button>
-            </div>
-          );
-        })}
-        {list.length === 0 && (
+      <div className="overflow-hidden rounded-2xl border border-border divide-y divide-border">
+        {positionsLoading ? (
+          <p className="px-4 py-6 text-sm text-muted-foreground">Загрузка...</p>
+        ) : positions.length === 0 ? (
           <p className="px-4 py-6 text-sm text-muted-foreground">
-            По этому объекту записей пока нет.
+            {hasActiveFilters
+              ? "За выбранный период работ по этому объекту нет"
+              : "По этому объекту работ пока нет"}
           </p>
+        ) : (
+          positions.map((p) => {
+            const isOpen = expandedKey === p.key;
+            return (
+              <div key={p.key} className={ROW_HOVER}>
+                <button
+                  type="button"
+                  onClick={() => handlePositionClick(p.key)}
+                  className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3 text-left"
+                >
+                  <span className="flex min-w-0 flex-1 items-center gap-1.5 text-base font-semibold break-words text-foreground">
+                    {p.name}
+                    <ChevronDown
+                      className={cn(
+                        "size-4 shrink-0 text-muted-foreground transition-transform",
+                        isOpen && "rotate-180",
+                      )}
+                    />
+                  </span>
+                  <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 font-mono text-sm font-bold tabular-nums text-primary">
+                    {p.qty} {p.unit}
+                  </span>
+                </button>
+                {isOpen && (
+                  <div className="border-t border-border bg-card px-4 py-3">
+                    <PositionDetailContent
+                      loading={detailLoading}
+                      detail={detailKey === p.key ? detailData : null}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
-
-      {openRecord && <RecordDetail record={openRecord} onClose={() => setOpenId(null)} />}
 
       <AlertDialog
         open={confirmArchiveOpen}
@@ -290,6 +575,58 @@ function ObjectRecordsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {photosOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+            onClick={closePhotos}
+          >
+            <div
+              className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-card p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="text-lg font-bold">Фото объекта</h2>
+                <button onClick={closePhotos} aria-label="Закрыть">
+                  <X className="size-5 text-muted-foreground" />
+                </button>
+              </div>
+              <div className="mt-4">
+                {photosLoading ? (
+                  <p className="text-sm text-muted-foreground">Загрузка...</p>
+                ) : photosData && photosData.length > 0 ? (
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                    {photosData.map((p, i) => (
+                      <button
+                        key={`${p.record_id}-${p.file_path}`}
+                        onClick={() => setPhotoViewerIndex(i)}
+                        className="aspect-square overflow-hidden rounded-xl border border-border bg-muted"
+                      >
+                        <img
+                          src={p.file_path}
+                          alt="Фото объекта"
+                          className="size-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Фото по этому объекту пока нет</p>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {photoViewerIndex !== null && photosData && (
+        <PhotoViewer
+          photos={photosData.map((p) => p.file_path)}
+          initialIndex={photoViewerIndex}
+          onClose={() => setPhotoViewerIndex(null)}
+        />
+      )}
     </AppShell>
   );
 }

@@ -122,7 +122,7 @@ type ApiRecord = {
   photos: string[];
 };
 
-function photoUrl(relativePath: string) {
+export function photoUrl(relativePath: string) {
   // relativePath вида "336/uuid.jpg" -> /api/records/336/photos/uuid.jpg
   const [recordId, filename] = relativePath.split("/");
   return `${BASE}/records/${recordId}/photos/${filename}`;
@@ -323,6 +323,64 @@ export const api = {
       status: row.status === "archived" ? "archived" : "active",
       archived_at: row.archived_at ?? null,
     };
+  },
+
+  async getObjectWorkSummary(
+    objectId: string,
+    from?: string,
+    to?: string,
+  ): Promise<{
+    positions: {
+      key: string;
+      name: string;
+      unit: string;
+      work_type_id: string | null;
+      qty: number;
+    }[];
+  }> {
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    const qs = params.toString();
+    return request(`/objects/${objectId}/work-summary${qs ? `?${qs}` : ""}`);
+  },
+
+  async getObjectWorkSummaryDetail(
+    objectId: string,
+    key: string,
+    from?: string,
+    to?: string,
+  ): Promise<{
+    key: string;
+    name: string;
+    unit: string;
+    qty: number;
+    days: number;
+    people_count: number;
+    employees: { employee: string; qty: number }[];
+  }> {
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    const qs = params.toString();
+    return request(
+      `/objects/${objectId}/work-summary/${encodeURIComponent(key)}${qs ? `?${qs}` : ""}`,
+    );
+  },
+
+  async getObjectPhotos(
+    objectId: string,
+    from?: string,
+    to?: string,
+  ): Promise<{ photos: { record_id: number; date: string; file_path: string }[] }> {
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    const qs = params.toString();
+    const result = await request<{
+      photos: { record_id: number; date: string; file_path: string }[];
+    }>(`/objects/${objectId}/photos${qs ? `?${qs}` : ""}`);
+    return { photos: result.photos.map((p) => ({ ...p, file_path: photoUrl(p.file_path) })) };
   },
 
   async listEmployees(): Promise<string[]> {
@@ -824,7 +882,10 @@ export const api = {
     await request<{ deleted: number }>(`/records/${recordId}`, { method: "DELETE" });
   },
 
-  async uploadPhotos(recordId: string, files: File[]): Promise<{ photos: string[]; skipped: string[] }> {
+  async uploadPhotos(
+    recordId: string,
+    files: File[],
+  ): Promise<{ photos: string[]; skipped: string[] }> {
     const form = new FormData();
     for (const f of files) form.append("photos", f);
     const result = await request<{ photos: string[]; skipped?: string[] }>(
