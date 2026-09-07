@@ -447,7 +447,10 @@ function WorkTypesList() {
 
       <ul className="mt-3 max-h-[min(70vh,900px)] divide-y divide-border overflow-auto rounded-xl border border-border">
         {slice.map((w, i) => (
-          <li key={w.id} className="bg-surface">
+          <li
+            key={w.id}
+            className="relative bg-surface transition-all duration-200 hover:z-10 hover:rounded-lg hover:border hover:border-border hover:shadow-[0_8px_20px_-8px_rgba(15,23,42,0.45)]"
+          >
             <button
               type="button"
               onClick={() => open(w.id)}
@@ -825,7 +828,10 @@ function EmployeesList({
 
       <ul className="mt-3 max-h-[min(70vh,900px)] divide-y divide-border overflow-auto rounded-xl border border-border">
         {slice.map((e, i) => (
-          <li key={e.id} className="bg-surface">
+          <li
+            key={e.id}
+            className="relative bg-surface transition-all duration-200 hover:z-10 hover:rounded-lg hover:border hover:border-border hover:shadow-[0_8px_20px_-8px_rgba(15,23,42,0.45)]"
+          >
             <button
               type="button"
               onClick={() => open(e.id)}
@@ -1132,7 +1138,10 @@ function ObjectsStatusList() {
         {filtered.map((o) => {
           const archived = o.status === "archived";
           return (
-            <li key={o.id} className="bg-surface">
+            <li
+              key={o.id}
+              className="relative bg-surface transition-all duration-200 hover:z-10 hover:rounded-lg hover:border hover:border-border hover:shadow-[0_8px_20px_-8px_rgba(15,23,42,0.45)]"
+            >
               <div
                 className={cn(
                   "flex flex-wrap items-center justify-between gap-3 px-3 py-2.5",
