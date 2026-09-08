@@ -34,6 +34,7 @@ import { PageHeading } from "@/components/app/bits";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api-client";
 import { smartFilter } from "@/lib/smart-search";
+import { usePersistedState } from "@/lib/use-persisted-state";
 import { roleLabels, type Role } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
@@ -399,7 +400,7 @@ function WorkTypesSection() {
 
 function WorkTypesList() {
   const { workTypes, units, updateWorkType, archiveWorkType } = useApp();
-  const [q, setQ] = useState("");
+  const [q, setQ] = usePersistedState("settings:work-types:query", "");
   const [page, setPage] = useState(0);
   const [openId, setOpenId] = useState("");
   const [draft, setDraft] = useState({ name: "", unit: "", price: "" });
@@ -449,7 +450,7 @@ function WorkTypesList() {
         {slice.map((w, i) => (
           <li
             key={w.id}
-            className="relative border border-transparent bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)] hover:brightness-110"
+            className="relative border border-transparent bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)]"
           >
             <button
               type="button"
@@ -780,7 +781,7 @@ function EmployeesList({
   onRename: (id: string, v: string) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
 }) {
-  const [q, setQ] = useState("");
+  const [q, setQ] = usePersistedState("settings:employees:query", "");
   const [page, setPage] = useState(0);
   const [openId, setOpenId] = useState("");
   const [draft, setDraft] = useState("");
@@ -830,7 +831,7 @@ function EmployeesList({
         {slice.map((e, i) => (
           <li
             key={e.id}
-            className="relative border border-transparent bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)] hover:brightness-110"
+            className="relative border border-transparent bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)]"
           >
             <button
               type="button"
@@ -1096,7 +1097,7 @@ function ObjectsSection() {
    работ" и "Сотрудники"; кнопка "Завершить" остаётся отдельным действием. */
 function ObjectsStatusList() {
   const { objects, updateObject, deleteObject, archiveObject, restoreObject } = useApp();
-  const [q, setQ] = useState("");
+  const [q, setQ] = usePersistedState("settings:objects:query", "");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [openId, setOpenId] = useState("");
   const [draft, setDraft] = useState({ name: "", address: "" });
@@ -1140,7 +1141,7 @@ function ObjectsStatusList() {
           return (
             <li
               key={o.id}
-              className="relative border border-transparent bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)] hover:brightness-110"
+              className="relative border border-transparent bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)]"
             >
               <div
                 className={cn(

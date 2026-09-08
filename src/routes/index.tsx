@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { isMyRecord } from "@/lib/record-utils";
+import { usePersistedState } from "@/lib/use-persisted-state";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/")({
@@ -65,7 +66,7 @@ function ObjectsPage() {
     hiddenObjectIds,
     hideObjectFromHome,
   } = useApp();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = usePersistedState("index:object-search", "");
   const [pickerOpen, setPickerOpen] = useState(false);
   const isForeman = role === "user";
 
