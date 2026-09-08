@@ -485,6 +485,13 @@ export const api = {
     await request<{ deleted: number }>(`/work-types/${id}`, { method: "DELETE" });
   },
 
+  async archiveWorkType(id: string): Promise<void> {
+    await request<{ id: number; name: string; unit: string; price: string | number; status: string; archived_at: string | null }>(
+      `/work-types/${id}/archive`,
+      { method: "PATCH" },
+    );
+  },
+
   async listPinnedObjects(): Promise<string[]> {
     const rows = await request<(number | string)[]>("/pinned-objects");
     return rows.map(String);

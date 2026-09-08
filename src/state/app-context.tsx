@@ -877,6 +877,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const archiveWorkType = async (id: string): Promise<void> => {
+    try {
+      await api.archiveWorkType(id);
+      setWorkTypes((prev) => prev.filter((w) => w.id !== id));
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error("failed to archive work type");
+    }
+  };
+
   // Сотрудники/единицы измерения везде в приложении используются как простые
   // списки имён (WorkRecord.employees и т.п. ссылаются на сотрудника по имени,
   // не по id), поэтому глобальный список остаётся string[] — после любой
@@ -1016,6 +1025,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addWorkType,
     updateWorkType,
     deleteWorkType,
+    archiveWorkType,
     employees,
     setEmployees,
     addEmployee,
