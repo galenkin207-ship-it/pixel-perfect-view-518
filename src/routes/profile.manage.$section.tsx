@@ -34,7 +34,6 @@ import { PageHeading } from "@/components/app/bits";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api-client";
 import { smartFilter } from "@/lib/smart-search";
-import { usePersistedState } from "@/lib/use-persisted-state";
 import { roleLabels, type Role } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
@@ -400,7 +399,7 @@ function WorkTypesSection() {
 
 function WorkTypesList() {
   const { workTypes, units, updateWorkType, archiveWorkType } = useApp();
-  const [q, setQ] = usePersistedState("settings:work-types:query", "");
+  const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
   const [openId, setOpenId] = useState("");
   const [draft, setDraft] = useState({ name: "", unit: "", price: "" });
@@ -781,7 +780,7 @@ function EmployeesList({
   onRename: (id: string, v: string) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
 }) {
-  const [q, setQ] = usePersistedState("settings:employees:query", "");
+  const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
   const [openId, setOpenId] = useState("");
   const [draft, setDraft] = useState("");
@@ -1097,7 +1096,7 @@ function ObjectsSection() {
    работ" и "Сотрудники"; кнопка "Завершить" остаётся отдельным действием. */
 function ObjectsStatusList() {
   const { objects, updateObject, deleteObject, archiveObject, restoreObject } = useApp();
-  const [q, setQ] = usePersistedState("settings:objects:query", "");
+  const [q, setQ] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [openId, setOpenId] = useState("");
   const [draft, setDraft] = useState({ name: "", address: "" });

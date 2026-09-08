@@ -10,7 +10,6 @@ import { DateInput } from "@/components/app/date-input";
 import { SearchableSelect } from "@/components/app/searchable-select";
 import { cn } from "@/lib/utils";
 import { allocationsFor, itemQty } from "@/lib/record-utils";
-import { usePersistedState } from "@/lib/use-persisted-state";
 import { roleLabels, type WorkObject, type WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
@@ -183,23 +182,17 @@ function buildObjectStats(records: WorkRecord[], objects: WorkObject[]): StatsRo
 
 function ReportsPage() {
   const { records, objects, role, employees, workTypes, submitterNames } = useApp();
-  const [period, setPeriod] = usePersistedState<(typeof periods)[number]>(
-    "reports-index:period",
-    "Эта неделя",
-  );
-  const [grouping, setGrouping] = usePersistedState<"employees" | "objects">(
-    "reports-index:grouping",
-    "employees",
-  );
-  const [statsFrom, setStatsFrom] = usePersistedState("reports-index:stats-from", "");
-  const [statsTo, setStatsTo] = usePersistedState("reports-index:stats-to", "");
+  const [period, setPeriod] = useState<(typeof periods)[number]>("Эта неделя");
+  const [grouping, setGrouping] = useState<"employees" | "objects">("employees");
+  const [statsFrom, setStatsFrom] = useState("");
+  const [statsTo, setStatsTo] = useState("");
   const [statsOpen, setStatsOpen] = useState(false);
   const [expandedStatsKey, setExpandedStatsKey] = useState<string | null>(null);
-  const [rObject, setRObject] = usePersistedState("reports-index:detail-object", "");
-  const [rEmployee, setREmployee] = usePersistedState("reports-index:detail-employee", "");
-  const [rSubmitter, setRSubmitter] = usePersistedState("reports-index:detail-submitter", "");
-  const [rFrom, setRFrom] = usePersistedState("reports-index:detail-from", "");
-  const [rTo, setRTo] = usePersistedState("reports-index:detail-to", "");
+  const [rObject, setRObject] = useState("");
+  const [rEmployee, setREmployee] = useState("");
+  const [rSubmitter, setRSubmitter] = useState("");
+  const [rFrom, setRFrom] = useState("");
+  const [rTo, setRTo] = useState("");
 
   const now = new Date();
   const currentYear = now.getFullYear();
