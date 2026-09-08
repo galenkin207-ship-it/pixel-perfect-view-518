@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CalendarIcon } from "lucide-react";
+import { ru } from "date-fns/locale";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -50,6 +51,7 @@ export function DateInput({ value, onChange, className }: DateInputProps) {
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
           mode="single"
+          locale={ru}
           selected={selected}
           {...(selected ? { defaultMonth: selected } : {})}
           onSelect={(date) => {
