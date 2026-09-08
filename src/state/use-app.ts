@@ -79,6 +79,7 @@ export type AppState = {
     input: { name: string; unit: string; price: number },
   ) => Promise<WorkType>;
   deleteWorkType: (id: string) => Promise<void>;
+  archiveWorkType: (id: string) => Promise<void>;
   employees: string[];
   setEmployees: React.Dispatch<React.SetStateAction<string[]>>;
   addEmployee: (name: string) => Promise<void>;

@@ -398,7 +398,7 @@ function WorkTypesSection() {
 }
 
 function WorkTypesList() {
-  const { workTypes, units, updateWorkType, deleteWorkType } = useApp();
+  const { workTypes, units, updateWorkType, archiveWorkType } = useApp();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
   const [openId, setOpenId] = useState("");
@@ -514,7 +514,7 @@ function WorkTypesList() {
                         onClick={async () => {
                           setRemoving(true);
                           try {
-                            await deleteWorkType(w.id);
+                            await archiveWorkType(w.id);
                             setConfirmId("");
                             setOpenId("");
                             toast.success("Вид работ удалён из справочника");
