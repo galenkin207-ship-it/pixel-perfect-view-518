@@ -137,7 +137,7 @@ function PositionDetailContent({
           <div
             key={e.employee}
             className={cn(
-              "flex items-center justify-between gap-3 px-3 py-2.5 transition-colors hover:bg-muted/60",
+              "flex items-center justify-between gap-3 px-3 py-2.5 transition-colors hover:bg-card",
               i > 0 && "border-t border-border",
             )}
           >
