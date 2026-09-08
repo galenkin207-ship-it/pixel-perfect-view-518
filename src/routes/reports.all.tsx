@@ -11,13 +11,17 @@ import { StatusBadge } from "@/components/app/status-badge";
 import { ruToIso } from "@/lib/api-client";
 import { itemQty } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
+import { readPersistedValue, writePersistedValue } from "@/lib/use-persisted-state";
 import { statusLabels, type RecordStatus, type WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
 // Фильтры и страница пагинации хранятся в URL (а не в локальном useState),
 // чтобы не сбрасываться при переходе на другую страницу (например, при
 // редактировании записи) и обратно — при возврате на /reports/all тот же URL
-// восстанавливает ровно те же фильтры.
+// восстанавливает ровно те же фильтры. Но переход на страницу ИЗ меню (без
+// search-параметров вовсе) URL защитить не может — для этого случая дефолты
+// (кроме page) подтягиваются из localStorage через readPersistedValue, а
+// каждое изменение/очистка фильтра зеркалится обратно туда же.
 export type ReportsAllSearch = {
   object: string;
   status: string;
@@ -31,13 +35,34 @@ export type ReportsAllSearch = {
 
 export const Route = createFileRoute("/reports/all")({
   validateSearch: (search: Record<string, unknown>): ReportsAllSearch => ({
-    object: typeof search["object"] === "string" ? search["object"] : "all",
-    status: typeof search["status"] === "string" ? search["status"] : "all",
-    query: typeof search["query"] === "string" ? search["query"] : "",
-    submitter: typeof search["submitter"] === "string" ? search["submitter"] : "all",
-    performer: typeof search["performer"] === "string" ? search["performer"] : "all",
-    dateFrom: typeof search["dateFrom"] === "string" ? search["dateFrom"] : "",
-    dateTo: typeof search["dateTo"] === "string" ? search["dateTo"] : "",
+    object:
+      typeof search["object"] === "string"
+        ? search["object"]
+        : readPersistedValue("reports-all:object", "all"),
+    status:
+      typeof search["status"] === "string"
+        ? search["status"]
+        : readPersistedValue("reports-all:status", "all"),
+    query:
+      typeof search["query"] === "string"
+        ? search["query"]
+        : readPersistedValue("reports-all:query", ""),
+    submitter:
+      typeof search["submitter"] === "string"
+        ? search["submitter"]
+        : readPersistedValue("reports-all:submitter", "all"),
+    performer:
+      typeof search["performer"] === "string"
+        ? search["performer"]
+        : readPersistedValue("reports-all:performer", "all"),
+    dateFrom:
+      typeof search["dateFrom"] === "string"
+        ? search["dateFrom"]
+        : readPersistedValue("reports-all:dateFrom", ""),
+    dateTo:
+      typeof search["dateTo"] === "string"
+        ? search["dateTo"]
+        : readPersistedValue("reports-all:dateTo", ""),
     page: Number(search["page"]) > 0 ? Number(search["page"]) : 1,
   }),
   head: () => ({
@@ -127,6 +152,10 @@ function AllRecordsPage() {
   // функциональный updater — иначе TanStack выводит тип prev как объединение
   // search-параметров ВСЕХ роутов приложения и типы перестают сходиться.
   const updateFilter = (patch: Partial<ReportsAllSearch>) => {
+    for (const [key, value] of Object.entries(patch)) {
+      if (key === "page") continue;
+      writePersistedValue(`reports-all:${key}`, value);
+    }
     void navigate({
       to: "/reports/all",
       search: { ...search, ...patch, page: 1 },
@@ -144,6 +173,13 @@ function AllRecordsPage() {
     dateTo !== "";
 
   const clearFilters = () => {
+    writePersistedValue("reports-all:object", "all");
+    writePersistedValue("reports-all:status", "all");
+    writePersistedValue("reports-all:query", "");
+    writePersistedValue("reports-all:submitter", "all");
+    writePersistedValue("reports-all:performer", "all");
+    writePersistedValue("reports-all:dateFrom", "");
+    writePersistedValue("reports-all:dateTo", "");
     void navigate({
       to: "/reports/all",
       search: {
