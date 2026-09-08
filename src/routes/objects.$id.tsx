@@ -72,7 +72,7 @@ type WorkSummaryDetail = {
 type ObjectPhoto = { record_id: number; date: string; file_path: string };
 
 const ROW_HOVER =
-  "relative border border-transparent bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)] hover:brightness-110";
+  "relative border border-transparent bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)]";
 
 // GET /work-summary больше не отдаёт отдельный id позиции — строим его сами
 // из work_type_id (если позиция привязана к справочнику) или пары name+unit
@@ -137,7 +137,7 @@ function PositionDetailContent({
           <div
             key={e.employee}
             className={cn(
-              "flex items-center justify-between gap-3 px-3 py-2.5",
+              "flex items-center justify-between gap-3 px-3 py-2.5 transition-colors hover:bg-card",
               i > 0 && "border-t border-border",
             )}
           >
