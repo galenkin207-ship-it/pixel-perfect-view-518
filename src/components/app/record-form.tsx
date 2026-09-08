@@ -12,7 +12,7 @@ import { useBlurOnScroll } from "@/hooks/use-blur-on-scroll";
 import { cn, objectLabel } from "@/lib/utils";
 import { itemQty, recordTotal, round2, syncItem } from "@/lib/record-utils";
 import { smartFilter } from "@/lib/smart-search";
-import { api } from "@/lib/api-client";
+import { api, photoThumbUrl } from "@/lib/api-client";
 import { clearQuickDraftId } from "@/lib/quick-draft";
 import type { WorkItem, WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
@@ -839,7 +839,7 @@ export function RecordForm({
               {photos.map((p) => (
                 <div key={p} className="relative size-16">
                   <img
-                    src={p}
+                    src={photoThumbUrl(p)}
                     alt="Фото к записи"
                     className={cn(
                       "size-16 rounded-lg object-cover",

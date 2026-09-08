@@ -128,6 +128,10 @@ export function photoUrl(relativePath: string) {
   return `${BASE}/records/${recordId}/photos/${filename}`;
 }
 
+export function photoThumbUrl(url: string) {
+  return `${url}${url.includes("?") ? "&" : "?"}thumb=1`;
+}
+
 function apiRecordToWorkRecord(r: ApiRecord): WorkRecord {
   const items: WorkItem[] = r.items.map((it) => ({
     name: it.name,
