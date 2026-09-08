@@ -19,7 +19,7 @@ import { DateInput } from "@/components/app/date-input";
 import { PhotoViewer } from "@/components/app/photo-viewer";
 import { SearchableSelect } from "@/components/app/searchable-select";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { ruToIso } from "@/lib/api-client";
+import { photoThumbUrl, ruToIso } from "@/lib/api-client";
 import { allocationsFor, itemQty, recordTotal } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
 import type { WorkItem, WorkRecord } from "@/data/mock";
@@ -712,7 +712,11 @@ function ReportDetailPage() {
                         onClick={() => setDayPhotoViewer({ record: r, index: i })}
                         className="size-24 shrink-0 overflow-hidden rounded-xl border border-border bg-muted"
                       >
-                        <img src={p} alt="Фото к записи" className="size-full object-cover" />
+                        <img
+                          src={photoThumbUrl(p)}
+                          alt="Фото к записи"
+                          className="size-full object-cover"
+                        />
                       </button>
                     ))}
                   </div>
@@ -1347,7 +1351,11 @@ function RecordDetailBlock({
               onClick={() => setPreviewIndex(i)}
               className="size-24 shrink-0 overflow-hidden rounded-xl border border-border bg-muted"
             >
-              <img src={p} alt="Фото к записи" className="size-full object-cover" />
+              <img
+                src={photoThumbUrl(p)}
+                alt="Фото к записи"
+                className="size-full object-cover"
+              />
             </button>
           ))}
           {record.photos.length === 0 && (

@@ -8,6 +8,7 @@ import { FieldLabel, InitialsAvatar } from "@/components/app/bits";
 import { PhotoViewer } from "@/components/app/photo-viewer";
 import { StatusBadge } from "@/components/app/status-badge";
 import { allocationsFor, canEditRecord, itemQty, recordTotal } from "@/lib/record-utils";
+import { photoThumbUrl } from "@/lib/api-client";
 import { clearQuickDraftId } from "@/lib/quick-draft";
 import { objectLabel } from "@/lib/utils";
 import type { WorkRecord } from "@/data/mock";
@@ -152,7 +153,11 @@ export function RecordDetail({
                   onClick={() => setPhotoIndex(i)}
                   className="size-20 overflow-hidden rounded-xl bg-muted"
                 >
-                  <img src={p} alt="Фото к записи" className="size-full object-cover" />
+                  <img
+                    src={photoThumbUrl(p)}
+                    alt="Фото к записи"
+                    className="size-full object-cover"
+                  />
                 </button>
               ))}
             </div>

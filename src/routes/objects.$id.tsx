@@ -30,7 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { api } from "@/lib/api-client";
+import { api, photoThumbUrl } from "@/lib/api-client";
 import { isMyRecord } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/state/use-app";
@@ -232,7 +232,11 @@ function PhotoGrid({
                   "overflow-hidden rounded-xl border border-border bg-muted",
                 )}
               >
-                <img src={photo.file_path} alt="Фото объекта" className="size-full object-cover" />
+                <img
+                  src={photoThumbUrl(photo.file_path)}
+                  alt="Фото объекта"
+                  className="size-full object-cover"
+                />
               </button>
             ))}
           </div>
