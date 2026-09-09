@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import ExcelJS from "exceljs";
 import {
   Building2,
   Check,
@@ -29,6 +30,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
 import { cn } from "@/lib/utils";
@@ -407,12 +409,41 @@ function WorkTypesList() {
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
 
+  // Выбор строк хранится по id независимо от страницы/поиска — при пагинации
+  // и фильтрации Set не сбрасывается, поэтому массовые операции могут
+  // затрагивать позиции с разных страниц одновременно.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
   const filtered = useMemo(() => smartFilter(workTypes, q, (w) => w.name), [workTypes, q]);
 
   const perPage = 50;
   const pages = Math.max(1, Math.ceil(filtered.length / perPage));
   const current = Math.min(page, pages - 1);
   const slice = filtered.slice(current * perPage, current * perPage + perPage);
+
+  const sliceIds = useMemo(() => slice.map((w) => w.id), [slice]);
+  const allSelectedOnPage = sliceIds.length > 0 && sliceIds.every((id) => selected.has(id));
+  const someSelectedOnPage = sliceIds.some((id) => selected.has(id));
+
+  const toggleSelectAllOnPage = (checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      sliceIds.forEach((id) => (checked ? next.add(id) : next.delete(id)));
+      return next;
+    });
+  };
+
+  const toggleSelect = (id: string, checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
 
   const open = (id: string) => {
     const w = workTypes.find((x) => x.id === id);
@@ -424,6 +455,69 @@ function WorkTypesList() {
     }
     setOpenId(id);
     setDraft({ name: w.name, unit: w.unit, price: String(w.price) });
+  };
+
+  const runBulkDelete = async () => {
+    const ids = [...selected];
+    if (!ids.length) return;
+    setBulkDeleting(true);
+    try {
+      const results = await Promise.allSettled(ids.map((id) => archiveWorkType(id)));
+      const failedCount = results.filter((r) => r.status === "rejected").length;
+      const succeeded = ids.length - failedCount;
+      if (succeeded > 0) toast.success(`Удалено позиций: ${succeeded}`);
+      if (failedCount > 0) {
+        toast.error(
+          failedCount === ids.length
+            ? "Не удалось удалить выбранные позиции"
+            : `Не удалось удалить позиций: ${failedCount}`,
+        );
+      }
+      setSelected(new Set());
+      setBulkConfirmOpen(false);
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  // Полный список видов работ уже загружен на фронт целиком (без серверной
+  // пагинации), поэтому для экспорта выбранных позиций — в том числе с
+  // других страниц — дополнительный запрос к API не нужен.
+  const exportSelected = async () => {
+    const rows = workTypes.filter((w) => selected.has(w.id));
+    if (!rows.length) return;
+    setExporting(true);
+    try {
+      const wb = new ExcelJS.Workbook();
+      wb.creator = "Учёт работ";
+      wb.created = new Date();
+      const sheet = wb.addWorksheet("Виды работ");
+
+      const headers = ["Наименование", "Ед. изм.", "Цена"];
+      const headRow = sheet.addRow(headers);
+      headRow.eachCell((cell) => {
+        cell.font = { bold: true };
+      });
+      rows.forEach((w) => sheet.addRow([w.name, w.unit, w.price]));
+
+      headers.forEach((h, i) => {
+        const values = rows.map((w) => String([w.name, w.unit, w.price][i] ?? ""));
+        sheet.getColumn(i + 1).width = Math.max(h.length, ...values.map((v) => v.length)) + 2;
+      });
+
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Виды_работ_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Не удалось сформировать файл, попробуйте ещё раз");
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -445,20 +539,75 @@ function WorkTypesList() {
         className={cn(input, "mt-3")}
       />
 
+      <div className="mt-3 flex items-center gap-2">
+        <Checkbox
+          checked={allSelectedOnPage ? true : someSelectedOnPage ? "indeterminate" : false}
+          onCheckedChange={(checked) => toggleSelectAllOnPage(checked === true)}
+          aria-label="Выбрать все на странице"
+        />
+        <span className="text-xs text-muted-foreground">
+          Выбрать все на странице ({slice.length})
+        </span>
+      </div>
+
+      {selected.size > 0 && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3">
+          <span className="text-sm font-semibold text-primary">Выбрано: {selected.size}</span>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={exporting}
+              className={cn(ghostBtn, "disabled:opacity-60")}
+              onClick={() => void exportSelected()}
+            >
+              {exporting ? "Формирование..." : "Скачать Excel"}
+            </button>
+            <button
+              type="button"
+              className={cn(ghostBtn, "text-status-rejected")}
+              onClick={() => setBulkConfirmOpen(true)}
+            >
+              <Trash2 className="mr-1 inline size-3.5" />
+              Удалить выбранные
+            </button>
+            <button type="button" className={ghostBtn} onClick={() => setSelected(new Set())}>
+              Отменить выбор
+            </button>
+          </div>
+        </div>
+      )}
+
       <ul className="mt-3 max-h-[min(70vh,900px)] divide-y divide-border overflow-auto rounded-xl border border-border">
         {slice.map((w, i) => (
           <li
             key={w.id}
-            className="relative border border-transparent bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)]"
+            className={cn(
+              "relative border bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)]",
+              selected.has(w.id) ? "border-primary/50 bg-primary/5" : "border-transparent",
+            )}
           >
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => open(w.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  open(w.id);
+                }
+              }}
               className={cn(
-                "flex w-full items-start gap-3 px-3 py-2.5 text-left",
+                "flex w-full cursor-pointer items-start gap-3 px-3 py-2.5 text-left",
                 openId === w.id && "bg-primary/10",
               )}
             >
+              <span className="shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={selected.has(w.id)}
+                  onCheckedChange={(checked) => toggleSelect(w.id, checked === true)}
+                  aria-label={`Выбрать «${w.name}»`}
+                />
+              </span>
               <span className="w-8 shrink-0 pt-0.5 text-xs text-muted-foreground">
                 {current * perPage + i + 1}
               </span>
@@ -469,7 +618,7 @@ function WorkTypesList() {
               <span className="w-24 shrink-0 text-right text-sm font-semibold">
                 {w.price.toLocaleString("ru-RU")} ₽
               </span>
-            </button>
+            </div>
 
             {openId === w.id && (
               <div className="space-y-3 border-t border-border bg-card p-3">
@@ -608,6 +757,31 @@ function WorkTypesList() {
           </button>
         </div>
       )}
+
+      <AlertDialog
+        open={bulkConfirmOpen}
+        onOpenChange={(open) => !bulkDeleting && !open && setBulkConfirmOpen(false)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить выбранные позиции ({selected.size})?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Будет удалено позиций: {selected.size}. Записи о ранее выполненных работах не
+              изменятся — удаление затрагивает только справочник.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={bulkDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => void runBulkDelete()}
+            >
+              {bulkDeleting ? "Удаляем…" : "Да, удалить"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
