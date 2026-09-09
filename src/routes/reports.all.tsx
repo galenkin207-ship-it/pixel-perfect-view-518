@@ -378,13 +378,13 @@ function AllRecordsPage() {
                       r.items.map((item, i) => (
                         <span
                           key={i}
-                          className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
+                          className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 lg:flex-nowrap lg:items-start"
                         >
-                          <span className="text-base font-semibold break-words text-foreground">
+                          <span className="text-base font-semibold break-words text-foreground lg:min-w-0 lg:flex-1">
                             {item.name}
                             {i < r.items.length - 1 ? ";" : ""}
                           </span>
-                          <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 font-mono text-sm font-bold tabular-nums text-primary">
+                          <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 font-mono text-sm font-bold tabular-nums text-primary whitespace-nowrap">
                             {itemQty(item)} {item.unit}
                           </span>
                         </span>
