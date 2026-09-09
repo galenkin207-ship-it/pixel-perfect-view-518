@@ -33,6 +33,9 @@ export function PhotoViewer({
   const lastTap = useRef<{ time: number; x: number; y: number } | null>(null);
   const didPan = useRef(false);
   const isInteracting = useRef(false);
+  // Тип последнего указателя (mouse/touch/pen) — click-событие само по себе
+  // этого не знает, а нам нужно отличать мышь от тача в handleContainerClick.
+  const lastPointerType = useRef<string>("mouse");
   // true всякий раз, когда во время жеста был реальный сдвиг пальца (пан/свайп) —
   // используется, чтобы фантомный "click" в конце свайпа/пана не закрывал просмотрщик,
   // даже если палец в момент отпускания оказался за пределами <img> (леттербокс).
@@ -79,6 +82,13 @@ export function PhotoViewer({
   const zoomByButton = (factor: number) => {
     const { cx, cy } = getCenter();
     zoomAt(cx, cy, transform.scale * factor);
+  };
+
+  // Стадии зума одиночным кликом мыши: 1x → 2x → MAX_SCALE → 1x → ...
+  const nextClickZoomStage = (scale: number) => {
+    if (scale <= MIN_SCALE + 0.01) return 2;
+    if (scale < MAX_SCALE - 0.01) return MAX_SCALE;
+    return MIN_SCALE;
   };
 
   useEffect(() => {
@@ -132,16 +142,6 @@ export function PhotoViewer({
     }
   };
 
-  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Двойной клик засчитываем только по самой картинке. Иначе два быстрых
-    // одиночных клика подряд по кнопке "вперёд/назад" (например, при быстром
-    // пролистывании фото) браузер иногда распознаёт как нативный dblclick,
-    // который всплывает сюда и включает зум с привязкой к точке клика —
-    // из-за этого фото резко увеличивалось и "уезжало" к краю экрана.
-    if (e.target !== imgRef.current) return;
-    zoomAt(e.clientX, e.clientY, transform.scale > 1 ? 1 : DOUBLE_TAP_SCALE);
-  };
-
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -158,17 +158,44 @@ export function PhotoViewer({
       wasGesture.current = false;
       return;
     }
-    // Клик по самому фото (или другому дочернему элементу) — не закрываем.
-    // Клик по пустому полю вокруг фото (леттербокс) — даём всплыть и закрыться.
-    if (e.target !== e.currentTarget) {
-      e.stopPropagation();
+
+    if (lastPointerType.current === "touch") {
+      // Тач не трогаем — поведение оставлено ровно таким, каким было.
+      if (e.target !== e.currentTarget) {
+        e.stopPropagation();
+      }
+      return;
     }
+
+    // Мышь/перо: handlePointerDown вызывает setPointerCapture на этом же
+    // containerRef, из-за чего мышиный click ретаргетится браузером на сам
+    // контейнер — e.target здесь оказывается контейнером, а не <img>, даже
+    // если реально кликнули по фото. Поэтому target/currentTarget сравнивать
+    // бесполезно (именно из-за этого клик по фото раньше всегда закрывал
+    // просмотрщик) — определяем клик по фото геометрически, по границам <img>.
+    const rect = imgRef.current?.getBoundingClientRect();
+    const insideImage =
+      !!rect &&
+      e.clientX >= rect.left &&
+      e.clientX <= rect.right &&
+      e.clientY >= rect.top &&
+      e.clientY <= rect.bottom;
+
+    if (!insideImage) {
+      // Клик по тёмному полю вокруг фото — даём всплыть и закрыться.
+      return;
+    }
+
+    // Клик по фото — никогда не закрываем, вместо этого крутим зум по кругу.
+    e.stopPropagation();
+    zoomAt(e.clientX, e.clientY, nextClickZoomStage(transform.scale));
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    lastPointerType.current = e.pointerType;
     didPan.current = false;
     wasGesture.current = false;
     isInteracting.current = true;
@@ -302,7 +329,6 @@ export function PhotoViewer({
         ref={containerRef}
         className="relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden px-6 md:px-16"
         onClick={handleContainerClick}
-        onDoubleClick={handleDoubleClick}
         onWheel={handleWheel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
