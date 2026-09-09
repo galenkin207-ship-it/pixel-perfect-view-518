@@ -1038,7 +1038,7 @@ function WorkTypePicker({
           </div>
         </div>
 
-        <div ref={listRef} className="flex-1 overflow-y-auto px-6 py-5 md:px-10 md:py-7">
+        <div ref={listRef} className="flex-1 overflow-x-hidden overflow-y-auto px-6 py-5 md:px-10 md:py-7">
           {filtered.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-surface p-8 text-center">
               <p className="text-base text-muted-foreground">Ничего не найдено</p>
@@ -1052,7 +1052,7 @@ function WorkTypePicker({
           ) : (
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((t) => (
-                <li key={t.id}>
+                <li key={t.id} className="min-w-0">
                   <button
                     onClick={() =>
                       onPick({
