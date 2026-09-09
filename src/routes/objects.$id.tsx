@@ -509,149 +509,151 @@ function ObjectRecordsPage() {
 
   return (
     <AppShell>
-      <div className="bg-background pt-5 pb-3 desktop:sticky desktop:top-0 desktop:z-20 desktop:border-b desktop:border-border desktop:pt-6 desktop:shadow-[0_8px_12px_-10px_rgba(15,23,42,0.35)] xl:pt-8">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <PageHeading context={object.address} title={object.name} />
-          <div className="flex items-center gap-2">
+      <div className="md:max-w-4xl">
+        <div className="bg-background pt-5 pb-3 desktop:sticky desktop:top-0 desktop:z-20 desktop:border-b desktop:border-border desktop:pt-6 desktop:shadow-[0_8px_12px_-10px_rgba(15,23,42,0.35)] xl:pt-8">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <PageHeading context={object.address} title={object.name} />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void openPhotos()}
+                className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted"
+              >
+                <ImageIcon className="size-3.5" />
+                Фото
+              </button>
+              {!isArchived && (
+                <button
+                  type="button"
+                  disabled={pinBusy}
+                  onClick={() => void toggleHome()}
+                  className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
+                >
+                  {shownOnHome ? (
+                    <>
+                      <PinOff className="size-3.5" />
+                      {pinBusy ? "..." : "Открепить"}
+                    </>
+                  ) : (
+                    <>
+                      <Pin className="size-3.5" />
+                      {pinBusy ? "..." : "Показать на главном"}
+                    </>
+                  )}
+                </button>
+              )}
+              {canManage && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    if (isArchived) {
+                      void runRestore();
+                    } else {
+                      setConfirmArchiveOpen(true);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
+                >
+                  {isArchived ? (
+                    <>
+                      <ArchiveRestore className="size-3.5" />
+                      {busy ? "..." : "Вернуть из архива"}
+                    </>
+                  ) : (
+                    <>
+                      <Archive className="size-3.5" />
+                      {busy ? "..." : "Завершить объект"}
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {isArchived && (
+            <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">
+              Объект в архиве — работы завершены, новые записи по нему не добавляются.
+            </p>
+          )}
+
+          <div className="mt-4 flex items-center gap-2 desktop:hidden">
             <button
-              type="button"
-              onClick={() => void openPhotos()}
-              className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted"
+              onClick={() => setFiltersOpen((v) => !v)}
+              className="relative flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold"
             >
-              <ImageIcon className="size-3.5" />
-              Фото
+              <SlidersHorizontal className="size-4" />
+              {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
+              {!filtersOpen && hasActiveFilters && (
+                <span
+                  aria-label="Есть активные фильтры"
+                  className="absolute -top-0.5 -right-0.5 block size-2 rounded-full bg-primary ring-2 ring-surface"
+                />
+              )}
             </button>
-            {!isArchived && (
-              <button
-                type="button"
-                disabled={pinBusy}
-                onClick={() => void toggleHome()}
-                className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
-              >
-                {shownOnHome ? (
-                  <>
-                    <PinOff className="size-3.5" />
-                    {pinBusy ? "..." : "Открепить"}
-                  </>
-                ) : (
-                  <>
-                    <Pin className="size-3.5" />
-                    {pinBusy ? "..." : "Показать на главном"}
-                  </>
-                )}
-              </button>
-            )}
-            {canManage && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  if (isArchived) {
-                    void runRestore();
-                  } else {
-                    setConfirmArchiveOpen(true);
-                  }
-                }}
-                className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
-              >
-                {isArchived ? (
-                  <>
-                    <ArchiveRestore className="size-3.5" />
-                    {busy ? "..." : "Вернуть из архива"}
-                  </>
-                ) : (
-                  <>
-                    <Archive className="size-3.5" />
-                    {busy ? "..." : "Завершить объект"}
-                  </>
-                )}
-              </button>
-            )}
+          </div>
+
+          <div className={cn("mt-3 max-w-sm", !filtersOpen && "hidden desktop:block")}>
+            <label className="block">
+              <span className="label-caps">Дата (с — по)</span>
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                <DateInput value={dateFrom} onChange={setDateFrom} />
+                <DateInput value={dateTo} onChange={setDateTo} />
+              </div>
+            </label>
           </div>
         </div>
 
-        {isArchived && (
-          <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">
-            Объект в архиве — работы завершены, новые записи по нему не добавляются.
-          </p>
-        )}
-
-        <div className="mt-4 flex items-center gap-2 desktop:hidden">
-          <button
-            onClick={() => setFiltersOpen((v) => !v)}
-            className="relative flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold"
-          >
-            <SlidersHorizontal className="size-4" />
-            {filtersOpen ? "Скрыть фильтры" : "Фильтры"}
-            {!filtersOpen && hasActiveFilters && (
-              <span
-                aria-label="Есть активные фильтры"
-                className="absolute -top-0.5 -right-0.5 block size-2 rounded-full bg-primary ring-2 ring-surface"
-              />
-            )}
-          </button>
-        </div>
-
-        <div className={cn("mt-3 max-w-sm", !filtersOpen && "hidden desktop:block")}>
-          <label className="block">
-            <span className="label-caps">Дата (с — по)</span>
-            <div className="mt-1 grid grid-cols-2 gap-2">
-              <DateInput value={dateFrom} onChange={setDateFrom} />
-              <DateInput value={dateTo} onChange={setDateTo} />
-            </div>
-          </label>
-        </div>
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-border divide-y divide-border">
-        {positionsLoading ? (
-          <p className="px-4 py-6 text-sm text-muted-foreground">Загрузка...</p>
-        ) : positions.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-muted-foreground">
-            {hasActiveFilters
-              ? "За выбранный период работ по этому объекту нет"
-              : "По этому объекту работ пока нет"}
-          </p>
-        ) : (
-          positions.map((p) => {
-            const posId = positionId(p);
-            const isOpen = expandedId === posId;
-            return (
-              <div key={posId} className={ROW_HOVER}>
-                <button
-                  type="button"
-                  onClick={() => handlePositionClick(p)}
-                  className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3 text-left"
-                >
-                  <span className="flex min-w-0 flex-1 items-center gap-1.5 text-base font-semibold break-words text-foreground">
-                    {p.name}
-                    {isMobile ? (
-                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown
-                        className={cn(
-                          "size-4 shrink-0 text-muted-foreground transition-transform",
-                          isOpen && "rotate-180",
-                        )}
+        <div className="overflow-hidden rounded-2xl border border-border divide-y divide-border">
+          {positionsLoading ? (
+            <p className="px-4 py-6 text-sm text-muted-foreground">Загрузка...</p>
+          ) : positions.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-muted-foreground">
+              {hasActiveFilters
+                ? "За выбранный период работ по этому объекту нет"
+                : "По этому объекту работ пока нет"}
+            </p>
+          ) : (
+            positions.map((p) => {
+              const posId = positionId(p);
+              const isOpen = expandedId === posId;
+              return (
+                <div key={posId} className={ROW_HOVER}>
+                  <button
+                    type="button"
+                    onClick={() => handlePositionClick(p)}
+                    className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3 text-left"
+                  >
+                    <span className="flex min-w-0 flex-1 items-center gap-1.5 text-base font-semibold break-words text-foreground">
+                      {p.name}
+                      {isMobile ? (
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown
+                          className={cn(
+                            "size-4 shrink-0 text-muted-foreground transition-transform",
+                            isOpen && "rotate-180",
+                          )}
+                        />
+                      )}
+                    </span>
+                    <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 font-mono text-sm font-bold tabular-nums text-primary">
+                      {formatQty(p.qty)} {p.unit}
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="border-t border-border bg-card px-4 py-3">
+                      <PositionDetailContent
+                        loading={detailLoading}
+                        detail={detailId === posId ? detailData : null}
                       />
-                    )}
-                  </span>
-                  <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 font-mono text-sm font-bold tabular-nums text-primary">
-                    {formatQty(p.qty)} {p.unit}
-                  </span>
-                </button>
-                {isOpen && (
-                  <div className="border-t border-border bg-card px-4 py-3">
-                    <PositionDetailContent
-                      loading={detailLoading}
-                      detail={detailId === posId ? detailData : null}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })
-        )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
       <AlertDialog
