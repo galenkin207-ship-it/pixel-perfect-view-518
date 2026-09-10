@@ -64,6 +64,23 @@ export function SearchableSelect({
     inputRef.current?.blur();
   };
 
+  // На iOS (особенно в standalone-режиме PWA) после удаления выпадающего
+  // списка из DOM на экране иногда остаётся его визуальный "призрак" —
+  // известный баг WebKit-композитинга у элементов с
+  // -webkit-overflow-scrolling: touch (см. список ниже). Логически список
+  // уже закрыт и значение выбрано верно, но перерисовка не происходит сама
+  // по себе — обычно это заметно, только когда тапаешь куда-то ещё, что
+  // само по себе форсирует reflow. Форсируем его сразу при закрытии.
+  useEffect(() => {
+    if (open) return;
+    const raf = requestAnimationFrame(() => {
+      document.body.style.transform = "translateZ(0)";
+      void document.body.offsetHeight;
+      document.body.style.transform = "";
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [open]);
+
   return (
     <div ref={rootRef} className="relative">
       <div className="relative">
