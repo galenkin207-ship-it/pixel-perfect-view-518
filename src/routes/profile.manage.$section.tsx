@@ -6,6 +6,8 @@ import {
   Building2,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Copy,
   Ruler,
@@ -741,8 +743,9 @@ function WorkTypesList() {
             className={ghostBtn}
             disabled={current === 0}
             onClick={() => setPage(current - 1)}
+            aria-label="Назад"
           >
-            Назад
+            <ChevronLeft className="size-4" />
           </button>
           <span className="text-xs text-muted-foreground">
             Страница {current + 1} из {pages}
@@ -752,8 +755,9 @@ function WorkTypesList() {
             className={ghostBtn}
             disabled={current >= pages - 1}
             onClick={() => setPage(current + 1)}
+            aria-label="Вперёд"
           >
-            Вперёд
+            <ChevronRight className="size-4" />
           </button>
         </div>
       )}
@@ -1116,8 +1120,9 @@ function EmployeesList({
             className={ghostBtn}
             disabled={current === 0}
             onClick={() => setPage(current - 1)}
+            aria-label="Назад"
           >
-            Назад
+            <ChevronLeft className="size-4" />
           </button>
           <span className="text-xs text-muted-foreground">
             Страница {current + 1} из {pages}
@@ -1127,8 +1132,9 @@ function EmployeesList({
             className={ghostBtn}
             disabled={current >= pages - 1}
             onClick={() => setPage(current + 1)}
+            aria-label="Вперёд"
           >
-            Вперёд
+            <ChevronRight className="size-4" />
           </button>
         </div>
       )}

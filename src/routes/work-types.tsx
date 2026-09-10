@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { FilePlus2, Plus, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, FilePlus2, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -191,9 +191,10 @@ function WorkTypesPage() {
             type="button"
             disabled={page === 0}
             onClick={() => setPage((p) => Math.max(0, p - 1))}
-            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-semibold disabled:opacity-40"
+            aria-label="Назад"
+            className="flex items-center justify-center rounded-lg border border-border bg-surface p-2 disabled:opacity-40"
           >
-            Назад
+            <ChevronLeft className="size-4" />
           </button>
           <span className="text-xs text-muted-foreground">
             Стр. {page + 1} из {pages}
@@ -202,9 +203,10 @@ function WorkTypesPage() {
             type="button"
             disabled={page >= pages - 1}
             onClick={() => setPage((p) => Math.min(pages - 1, p + 1))}
-            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-semibold disabled:opacity-40"
+            aria-label="Вперёд"
+            className="flex items-center justify-center rounded-lg border border-border bg-surface p-2 disabled:opacity-40"
           >
-            Далее
+            <ChevronRight className="size-4" />
           </button>
         </div>
       )}

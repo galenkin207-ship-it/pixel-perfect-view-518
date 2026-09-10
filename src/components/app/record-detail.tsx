@@ -73,6 +73,16 @@ export function RecordDetail({
         className="h-full w-full overflow-y-auto bg-card p-5 md:max-h-[90vh] md:max-w-3xl md:rounded-3xl lg:max-w-4xl xl:max-w-5xl"
         style={{ overscrollBehaviorY: "contain" }}
       >
+        {backIcon && (
+          <button
+            onClick={onClose}
+            aria-label="Назад"
+            className="mb-2 flex shrink-0 items-center gap-1 rounded-lg border border-border px-3 py-2 text-sm font-semibold"
+          >
+            <ChevronLeft className="size-4" />
+            Назад
+          </button>
+        )}
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs text-muted-foreground">
@@ -95,13 +105,11 @@ export function RecordDetail({
           </div>
           <div className="flex items-center gap-2">
             <StatusBadge status={record.status} />
-            <button onClick={onClose} aria-label={backIcon ? "Назад" : "Закрыть"}>
-              {backIcon ? (
-                <ChevronLeft className="size-5 text-muted-foreground" />
-              ) : (
+            {!backIcon && (
+              <button onClick={onClose} aria-label="Закрыть">
                 <X className="size-5 text-muted-foreground" />
-              )}
-            </button>
+              </button>
+            )}
           </div>
         </div>
 

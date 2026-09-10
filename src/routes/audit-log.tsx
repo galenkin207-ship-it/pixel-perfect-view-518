@@ -1,7 +1,7 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { History, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, History, RotateCcw } from "lucide-react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading, FieldLabel } from "@/components/app/bits";
@@ -661,9 +661,10 @@ function AuditLogPage() {
             type="button"
             disabled={page === 0 || loading}
             onClick={() => void load(page - 1)}
-            className="rounded-lg bg-surface px-3 py-2 font-semibold disabled:opacity-40"
+            aria-label="Назад"
+            className="flex items-center justify-center rounded-lg border border-border bg-surface p-2 disabled:opacity-40"
           >
-            Назад
+            <ChevronLeft className="size-4" />
           </button>
           <span className="text-muted-foreground">
             Стр. {page + 1} из {pages}
@@ -672,9 +673,10 @@ function AuditLogPage() {
             type="button"
             disabled={page >= pages - 1 || loading}
             onClick={() => void load(page + 1)}
-            className="rounded-lg bg-surface px-3 py-2 font-semibold disabled:opacity-40"
+            aria-label="Вперёд"
+            className="flex items-center justify-center rounded-lg border border-border bg-surface p-2 disabled:opacity-40"
           >
-            Вперёд
+            <ChevronRight className="size-4" />
           </button>
         </div>
       )}
