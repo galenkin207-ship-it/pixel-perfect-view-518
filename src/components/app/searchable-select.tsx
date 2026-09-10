@@ -61,25 +61,18 @@ export function SearchableSelect({
   const pick = (id: string) => {
     onChange(id);
     setOpen(false);
-    inputRef.current?.blur();
-  };
-
-  // На iOS (особенно в standalone-режиме PWA) после удаления выпадающего
-  // списка из DOM на экране иногда остаётся его визуальный "призрак" —
-  // известный баг WebKit-композитинга у элементов с
-  // -webkit-overflow-scrolling: touch (см. список ниже). Логически список
-  // уже закрыт и значение выбрано верно, но перерисовка не происходит сама
-  // по себе — обычно это заметно, только когда тапаешь куда-то ещё, что
-  // само по себе форсирует reflow. Форсируем его сразу при закрытии.
-  useEffect(() => {
-    if (open) return;
-    const raf = requestAnimationFrame(() => {
-      document.body.style.transform = "translateZ(0)";
-      void document.body.offsetHeight;
-      document.body.style.transform = "";
+    // На iOS blur() синхронно запускает анимацию закрытия клавиатуры, а
+    // WebKit на время этой анимации приостанавливает перерисовку экрана.
+    // Если она стартует раньше, чем браузер успел покрасить кадр с уже
+    // убранным списком (setOpen(false) ещё не отрисован — React красит
+    // после выхода из этого обработчика), список визуально "зависает" до
+    // следующего тапа, который форсирует перерисовку. Даём один кадр на
+    // то, чтобы удаление списка успело отрисоваться первым — на Android
+    // такой приостановки нет, поэтому там баг не воспроизводился.
+    requestAnimationFrame(() => {
+      inputRef.current?.blur();
     });
-    return () => cancelAnimationFrame(raf);
-  }, [open]);
+  };
 
   return (
     <div ref={rootRef} className="relative">
