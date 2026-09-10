@@ -33,9 +33,15 @@ export function WorkTypeRecordsModal({
   const { records } = useApp();
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
 
+  // work_type_id из /work-summary приходит сырым из JSON (реально число,
+  // несмотря на тип string | null в сигнатуре), а у item.work_type_id из
+  // listRecords он явно приведён к строке (см. apiRecordToWorkRecord в
+  // api-client.ts) — сравниваем через String(), иначе "5" !== 5 никогда не
+  // совпадёт и все каталожные виды работ останутся без единой записи.
   const matchesPosition = (item: WorkItem) =>
-    position.work_type_id
-      ? item.work_type_id === position.work_type_id
+    position.work_type_id != null
+      ? item.work_type_id != null &&
+        String(item.work_type_id) === String(position.work_type_id)
       : item.name === position.name && item.unit === position.unit;
 
   const filteredRecords = records.filter(
