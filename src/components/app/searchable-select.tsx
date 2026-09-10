@@ -61,7 +61,17 @@ export function SearchableSelect({
   const pick = (id: string) => {
     onChange(id);
     setOpen(false);
-    inputRef.current?.blur();
+    // На iOS blur() синхронно запускает анимацию закрытия клавиатуры, а
+    // WebKit на время этой анимации приостанавливает перерисовку экрана.
+    // Если она стартует раньше, чем браузер успел покрасить кадр с уже
+    // убранным списком (setOpen(false) ещё не отрисован — React красит
+    // после выхода из этого обработчика), список визуально "зависает" до
+    // следующего тапа, который форсирует перерисовку. Даём один кадр на
+    // то, чтобы удаление списка успело отрисоваться первым — на Android
+    // такой приостановки нет, поэтому там баг не воспроизводился.
+    requestAnimationFrame(() => {
+      inputRef.current?.blur();
+    });
   };
 
   return (
@@ -162,6 +172,7 @@ export function SearchableSelect({
           <li>
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => pick("")}
               className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted"
             >
@@ -175,6 +186,7 @@ export function SearchableSelect({
               <li key={i.id}>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => pick(active ? "" : i.id)}
                   className={cn(
                     "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted",
