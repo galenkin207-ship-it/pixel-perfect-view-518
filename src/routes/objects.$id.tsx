@@ -19,6 +19,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar, PageHeading } from "@/components/app/bits";
 import { DateInput } from "@/components/app/date-input";
 import { PhotoViewer } from "@/components/app/photo-viewer";
+import { WorkTypeRecordsModal } from "@/components/app/work-type-records-modal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -107,9 +108,11 @@ function MobileHeader({ title, onBack }: { title: string; onBack: () => void }) 
 function PositionDetailContent({
   loading,
   detail,
+  onOpenRecords,
 }: {
   loading: boolean;
   detail: WorkSummaryDetail | null;
+  onOpenRecords: () => void;
 }) {
   if (loading) {
     return <p className="px-1 py-2 text-sm text-muted-foreground">Загрузка...</p>;
@@ -117,7 +120,7 @@ function PositionDetailContent({
   if (!detail) return null;
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
         <span>
           Объём:{" "}
           <span className="font-mono font-semibold text-foreground">
@@ -131,6 +134,13 @@ function PositionDetailContent({
           Сотрудников участвовало:{" "}
           <span className="font-semibold text-foreground">{detail.people_count}</span>
         </span>
+        <button
+          type="button"
+          onClick={onOpenRecords}
+          className="-my-0.5 rounded-lg px-2 py-0.5 font-semibold text-primary transition-colors hover:bg-primary/10"
+        >
+          Записи
+        </button>
       </div>
       <div className="overflow-hidden rounded-xl border border-border bg-surface">
         {detail.employees.map((e, i) => (
@@ -280,6 +290,9 @@ function ObjectRecordsPage() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailData, setDetailData] = useState<WorkSummaryDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [recordsModalPosition, setRecordsModalPosition] = useState<WorkSummaryPosition | null>(
+    null,
+  );
 
   const [photosOpen, setPhotosOpen] = useState(false);
   const [mobilePhotosOpen, setMobilePhotosOpen] = useState(false);
@@ -475,8 +488,20 @@ function ObjectRecordsPage() {
           <PositionDetailContent
             loading={detailLoading}
             detail={detailId === mobilePositionId ? detailData : null}
+            onOpenRecords={() => {
+              if (position) setRecordsModalPosition(position);
+            }}
           />
         </div>
+        {recordsModalPosition && (
+          <WorkTypeRecordsModal
+            objectId={id}
+            position={recordsModalPosition}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onClose={() => setRecordsModalPosition(null)}
+          />
+        )}
       </AppShell>
     );
   }
@@ -646,6 +671,7 @@ function ObjectRecordsPage() {
                       <PositionDetailContent
                         loading={detailLoading}
                         detail={detailId === posId ? detailData : null}
+                        onOpenRecords={() => setRecordsModalPosition(p)}
                       />
                     </div>
                   )}
@@ -718,6 +744,16 @@ function ObjectRecordsPage() {
           photos={dayPhotos.map((p) => p.file_path)}
           initialIndex={photoViewerIndex}
           onClose={closePhotoViewer}
+        />
+      )}
+
+      {recordsModalPosition && (
+        <WorkTypeRecordsModal
+          objectId={id}
+          position={recordsModalPosition}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onClose={() => setRecordsModalPosition(null)}
         />
       )}
     </AppShell>

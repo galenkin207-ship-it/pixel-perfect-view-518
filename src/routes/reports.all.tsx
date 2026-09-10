@@ -1,15 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ImageIcon, SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { useState } from "react";
 
 import { AppShell } from "@/components/app/app-shell";
-import { InitialsAvatar } from "@/components/app/bits";
 import { DateInput } from "@/components/app/date-input";
+import { RecordCard } from "@/components/app/record-card";
 import { RecordDetail } from "@/components/app/record-detail";
 import { SearchableSelect } from "@/components/app/searchable-select";
-import { StatusBadge } from "@/components/app/status-badge";
 import { ruToIso } from "@/lib/api-client";
-import { itemQty } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
 import { statusLabels, type RecordStatus, type WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
@@ -346,94 +344,9 @@ function AllRecordsPage() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border lg:rounded-t-none lg:border-t-0">
-        {paginated.map((r) => {
-          const object = objects.find((o) => o.id === r.object_id);
-          const performer =
-            r.execution_type === "brigade" ? (r.brigade_name ?? "") : r.employees.join(", ");
-          return (
-            <div key={r.id} className="border-b border-border last:border-0">
-              <button
-                onClick={() => setOpenId(r.id)}
-                className="grid h-auto w-full auto-rows-min grid-cols-1 gap-2 px-4 py-3 text-left hover:bg-muted/40 lg:grid-cols-[2.5fr_1.2fr_1.2fr_1fr_1fr_1.2fr] lg:items-start lg:gap-3"
-              >
-                <span className="block">
-                  <span className="block break-words whitespace-normal">
-                    {object ? (
-                      <>
-                        <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                          {object.name}
-                        </span>{" "}
-                        {object.address && (
-                          <span className="text-sm font-normal text-muted-foreground">
-                            {object.address}
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-sm font-normal text-muted-foreground">
-                        Объект не выбран
-                      </span>
-                    )}
-                  </span>
-                  <span className="mt-1 flex flex-col gap-1">
-                    {r.items.length > 0 ? (
-                      r.items.map((item, i) => (
-                        <span
-                          key={i}
-                          className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 lg:flex-nowrap lg:items-start"
-                        >
-                          <span className="text-base font-semibold break-words text-foreground lg:min-w-0 lg:flex-1">
-                            {item.name}
-                            {i < r.items.length - 1 ? ";" : ""}
-                          </span>
-                          <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 font-mono text-sm font-bold tabular-nums text-primary whitespace-nowrap">
-                            {itemQty(item)} {item.unit}
-                          </span>
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-base font-semibold text-foreground">
-                        Виды работ не добавлены
-                      </span>
-                    )}
-                  </span>
-                </span>
-                <span className="flex items-center gap-2 text-sm break-words">
-                  <InitialsAvatar name={r.created_by} />
-                  {r.created_by}
-                </span>
-                <span className="text-sm break-words">{performer}</span>
-                <span className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
-                  <span>
-                    {r.date.slice(0, 5)}, {r.time}
-                  </span>
-                  {r.photos.length > 0 && (
-                    <span
-                      className="flex items-center gap-0.5 font-semibold text-primary"
-                      title={`${r.photos.length} фото`}
-                    >
-                      <ImageIcon className="size-4" />
-                      {r.photos.length}
-                    </span>
-                  )}
-                </span>
-                <span className="flex items-center gap-2">
-                  <StatusBadge status={r.status} />
-                </span>
-                <span className="text-xs text-muted-foreground break-words">
-                  {r.updated_by ? (
-                    <>
-                      <span className="font-semibold text-foreground">{r.updated_by}</span>
-                      {r.updated_at ? <> · {r.updated_at}</> : null}
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </span>
-              </button>
-            </div>
-          );
-        })}
+        {paginated.map((r) => (
+          <RecordCard key={r.id} record={r} onClick={() => setOpenId(r.id)} />
+        ))}
       </div>
 
       {filtered.length > 0 && (

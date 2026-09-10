@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Pencil, Trash2, X } from "lucide-react";
+import { ChevronLeft, Pencil, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ export function RecordDetail({
   onClose,
   editReturnTo,
   editReturnSearch,
+  backIcon,
 }: {
   record: WorkRecord;
   onClose: () => void;
@@ -28,6 +29,11 @@ export function RecordDetail({
   // используется со страницы "Все записи", чтобы не сбрасывать её фильтры.
   editReturnTo?: string;
   editReturnSearch?: string;
+  // Если true — вместо крестика в углу показываем стрелку "назад": для
+  // случая, когда RecordDetail открыт поверх списка записей внутри той же
+  // модалки (см. WorkTypeRecordsModal), и onClose на самом деле возвращает
+  // к этому списку, а не закрывает всё окно.
+  backIcon?: boolean;
 }) {
   const { objects, role, currentUser, deleteRecord } = useApp();
   const [photoIndex, setPhotoIndex] = useState<number | null>(null);
@@ -89,8 +95,12 @@ export function RecordDetail({
           </div>
           <div className="flex items-center gap-2">
             <StatusBadge status={record.status} />
-            <button onClick={onClose} aria-label="Закрыть">
-              <X className="size-5 text-muted-foreground" />
+            <button onClick={onClose} aria-label={backIcon ? "Назад" : "Закрыть"}>
+              {backIcon ? (
+                <ChevronLeft className="size-5 text-muted-foreground" />
+              ) : (
+                <X className="size-5 text-muted-foreground" />
+              )}
             </button>
           </div>
         </div>
