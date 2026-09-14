@@ -1027,8 +1027,32 @@ function WorkTypePicker({
     };
   }, [query]);
 
-  function handlePickLeaf(node: WorkTypeTreeNode | WorkTypeSearchResult) {
-    onPick({ name: node.name, unit: node.unit, qty: 0, price: node.price, work_type_id: node.id });
+  // Для сравнения "группа vs вариант" на предмет дублирования — без учёта
+  // регистра, лишних пробелов и хвостовой пунктуации.
+  function normalizeForCompare(s: string): string {
+    return s.trim().toLowerCase().replace(/\s+/g, " ").replace(/[.,;:]+$/, "");
+  }
+
+  // Если у листа есть variant_label и он совпадает с названием родительской
+  // группы (level=4) — они дублируют друг друга, склейка не нужна. Иначе
+  // склеиваем "Группа: Вариант" сами (а не берём готовое node.name из БД).
+  // Без variant_label (legacy-позиции) — используем node.name как раньше.
+  function computeLeafName(node: WorkTypeTreeNode | WorkTypeSearchResult, groupName?: string): string {
+    if (!node.variant_label) return node.name;
+    if (groupName && normalizeForCompare(groupName) === normalizeForCompare(node.variant_label)) {
+      return node.variant_label;
+    }
+    return groupName ? `${groupName}: ${node.variant_label}` : node.name;
+  }
+
+  function handlePickLeaf(node: WorkTypeTreeNode | WorkTypeSearchResult, groupName?: string) {
+    onPick({
+      name: computeLeafName(node, groupName),
+      unit: node.unit,
+      qty: 0,
+      price: node.price,
+      work_type_id: node.id,
+    });
   }
 
   // Для группы (level=4) с ровно одним вариантом (level=5) не показываем
@@ -1039,7 +1063,7 @@ function WorkTypePicker({
         const children = await api.getWorkTypeTree({ parentId: node.id });
         const onlyChild = children.length === 1 ? children[0] : undefined;
         if (onlyChild) {
-          handlePickLeaf(onlyChild);
+          handlePickLeaf(onlyChild, node.name);
           return;
         }
       } catch {
@@ -1141,7 +1165,7 @@ function WorkTypePicker({
                 {searchResults!.map((t) => (
                   <li key={t.id} className="min-w-0">
                     <button
-                      onClick={() => handlePickLeaf(t)}
+                      onClick={() => handlePickLeaf(t, t.breadcrumb[t.breadcrumb.length - 1])}
                       className="group flex h-full w-full flex-col items-start justify-between gap-4 rounded-2xl border border-border bg-surface p-5 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
                     >
                       <span className="block w-full">
@@ -1227,7 +1251,7 @@ function WorkTypePicker({
                     loading={columns[chain.length]?.loading ?? true}
                     isAdminLike={isAdminLike}
                     onSelect={(node) => handleSelectAtLevel(chain.length, node)}
-                    onLeaf={handlePickLeaf}
+                    onLeaf={(node) => handlePickLeaf(node, chain[chain.length - 1]?.name)}
                   />
                 </>
               ) : (
@@ -1241,7 +1265,7 @@ function WorkTypePicker({
                       selectedId={chain[level]?.id}
                       isAdminLike={isAdminLike}
                       onSelect={(node) => handleSelectAtLevel(level, node)}
-                      onLeaf={handlePickLeaf}
+                      onLeaf={(node) => handlePickLeaf(node, chain[level - 1]?.name)}
                     />
                   ))}
                 </div>
