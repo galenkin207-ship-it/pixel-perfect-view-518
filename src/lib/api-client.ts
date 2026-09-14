@@ -9,6 +9,7 @@ import type {
   WorkType,
   RequestComment,
 } from "@/data/mock";
+import type { CatalogType, WorkTypeSearchResult, WorkTypeTreeNode } from "@/data/work-type-tree";
 
 // В браузере запросы идут на тот же домен (относительный /api/...) — nginx
 // проксирует /api на backend-сервис, отдельного CORS не требуется.
@@ -180,6 +181,44 @@ function workRecordToApiPayload(r: WorkRecord) {
       work_type_id: it.work_type_id ? Number(it.work_type_id) : null,
       shares: (it.allocations ?? []).map((a) => ({ employee: a.employee, qty: a.qty })),
     })),
+  };
+}
+
+// ---- Дерево видов работ (/work-types/tree, /work-types/search) ----
+
+type RawWorkTypeTreeNode = {
+  id: number | string;
+  name: string;
+  level: number;
+  parent_id: number | string | null;
+  unit: string;
+  price: string | number;
+  has_price: boolean;
+  gesn_code: string | null;
+  catalog_type: CatalogType | null;
+  is_step_item: boolean;
+  step_unit_label: string | null;
+  work_composition: string | null;
+  labor_hours: number | string | null;
+  has_children: boolean;
+};
+
+function mapWorkTypeTreeNode(raw: RawWorkTypeTreeNode): WorkTypeTreeNode {
+  return {
+    id: String(raw.id),
+    name: raw.name,
+    level: raw.level,
+    parent_id: raw.parent_id === null ? null : String(raw.parent_id),
+    unit: raw.unit,
+    price: Number(raw.price),
+    has_price: raw.has_price,
+    gesn_code: raw.gesn_code,
+    catalog_type: raw.catalog_type,
+    is_step_item: raw.is_step_item,
+    step_unit_label: raw.step_unit_label,
+    work_composition: raw.work_composition,
+    labor_hours: raw.labor_hours === null ? null : Number(raw.labor_hours),
+    has_children: raw.has_children,
   };
 }
 
@@ -494,6 +533,22 @@ export const api = {
       `/work-types/${id}/archive`,
       { method: "PATCH" },
     );
+  },
+
+  async getWorkTypeTree(params: { type: CatalogType } | { parentId: string }): Promise<WorkTypeTreeNode[]> {
+    const qs =
+      "type" in params
+        ? `type=${encodeURIComponent(params.type)}`
+        : `parentId=${encodeURIComponent(params.parentId)}`;
+    const { items } = await request<{ items: RawWorkTypeTreeNode[] }>(`/work-types/tree?${qs}`);
+    return items.map(mapWorkTypeTreeNode);
+  },
+
+  async searchWorkTypes(q: string, limit = 50): Promise<WorkTypeSearchResult[]> {
+    const { items } = await request<{ items: (RawWorkTypeTreeNode & { breadcrumb: string[] })[] }>(
+      `/work-types/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+    );
+    return items.map((item) => ({ ...mapWorkTypeTreeNode(item), breadcrumb: item.breadcrumb }));
   },
 
   async listPinnedObjects(): Promise<string[]> {
