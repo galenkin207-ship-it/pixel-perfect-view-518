@@ -991,6 +991,12 @@ function WorkTypePicker({
   const [searchLoading, setSearchLoading] = useState(false);
   const [catalogType, setCatalogType] = useState<CatalogType | null>(null);
   const [chain, setChain] = useState<WorkTypeTreeNode[]>([]);
+  // Границы "шагов" внутри chain: каждый клик пользователя (даже если он
+  // авто-схлопнул несколько уровней подряд с единственным ребёнком) даёт
+  // одну границу — длину chain сразу после этого клика. Так "Назад" и
+  // хлебные крошки откатывают весь схлопнутый блок одним шагом, а не по
+  // одному авто-пропущенному уровню за раз.
+  const [stepBoundaries, setStepBoundaries] = useState<number[]>([]);
   const [customOpen, setCustomOpen] = useState(false);
   const [custom, setCustom] = useState("");
   const isMobile = useIsMobile();
@@ -1055,32 +1061,68 @@ function WorkTypePicker({
     });
   }
 
-  // Для группы (level=4) с ровно одним вариантом (level=5) не показываем
-  // отдельную колонку выбора — сразу выбираем этот единственный вариант.
-  async function handleSelectAtLevel(level: number, node: WorkTypeTreeNode) {
-    if (node.level === 4) {
+  // Рекурсивно "доворачивает" цепочку через узлы, у которых ровно один
+  // дочерний узел — чтобы пользователю не приходилось кликать по колонке
+  // с единственным вариантом на каждом уровне (1-4). Останавливается
+  // либо на узле с 2+ (или 0) детьми — тогда возвращает цепочку вплоть до
+  // него включительно, либо на листе (level=5) — тогда сразу отдаёт его
+  // для onPick вместе с именем непосредственного родителя (для дедупликации
+  // group/variant в handlePickLeaf).
+  async function resolveAutoSkip(
+    startNode: WorkTypeTreeNode,
+  ): Promise<{ chainNodes: WorkTypeTreeNode[] } | { leaf: WorkTypeTreeNode; groupName: string }> {
+    const chainNodes: WorkTypeTreeNode[] = [startNode];
+    let current = startNode;
+    for (;;) {
+      let children: WorkTypeTreeNode[];
       try {
-        const children = await api.getWorkTypeTree({ parentId: node.id });
-        const onlyChild = children.length === 1 ? children[0] : undefined;
-        if (onlyChild) {
-          handlePickLeaf(onlyChild, node.name);
-          return;
-        }
+        children = await api.getWorkTypeTree({ parentId: current.id });
       } catch {
-        // не удалось проверить количество вариантов — покажем колонку выбора как обычно
+        return { chainNodes };
       }
+      const onlyChild = children.length === 1 ? children[0] : undefined;
+      if (!onlyChild) return { chainNodes };
+      if (!onlyChild.has_children) return { leaf: onlyChild, groupName: current.name };
+      chainNodes.push(onlyChild);
+      current = onlyChild;
     }
-    setChain((prev) => [...prev.slice(0, level), node]);
+  }
+
+  async function handleSelectAtLevel(level: number, node: WorkTypeTreeNode) {
+    const resolved = await resolveAutoSkip(node);
+    if ("leaf" in resolved) {
+      handlePickLeaf(resolved.leaf, resolved.groupName);
+      return;
+    }
+    setChain((prev) => [...prev.slice(0, level), ...resolved.chainNodes]);
+    setStepBoundaries((prev) => [...prev.filter((b) => b <= level), level + resolved.chainNodes.length]);
+  }
+
+  // Колонка видна, если это корневой список (не участвует в авто-пропуске),
+  // ещё не выбранная "текущая" колонка (её мы всегда показываем), либо
+  // граница шага — конец авто-схлопнутого блока или обычный одиночный
+  // выбор. Колонки строго внутри схлопнутого блока (единственный вариант
+  // на уровне) не рендерим — по ним и так некуда было бы кликать.
+  function isColumnVisible(index: number): boolean {
+    if (index === 0 || index >= chain.length) return true;
+    return stepBoundaries.includes(index);
   }
 
   function handleBack() {
-    if (chain.length > 0) setChain((prev) => prev.slice(0, -1));
-    else setCatalogType(null);
+    if (stepBoundaries.length > 0) {
+      const newBoundaries = stepBoundaries.slice(0, -1);
+      const newLength = newBoundaries.length > 0 ? newBoundaries[newBoundaries.length - 1] : 0;
+      setStepBoundaries(newBoundaries);
+      setChain((prev) => prev.slice(0, newLength));
+    } else {
+      setCatalogType(null);
+    }
   }
 
   function handleChangeType() {
     setCatalogType(null);
     setChain([]);
+    setStepBoundaries([]);
   }
 
   const isSearching = query.trim().length > 0;
@@ -1231,19 +1273,29 @@ function WorkTypePicker({
 
               {isMobile ? (
                 <>
-                  {chain.length > 0 && (
+                  {stepBoundaries.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
-                      {chain.map((node, idx) => (
-                        <span key={node.id} className="flex items-center gap-1">
-                          {idx > 0 && <span>→</span>}
-                          <button
-                            onClick={() => setChain((prev) => prev.slice(0, idx + 1))}
-                            className="hover:text-primary hover:underline"
-                          >
-                            {node.name}
-                          </button>
-                        </span>
-                      ))}
+                      {/* Один чип на "шаг" (клик), а не на узел — авто-схлопнутые
+                          промежуточные уровни отдельными чипами не показываем,
+                          чтобы переход по ним воспринимался как один шаг назад. */}
+                      {stepBoundaries.map((boundary, stepIdx) => {
+                        const node = chain[boundary - 1];
+                        if (!node) return null;
+                        return (
+                          <span key={node.id} className="flex items-center gap-1">
+                            {stepIdx > 0 && <span>→</span>}
+                            <button
+                              onClick={() => {
+                                setChain((prev) => prev.slice(0, boundary));
+                                setStepBoundaries((prev) => prev.slice(0, stepIdx + 1));
+                              }}
+                              className="hover:text-primary hover:underline"
+                            >
+                              {node.name}
+                            </button>
+                          </span>
+                        );
+                      })}
                     </div>
                   )}
                   <CascadeColumn
@@ -1256,18 +1308,20 @@ function WorkTypePicker({
                 </>
               ) : (
                 <div className="flex gap-4 overflow-x-auto pb-2">
-                  {columns.map((col, level) => (
-                    <CascadeColumn
-                      key={level}
-                      className="w-72 shrink-0 overflow-y-auto"
-                      nodes={col.nodes}
-                      loading={col.loading}
-                      selectedId={chain[level]?.id}
-                      isAdminLike={isAdminLike}
-                      onSelect={(node) => handleSelectAtLevel(level, node)}
-                      onLeaf={(node) => handlePickLeaf(node, chain[level - 1]?.name)}
-                    />
-                  ))}
+                  {columns.map((col, level) =>
+                    isColumnVisible(level) ? (
+                      <CascadeColumn
+                        key={level}
+                        className="w-72 shrink-0 overflow-y-auto"
+                        nodes={col.nodes}
+                        loading={col.loading}
+                        selectedId={chain[level]?.id}
+                        isAdminLike={isAdminLike}
+                        onSelect={(node) => handleSelectAtLevel(level, node)}
+                        onLeaf={(node) => handlePickLeaf(node, chain[level - 1]?.name)}
+                      />
+                    ) : null,
+                  )}
                 </div>
               )}
             </div>
