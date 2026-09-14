@@ -40,7 +40,7 @@ export function RecordDetail({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const object = objects.find((o) => o.id === record.object_id);
-  const isAdmin = role === "admin";
+  const isAdminLike = role === "admin" || role === "curator";
   const canEdit = canEditRecord(role, currentUser, record);
 
   const handleDelete = async () => {
@@ -147,7 +147,7 @@ export function RecordDetail({
                     )}
                   </div>
                 </div>
-                {isAdmin && (
+                {isAdminLike && (
                   <p className="mt-2 text-sm text-muted-foreground">
                     {item.price.toLocaleString("ru-RU")} ₽ / {item.unit} ·{" "}
                     <span className="font-mono font-semibold text-foreground">
@@ -190,7 +190,7 @@ export function RecordDetail({
           )}
         </div>
 
-        {isAdmin && (
+        {isAdminLike && (
           <div className="mt-4 flex items-baseline justify-between rounded-xl bg-surface px-4 py-3">
             <span className="label-caps">Итого по записи</span>
             <span className="font-mono text-lg font-bold">
