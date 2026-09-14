@@ -117,7 +117,7 @@ function employeeItemQty(item: WorkItem, employeeName: string, crew: string[]) {
 
 function ReportDetailPage() {
   const { records, objects, employees, role, submitterNames } = useApp();
-  const isAdmin = role === "admin";
+  const isAdminLike = role === "admin" || role === "curator";
   const isMobile = useIsMobile();
   const search = Route.useSearch();
   const initial = {
@@ -288,7 +288,7 @@ function ReportDetailPage() {
     wb.created = new Date();
 
     // ---------- Лист 1: Отчёт (иерархия день → работа → сотрудники) ----------
-    const cols = isAdmin
+    const cols = isAdminLike
       ? ["Вид работ", "Ед. изм.", "ФИО", "Кол-во людей", "Объём", "Время", "Сумма, ₽", "Кто подал"]
       : ["Вид работ", "Ед. изм.", "ФИО", "Кол-во людей", "Объём", "Время", "Кто подал"];
     const nCols = cols.length;
@@ -303,7 +303,7 @@ function ReportDetailPage() {
       { width: 13 },
       { width: 10 },
       { width: 9 },
-      ...(isAdmin ? [{ width: 14 }] : []),
+      ...(isAdminLike ? [{ width: 14 }] : []),
       { width: 22 },
     ];
 
@@ -339,11 +339,11 @@ function ReportDetailPage() {
 
     for (const day of days) {
       const dateRow = sheet.addRow([`Дата: ${day.date} (${weekday(day.date)})`]);
-      sheet.mergeCells(dateRow.number, 1, dateRow.number, isAdmin ? nCols - 2 : nCols - 1);
+      sheet.mergeCells(dateRow.number, 1, dateRow.number, isAdminLike ? nCols - 2 : nCols - 1);
       dateRow.getCell(1).font = { name: "Calibri", size: 11.5, bold: true, color: { argb: WHITE } };
       dateRow.getCell(1).fill = fill(NAVY);
       dateRow.getCell(1).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
-      if (isAdmin) {
+      if (isAdminLike) {
         sheet.mergeCells(dateRow.number, nCols - 1, dateRow.number, nCols);
         const totalCell = dateRow.getCell(nCols - 1);
         totalCell.value = `Итого за день: ${Math.round(day.total).toLocaleString("ru-RU")} ₽`;
@@ -389,7 +389,7 @@ function ReportDetailPage() {
             allocs.length,
             qty,
             r.time,
-            ...(isAdmin ? [sum] : []),
+            ...(isAdminLike ? [sum] : []),
             r.created_by,
           ];
           const mainRow = sheet.addRow(mainVals);
@@ -399,7 +399,7 @@ function ReportDetailPage() {
             if (colNum === 1) {
               cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: "FF1F2933" } };
               cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
-            } else if (colNum === 5 || (isAdmin && colNum === 7)) {
+            } else if (colNum === 5 || (isAdminLike && colNum === 7)) {
               cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: "FF1F2933" } };
               cell.alignment = { vertical: "middle", horizontal: "right" };
               cell.numFmt = colNum === 5 ? qtyNumFmt(qty) : '#,##0" ₽"';
@@ -410,7 +410,7 @@ function ReportDetailPage() {
           });
 
           for (const a of allocs) {
-            const subVals = isAdmin
+            const subVals = isAdminLike
               ? [a.employee, item.unit, "", "", a.qty, "", Math.round(a.qty * item.price), ""]
               : [a.employee, item.unit, "", "", a.qty, "", ""];
             const subRow2 = sheet.addRow(subVals);
@@ -423,7 +423,7 @@ function ReportDetailPage() {
               else if (colNum === 5) {
                 cell.alignment = { vertical: "middle", horizontal: "right" };
                 cell.numFmt = qtyNumFmt(a.qty);
-              } else if (isAdmin && colNum === 7) {
+              } else if (isAdminLike && colNum === 7) {
                 cell.alignment = { vertical: "middle", horizontal: "right" };
                 cell.numFmt = '#,##0" ₽"';
               } else cell.alignment = { vertical: "middle", horizontal: "center" };
@@ -432,7 +432,7 @@ function ReportDetailPage() {
         }
       }
 
-      if (isAdmin) {
+      if (isAdminLike) {
         const subtotalRow = sheet.addRow([]);
         sheet.mergeCells(subtotalRow.number, 1, subtotalRow.number, nCols - 2);
         const lbl = subtotalRow.getCell(1);
@@ -453,7 +453,7 @@ function ReportDetailPage() {
       sheet.addRow([]);
     }
 
-    if (isAdmin) {
+    if (isAdminLike) {
       const grandRow = sheet.addRow([]);
       sheet.mergeCells(grandRow.number, 1, grandRow.number, nCols - 2);
       const lbl = grandRow.getCell(1);
@@ -474,7 +474,7 @@ function ReportDetailPage() {
     sheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
 
     // ---------- Лист 2: Сводная (по видам работ) ----------
-    const sumCols = isAdmin
+    const sumCols = isAdminLike
       ? ["Вид работы", "Ед.", "Всего объём", "Записей", "Сумма, ₽"]
       : ["Вид работы", "Ед.", "Всего объём", "Записей"];
     const sSheet = wb.addWorksheet("Сводная", {
@@ -485,7 +485,7 @@ function ReportDetailPage() {
       { width: 9 },
       { width: 14 },
       { width: 11 },
-      ...(isAdmin ? [{ width: 15 }] : []),
+      ...(isAdminLike ? [{ width: 15 }] : []),
     ];
 
     const sTitle = sSheet.addRow(["СВОДНАЯ ТАБЛИЦА ПО ВИДАМ РАБОТ"]);
@@ -523,7 +523,7 @@ function ReportDetailPage() {
     const firstDataRow = sHead.number + 1;
     summary.forEach((s, idx) => {
       const rowFill = idx % 2 === 0 ? WHITE : LIGHT_BLUE;
-      const vals = isAdmin
+      const vals = isAdminLike
         ? [s.name, s.unit, s.qty, s.count, Math.round(s.total)]
         : [s.name, s.unit, s.qty, s.count];
       const row = sSheet.addRow(vals);
@@ -541,7 +541,7 @@ function ReportDetailPage() {
     });
     const lastDataRow = sHead.number + summary.length;
 
-    if (isAdmin && summary.length) {
+    if (isAdminLike && summary.length) {
       sSheet.addConditionalFormatting({
         ref: `E${firstDataRow}:E${lastDataRow}`,
         rules: [
@@ -654,7 +654,7 @@ function ReportDetailPage() {
                 <p className="text-sm text-muted-foreground">Нет разбивки</p>
               )}
             </div>
-            {isAdmin && itemDef && (
+            {isAdminLike && itemDef && (
               <div className="mt-3 flex items-center justify-between rounded-xl bg-card px-4 py-3">
                 <span className="text-sm font-semibold">Итого по виду работ</span>
                 <span className="font-mono font-bold text-primary">{money(itemTotal)}</span>
@@ -693,7 +693,7 @@ function ReportDetailPage() {
               <div key={r.id} className="rounded-2xl border border-border bg-card p-4">
                 <RecordSummary
                   record={r}
-                  isAdmin={isAdmin}
+                  isAdminLike={isAdminLike}
                   {...(applied?.employee ? { employeeFilter: applied.employee } : {})}
                   onItemClick={(name) => {
                     setPhotoPreviewRecordId(null);
@@ -721,7 +721,7 @@ function ReportDetailPage() {
                     ))}
                   </div>
                 )}
-                {isAdmin && (
+                {isAdminLike && (
                   <div className="mt-3 flex items-center justify-between rounded-xl bg-surface px-4 py-3">
                     <span className="text-sm font-semibold">Итого по записи</span>
                     <span className="font-mono font-bold text-primary">
@@ -934,7 +934,7 @@ function ReportDetailPage() {
                     <span className="rounded-full bg-surface px-3 py-1 text-xs font-semibold">
                       {day.records.length} записей
                     </span>
-                    {isAdmin && (
+                    {isAdminLike && (
                       <span className="font-mono text-sm font-bold text-primary">
                         {money(day.total)}
                       </span>
@@ -983,7 +983,7 @@ function ReportDetailPage() {
                               <div className="min-w-0 flex-1">
                                 <RecordSummary
                                   record={r}
-                                  isAdmin={isAdmin}
+                                  isAdminLike={isAdminLike}
                                   {...(applied?.employee
                                     ? { employeeFilter: applied.employee }
                                     : {})}
@@ -997,7 +997,7 @@ function ReportDetailPage() {
                               <div className="border-t border-border p-4">
                                 <RecordDetailBlock
                                   record={r}
-                                  isAdmin={isAdmin}
+                                  isAdminLike={isAdminLike}
                                   nested
                                   {...(applied?.employee
                                     ? { employeeFilter: applied.employee }
@@ -1032,7 +1032,7 @@ function ReportDetailPage() {
                       <th className="px-4 py-2 font-semibold">Вид работы</th>
                       <th className="px-4 py-2 text-right font-semibold">Объём</th>
                       <th className="px-4 py-2 text-right font-semibold">Записей</th>
-                      {isAdmin && <th className="px-4 py-2 text-right font-semibold">Сумма</th>}
+                      {isAdminLike && <th className="px-4 py-2 text-right font-semibold">Сумма</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1048,7 +1048,7 @@ function ReportDetailPage() {
                         <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">
                           {s.count}
                         </td>
-                        {isAdmin && (
+                        {isAdminLike && (
                           <td className="px-4 py-2.5 text-right font-mono font-bold text-primary whitespace-nowrap">
                             {money(s.total)}
                           </td>
@@ -1056,7 +1056,7 @@ function ReportDetailPage() {
                       </tr>
                     ))}
                   </tbody>
-                  {isAdmin && (
+                  {isAdminLike && (
                     <tfoot>
                       <tr className="border-t border-border bg-surface/60">
                         <td className="px-4 py-2.5 font-bold" colSpan={3}>
@@ -1097,14 +1097,14 @@ function MobileHeader({ title, onBack }: { title: string; onBack: () => void }) 
 
 function RecordSummary({
   record,
-  isAdmin,
+  isAdminLike,
   employeeFilter,
   onItemClick,
   expandedItems,
   onPhotoIconClick,
 }: {
   record: WorkRecord;
-  isAdmin: boolean;
+  isAdminLike: boolean;
   employeeFilter?: string;
   onItemClick?: (name: string) => void;
   expandedItems?: string[];
@@ -1163,7 +1163,7 @@ function RecordSummary({
                   <span className="font-mono text-sm font-bold tabular-nums">
                     {qty} {item.unit}
                   </span>
-                  {isAdmin && (
+                  {isAdminLike && (
                     <span className="font-mono text-sm font-bold tabular-nums text-primary">
                       {money(qty * item.price)}
                     </span>
@@ -1197,7 +1197,7 @@ function RecordSummary({
                   <span className="font-mono text-sm font-bold tabular-nums">
                     {qty} {item.unit}
                   </span>
-                  {isAdmin && (
+                  {isAdminLike && (
                     <span className="font-mono text-sm font-bold tabular-nums text-primary">
                       {money(qty * item.price)}
                     </span>
@@ -1259,7 +1259,7 @@ function RecordSummary({
 
 function RecordDetailBlock({
   record,
-  isAdmin,
+  isAdminLike,
   nested,
   employeeFilter,
   onItemClick,
@@ -1267,7 +1267,7 @@ function RecordDetailBlock({
   onPhotosOpenChange,
 }: {
   record: WorkRecord;
-  isAdmin: boolean;
+  isAdminLike: boolean;
   nested?: boolean;
   employeeFilter?: string;
   onItemClick?: (name: string) => void;
@@ -1300,7 +1300,7 @@ function RecordDetailBlock({
       {!nested && (
         <RecordSummary
           record={record}
-          isAdmin={isAdmin}
+          isAdminLike={isAdminLike}
           {...(employeeFilter ? { employeeFilter } : {})}
           {...(onItemClick && record.items.length > 1 ? { onItemClick } : {})}
           onPhotoIconClick={() => setPhotosOpen(true)}
@@ -1329,7 +1329,7 @@ function RecordDetailBlock({
         </>
       )}
 
-      {isAdmin && (
+      {isAdminLike && (
         <div className="mt-3 flex items-center justify-between rounded-xl bg-surface px-4 py-3">
           <span className="text-sm font-semibold">Итого по записи</span>
           <span className="font-mono font-bold text-primary">{money(recordTotalValue)}</span>

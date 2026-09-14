@@ -134,7 +134,7 @@ export function RecordForm({
     currentUser,
   } = useApp();
 
-  const isAdmin = role === "admin";
+  const isAdminLike = role === "admin" || role === "curator";
 
   const [objectId, setObjectId] = useState(record?.object_id ?? defaultObjectId ?? "");
   const [items, setItems] = useState<WorkItem[]>(record?.items ?? []);
@@ -714,7 +714,7 @@ export function RecordForm({
                       />
                       <span className="text-muted-foreground">{item.unit}</span>
                     </label>
-                    {isAdmin && (
+                    {isAdminLike && (
                       <span className="text-sm text-muted-foreground">
                         {item.price.toLocaleString("ru-RU")} ₽ / {item.unit}
                       </span>
@@ -874,7 +874,7 @@ export function RecordForm({
           )}
         </div>
 
-        {isAdmin && (
+        {isAdminLike && (
           <div className="flex items-baseline justify-between rounded-xl bg-surface px-4 py-3">
             <span className="label-caps">Итого по записи</span>
             <span className="font-mono text-lg font-bold">{total.toLocaleString("ru-RU")} ₽</span>
@@ -946,7 +946,7 @@ export function RecordForm({
 
       {pickerOpen && (
         <WorkTypePicker
-          isAdmin={isAdmin}
+          isAdminLike={isAdminLike}
           onClose={() => setPickerOpen(false)}
           onPick={(item) => {
             setItems((prev) => [...prev, syncItem(item, crew)]);
@@ -975,13 +975,13 @@ function WorkTypePicker({
   onPick,
   onClose,
   onRequest,
-  isAdmin,
+  isAdminLike,
 }: {
   types: { id: string; name: string; unit: string; price: number }[];
   onPick: (item: WorkItem) => void;
   onClose: () => void;
   onRequest: (text: string) => void;
-  isAdmin: boolean;
+  isAdminLike: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [customOpen, setCustomOpen] = useState(false);
@@ -1069,12 +1069,12 @@ function WorkTypePicker({
                       {t.name}
                     </span>
                     <div className="flex w-full items-center justify-between gap-3">
-                      {isAdmin && (
+                      {isAdminLike && (
                         <span className="font-mono text-sm text-muted-foreground">
                           {t.price.toLocaleString("ru-RU")} ₽ / {t.unit}
                         </span>
                       )}
-                      {!isAdmin && <span />}
+                      {!isAdminLike && <span />}
                       <span className="shrink-0 rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                         {t.unit}
                       </span>
