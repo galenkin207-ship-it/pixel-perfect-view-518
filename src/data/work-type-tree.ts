@@ -16,6 +16,8 @@ export type WorkTypeTreeNode = {
   catalog_type: CatalogType | null;
   is_step_item: boolean;
   step_unit_label: string | null;
+  step_base_work_type_id: string | null;
+  variant_label: string | null;
   work_composition: string | null;
   labor_hours: number | null;
   has_children: boolean;

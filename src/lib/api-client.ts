@@ -198,6 +198,8 @@ type RawWorkTypeTreeNode = {
   catalog_type: CatalogType | null;
   is_step_item: boolean;
   step_unit_label: string | null;
+  step_base_work_type_id: string | null;
+  variant_label: string | null;
   work_composition: string | null;
   labor_hours: number | string | null;
   has_children: boolean;
@@ -216,6 +218,8 @@ function mapWorkTypeTreeNode(raw: RawWorkTypeTreeNode): WorkTypeTreeNode {
     catalog_type: raw.catalog_type,
     is_step_item: raw.is_step_item,
     step_unit_label: raw.step_unit_label,
+    step_base_work_type_id: raw.step_base_work_type_id,
+    variant_label: raw.variant_label,
     work_composition: raw.work_composition,
     labor_hours: raw.labor_hours === null ? null : Number(raw.labor_hours),
     has_children: raw.has_children,

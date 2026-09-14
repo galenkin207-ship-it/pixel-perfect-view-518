@@ -56,7 +56,7 @@ export function CascadeColumn({
             >
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold leading-snug break-words whitespace-normal">
-                  {node.name}
+                  {!node.has_children && node.variant_label ? node.variant_label : node.name}
                 </span>
                 {!node.has_children && isAdminLike && (
                   <span className="mt-1 block font-mono text-xs text-muted-foreground">

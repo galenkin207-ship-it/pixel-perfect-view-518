@@ -1031,7 +1031,21 @@ function WorkTypePicker({
     onPick({ name: node.name, unit: node.unit, qty: 0, price: node.price, work_type_id: node.id });
   }
 
-  function handleSelectAtLevel(level: number, node: WorkTypeTreeNode) {
+  // Для группы (level=4) с ровно одним вариантом (level=5) не показываем
+  // отдельную колонку выбора — сразу выбираем этот единственный вариант.
+  async function handleSelectAtLevel(level: number, node: WorkTypeTreeNode) {
+    if (node.level === 4) {
+      try {
+        const children = await api.getWorkTypeTree({ parentId: node.id });
+        const onlyChild = children.length === 1 ? children[0] : undefined;
+        if (onlyChild) {
+          handlePickLeaf(onlyChild);
+          return;
+        }
+      } catch {
+        // не удалось проверить количество вариантов — покажем колонку выбора как обычно
+      }
+    }
     setChain((prev) => [...prev.slice(0, level), node]);
   }
 
