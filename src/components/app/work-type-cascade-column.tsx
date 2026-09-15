@@ -101,35 +101,48 @@ export function CascadeColumn({
   }, [nodes, resolveAutoSkip]);
 
   useEffect(() => {
-    const container = findScrollableAncestor(scrollRef.current);
-    // TEMP DIAGNOSTIC (см. запрос на разбор бага со скроллом каскада) —
-    // подтверждаем, доходит ли до этой колонки initialScrollTop, какой
-    // элемент реально найден как скроллящийся, и что он видит в момент
-    // применения. Убрать вместе с финальным фиксом.
-    console.log("[cascade-scroll] apply-effect", {
-      initialScrollTop,
-      containerTag: container?.tagName,
-      containerClass: container?.className,
-      scrollTopBefore: container?.scrollTop,
-      scrollHeight: container?.scrollHeight,
-      clientHeight: container?.clientHeight,
-      nodesLength: nodes.length,
-    });
     if (!initialScrollTop) return;
-    if (!container) return;
-    const target = Math.max(0, Math.min(initialScrollTop, container.scrollHeight - container.clientHeight));
-    container.scrollTop = target;
-    console.log("[cascade-scroll] applied", { target, resultingScrollTop: container.scrollTop });
-    // TEMP DIAGNOSTIC — проверяем подозрение на scroll anchoring (или любой
-    // другой поздний сброс): читаем scrollTop ещё раз чуть позже, после
-    // того как браузер успел бы перекомпоновать/дорисовать контент колонки.
-    // Убрать вместе с финальным фиксом.
-    requestAnimationFrame(() => {
-      console.log("[cascade-scroll] scrollTop after rAF", { target, scrollTop: container.scrollTop });
+    let raf2 = 0;
+    // Двойной rAF: первый кадр гарантирует, что React уже закоммитил DOM
+    // этой колонки (новые <li> реально в дереве), второй — что браузер
+    // успел посчитать layout по итогам этого коммита, и scrollHeight/
+    // clientHeight отражают ФИНАЛЬНЫЕ размеры контента колонки, а не
+    // промежуточное/устаревшее состояние на момент коммита.
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const container = findScrollableAncestor(scrollRef.current);
+        // TEMP DIAGNOSTIC — подтверждаем, что scrollHeight теперь
+        // правдоподобен для реального количества карточек (nodesLength), а
+        // не "эхо" предыдущего/более длинного содержимого. Убрать вместе с
+        // финальным фиксом.
+        console.log("[cascade-scroll] apply-effect (after double rAF)", {
+          initialScrollTop,
+          containerTag: container?.tagName,
+          containerClass: container?.className,
+          scrollTopBefore: container?.scrollTop,
+          scrollHeight: container?.scrollHeight,
+          clientHeight: container?.clientHeight,
+          nodesLength: nodes.length,
+        });
+        if (!container) return;
+        const target = Math.max(0, Math.min(initialScrollTop, container.scrollHeight - container.clientHeight));
+        container.scrollTop = target;
+        console.log("[cascade-scroll] applied", { target, resultingScrollTop: container.scrollTop });
+        // TEMP DIAGNOSTIC — проверяем подозрение на scroll anchoring (или
+        // любой другой поздний сброс): читаем scrollTop ещё раз чуть
+        // позже. Убрать вместе с финальным фиксом.
+        requestAnimationFrame(() => {
+          console.log("[cascade-scroll] scrollTop after rAF", { target, scrollTop: container.scrollTop });
+        });
+        setTimeout(() => {
+          console.log("[cascade-scroll] scrollTop after 150ms", { target, scrollTop: container.scrollTop });
+        }, 150);
+      });
     });
-    setTimeout(() => {
-      console.log("[cascade-scroll] scrollTop after 150ms", { target, scrollTop: container.scrollTop });
-    }, 150);
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes]);
 
