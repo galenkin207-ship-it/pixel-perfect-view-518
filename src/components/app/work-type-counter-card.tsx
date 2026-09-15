@@ -2,9 +2,12 @@ import { ChevronLeft, Minus, Plus } from "lucide-react";
 
 import type { WorkTypeCounterStep, WorkTypeTreeNode } from "@/data/work-type-tree";
 
-// Итоговое имя записи с учётом ненулевых инкрементов: "база — N этажей, M
-// м, K клапанов". Общая функция для живого превью в самой карточке и для
-// итогового onPick в record-form.tsx — чтобы они не могли разойтись.
+// Итоговое имя записи с учётом ненулевых инкрементов: "база — ×N этаж, ×M
+// м ствола, ×K клапан". "×N единица" — без попытки грамматического
+// склонения (step_unit_label в БД не нормализован под все числа), но
+// единообразно для любой единицы. Общая функция для живого превью в самой
+// карточке и для итогового onPick в record-form.tsx — чтобы они не могли
+// разойтись.
 export function composeCounterName(
   baseText: string,
   steps: WorkTypeCounterStep[],
@@ -12,7 +15,7 @@ export function composeCounterName(
 ): string {
   const parts = steps
     .filter((step) => (counts[step.id] ?? 0) > 0)
-    .map((step) => `${counts[step.id]} ${step.step_unit_label ?? ""}`.trim());
+    .map((step) => `×${counts[step.id]} ${step.step_unit_label ?? ""}`.trim());
   return parts.length > 0 ? `${baseText} — ${parts.join(", ")}` : baseText;
 }
 
