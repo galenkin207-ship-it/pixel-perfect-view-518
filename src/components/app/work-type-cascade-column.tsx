@@ -111,18 +111,24 @@ export function CascadeColumn({
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
         const container = findScrollableAncestor(scrollRef.current);
-        // TEMP DIAGNOSTIC — подтверждаем, что scrollHeight теперь
-        // правдоподобен для реального количества карточек (nodesLength), а
-        // не "эхо" предыдущего/более длинного содержимого. Убрать вместе с
-        // финальным фиксом.
+        // TEMP DIAGNOSTIC — подтверждаем: (а) чьё содержимое реально
+        // измеряется (ownUlChildrenCount — фактическое число <li> в <ul>
+        // ЭТОЙ колонки, сравнить с nodesLength), (б) является ли найденный
+        // "скроллящийся" container именно общим list-контейнером на все
+        // колонки сразу (isSharedListRoot — проверка по data-атрибуту на
+        // самом listRef, а не по классу/тегу, которые могут совпадать
+        // случайно). Убрать вместе с финальным фиксом.
         console.log("[cascade-scroll] apply-effect (after double rAF)", {
           initialScrollTop,
+          nodesLength: nodes.length,
+          ownUlChildrenCount: scrollRef.current?.children.length,
           containerTag: container?.tagName,
           containerClass: container?.className,
+          isSharedListRoot: container?.hasAttribute("data-cascade-scroll-root"),
+          containerChildrenCount: container?.children.length,
           scrollTopBefore: container?.scrollTop,
           scrollHeight: container?.scrollHeight,
           clientHeight: container?.clientHeight,
-          nodesLength: nodes.length,
         });
         if (!container) return;
         const target = Math.max(0, Math.min(initialScrollTop, container.scrollHeight - container.clientHeight));
@@ -220,12 +226,16 @@ export function CascadeColumn({
                     const containerRect = container.getBoundingClientRect();
                     originOffsetPx = Math.max(0, cardRect.top - containerRect.top + container.scrollTop);
                   }
-                  // TEMP DIAGNOSTIC — убрать вместе с финальным фиксом.
+                  // TEMP DIAGNOSTIC — то же isSharedListRoot-подтверждение,
+                  // что и в apply-эффекте, но со стороны исходной (клик)
+                  // колонки. Убрать вместе с финальным фиксом.
                   console.log("[cascade-scroll] click", {
                     nodeId: node.id,
                     nodeName: node.name,
+                    ownUlChildrenCount: scrollRef.current?.children.length,
                     containerTag: container?.tagName,
                     containerClass: container?.className,
+                    isSharedListRoot: container?.hasAttribute("data-cascade-scroll-root"),
                     containerScrollTop: container?.scrollTop,
                     containerScrollHeight: container?.scrollHeight,
                     containerClientHeight: container?.clientHeight,

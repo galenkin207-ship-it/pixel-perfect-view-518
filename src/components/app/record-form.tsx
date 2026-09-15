@@ -1282,8 +1282,13 @@ function WorkTypePicker({
             scrollTop, когда контент выше текущей позиции доразмечается/меняет
             высоту (напр. когда приходят данные новой колонки каскада), сводя
             на нет наше выравнивание scroll в work-type-cascade-column.tsx. */}
+        {/* TEMP DIAGNOSTIC data-атрибут — маркер для findScrollableAncestor,
+            чтобы однозначно (не по классу/тегу, а по факту) подтвердить в
+            логе, что найденный "скроллящийся" контейнер — это именно этот,
+            общий на все колонки сразу, div. Убрать вместе с финальным фиксом. */}
         <div
           ref={listRef}
+          data-cascade-scroll-root
           className="flex-1 overflow-x-hidden overflow-y-auto px-6 py-5 md:px-10 md:py-7 [overflow-anchor:none]"
         >
           {counterBase ? (
