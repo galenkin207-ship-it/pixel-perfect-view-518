@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ChevronRight } from "lucide-react";
 
@@ -30,17 +30,25 @@ export function CascadeColumn({
   onAutoSkipLeaf,
   resolveAutoSkip,
   className,
+  initialScrollTop,
 }: {
   nodes: WorkTypeTreeNode[];
   loading: boolean;
   selectedId?: string | undefined;
   isAdminLike: boolean;
-  onSelect: (node: WorkTypeTreeNode) => void;
+  onSelect: (node: WorkTypeTreeNode, originOffsetPx: number) => void;
   onLeaf: (node: WorkTypeTreeNode) => void;
   onAutoSkipLeaf: (leaf: WorkTypeTreeNode, groupName: string) => void;
   resolveAutoSkip: (node: WorkTypeTreeNode) => Promise<AutoSkipResult>;
   className?: string;
+  // Desktop Finder-style каскад: колонка, открытая кликом по карточке в
+  // проскроленной соседней колонке, должна открываться выровненной по той
+  // же высоте, а не всегда с нуля (иначе выглядит как пустая область, пока
+  // не проскроллишь её саму). Позиция в пикселях, применяется один раз,
+  // когда узлы этой колонки приходят с сервера — см. эффект ниже.
+  initialScrollTop?: number | undefined;
 }) {
+  const scrollRef = useRef<HTMLUListElement>(null);
   // Заранее (на этапе построения колонки, а не по клику) прогоняем
   // auto-skip для каждого узла с детьми — чтобы решить, рисовать ли
   // карточку как промежуточную (стрелка) или как финальную (карточка
@@ -72,6 +80,14 @@ export function CascadeColumn({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, resolveAutoSkip]);
 
+  useEffect(() => {
+    if (!initialScrollTop) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = Math.max(0, Math.min(initialScrollTop, el.scrollHeight - el.clientHeight));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes]);
+
   if (loading) {
     return (
       <div className={cn("flex items-center justify-center p-8 text-sm text-muted-foreground", className)}>
@@ -89,7 +105,7 @@ export function CascadeColumn({
   }
 
   return (
-    <ul className={cn("flex flex-col gap-1.5", className)}>
+    <ul ref={scrollRef} className={cn("flex flex-col gap-1.5", className)}>
       {nodes.map((node) => {
         const selected = node.id === selectedId;
         const preview = node.has_children ? previews[node.id] : undefined;
@@ -111,11 +127,23 @@ export function CascadeColumn({
         return (
           <li key={node.id}>
             <button
-              onClick={() => {
+              onClick={(event) => {
                 if (resolvesToLeaf) {
                   onAutoSkipLeaf(resolvesToLeaf.leaf, resolvesToLeaf.groupName);
                 } else if (node.has_children) {
-                  onSelect(node);
+                  // Колонка открывается справа выровненной по высоте
+                  // кликнутой карточки — но только если эту колонку
+                  // реально проскроллили: иначе (клик по видимой без
+                  // скролла карточке) новая колонка как и раньше
+                  // открывается с нуля.
+                  const container = scrollRef.current;
+                  let originOffsetPx = 0;
+                  if (container && container.scrollTop > 0) {
+                    const cardRect = event.currentTarget.getBoundingClientRect();
+                    const containerRect = container.getBoundingClientRect();
+                    originOffsetPx = Math.max(0, cardRect.top - containerRect.top);
+                  }
+                  onSelect(node, originOffsetPx);
                 } else {
                   onLeaf(node);
                 }

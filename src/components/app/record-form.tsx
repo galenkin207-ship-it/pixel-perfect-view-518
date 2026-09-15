@@ -1013,6 +1013,10 @@ function WorkTypePicker({
   // хлебные крошки откатывают весь схлопнутый блок одним шагом, а не по
   // одному авто-пропущенному уровню за раз.
   const [stepBoundaries, setStepBoundaries] = useState<number[]>([]);
+  // Desktop-каскад: вертикальная позиция (px), на которой открывается новая
+  // "передовая" колонка — выровнена по кликнутой карточке в проскроленной
+  // соседней колонке (см. CascadeColumn.initialScrollTop), а не всегда с нуля.
+  const [frontierScrollOffset, setFrontierScrollOffset] = useState(0);
   const [customOpen, setCustomOpen] = useState(false);
   const [custom, setCustom] = useState("");
   const isMobile = useIsMobile();
@@ -1156,12 +1160,13 @@ function WorkTypePicker({
     handlePickLeaf(node, groupName);
   }
 
-  async function handleSelectAtLevel(level: number, node: WorkTypeTreeNode) {
+  async function handleSelectAtLevel(level: number, node: WorkTypeTreeNode, originOffsetPx: number) {
     const resolved = await resolveAutoSkip(node);
     if ("leaf" in resolved) {
       pickOrOpenCounter(resolved.leaf, resolved.groupName);
       return;
     }
+    setFrontierScrollOffset(originOffsetPx);
     setChain((prev) => [...prev.slice(0, level), ...resolved.chainNodes]);
     setStepBoundaries((prev) => [...prev.filter((b) => b <= level), level + resolved.chainNodes.length]);
   }
@@ -1383,7 +1388,7 @@ function WorkTypePicker({
                     nodes={columns[chain.length]?.nodes ?? []}
                     loading={columns[chain.length]?.loading ?? true}
                     isAdminLike={isAdminLike}
-                    onSelect={(node) => handleSelectAtLevel(chain.length, node)}
+                    onSelect={(node, offset) => handleSelectAtLevel(chain.length, node, offset)}
                     onLeaf={(node) => pickOrOpenCounter(node, chain[chain.length - 1]?.name)}
                     onAutoSkipLeaf={(leaf, groupName) => pickOrOpenCounter(leaf, groupName)}
                     resolveAutoSkip={resolveAutoSkip}
@@ -1400,10 +1405,11 @@ function WorkTypePicker({
                         loading={col.loading}
                         selectedId={chain[level]?.id}
                         isAdminLike={isAdminLike}
-                        onSelect={(node) => handleSelectAtLevel(level, node)}
+                        onSelect={(node, offset) => handleSelectAtLevel(level, node, offset)}
                         onLeaf={(node) => pickOrOpenCounter(node, chain[level - 1]?.name)}
                         onAutoSkipLeaf={(leaf, groupName) => pickOrOpenCounter(leaf, groupName)}
                         resolveAutoSkip={resolveAutoSkip}
+                        initialScrollTop={level === chain.length ? frontierScrollOffset : undefined}
                       />
                     ) : null,
                   )}
