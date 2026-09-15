@@ -1221,24 +1221,31 @@ function WorkTypePicker({
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 md:items-center md:p-4"
     >
       <div className="flex max-h-[95vh] w-full max-w-7xl 2xl:max-w-[1800px] flex-col rounded-t-3xl bg-card shadow-2xl md:rounded-3xl">
-        <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-5 md:px-10 md:pt-10 md:pb-7">
-          <div>
-            <h2 className="text-2xl font-bold md:text-3xl">Выбор вида работ</h2>
-            <p className="mt-1.5 text-base text-muted-foreground">
+        {/* Компактная шапка: заголовок и подзаголовок в одну строку (по
+            baseline), подзаголовок скрыт на узких экранах — здесь и в
+            поисковой строке ниже вертикальные отступы сознательно урезаны,
+            чтобы отдать максимум высоты модалки под сами колонки каскада
+            (см. ниже) — это самая важная и самая "голодная" по месту часть
+            экрана. Кнопка закрытия оставлена на прежнем размере (size-6 +
+            p-2.5 = не меньше 44px тач-таргета). */}
+        <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 md:px-8 md:pt-5 md:pb-4">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <h2 className="text-lg font-bold md:text-2xl">Выбор вида работ</h2>
+            <p className="hidden truncate text-xs text-muted-foreground sm:block md:text-sm">
               Найдите позицию в справочнике или укажите свой вариант
             </p>
           </div>
           <button
             onClick={onClose}
             aria-label="Закрыть"
-            className="rounded-full p-2.5 hover:bg-muted"
+            className="shrink-0 rounded-full p-2.5 hover:bg-muted"
           >
             <X className="size-6 text-muted-foreground" />
           </button>
         </div>
 
         {!counterBase && (
-          <div className="px-6 md:px-10">
+          <div className="px-4 md:px-8">
             <div className="relative">
               <Search className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -1246,11 +1253,11 @@ function WorkTypePicker({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Поиск по названию..."
-                className="w-full rounded-xl border border-border bg-surface py-4 pr-5 pl-12 text-base"
+                className="w-full rounded-xl border border-border bg-surface py-3 pr-5 pl-12 text-base"
               />
             </div>
             {isSearching && (
-              <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+              <div className="mt-2 flex items-center justify-between text-sm text-muted-foreground">
                 <span className="label-caps">Справочник</span>
                 <span>
                   {searchLoading
@@ -1290,7 +1297,7 @@ function WorkTypePicker({
         <div
           ref={listRef}
           className={cn(
-            "flex-1 overflow-x-hidden px-6 py-5 md:px-10 md:py-7",
+            "flex-1 overflow-x-hidden px-4 py-3 md:px-8 md:py-4",
             isDesktopCascade ? "flex flex-col overflow-y-hidden" : "overflow-y-auto",
           )}
         >
@@ -1371,18 +1378,18 @@ function WorkTypePicker({
               </button>
             </div>
           ) : (
-            <div className={cn("flex flex-col gap-4", isDesktopCascade && "flex-1 min-h-0")}>
+            <div className={cn("flex flex-col gap-2", isDesktopCascade && "flex-1 min-h-0")}>
               <div className="flex items-center justify-between gap-3">
                 <button
                   onClick={handleChangeType}
-                  className="flex items-center gap-1 text-sm font-semibold text-primary"
+                  className="flex items-center gap-1 py-1 text-sm font-semibold text-primary"
                 >
                   <ChevronLeft className="size-4" />
                   Сменить тип
                 </button>
                 <button
                   onClick={handleBack}
-                  className="flex items-center gap-1 text-sm font-semibold text-muted-foreground hover:text-foreground"
+                  className="flex items-center gap-1 py-1 text-sm font-semibold text-muted-foreground hover:text-foreground"
                 >
                   <ChevronLeft className="size-4" />
                   Назад
