@@ -17,6 +17,26 @@ function extractGesnNumber(gesnCode: string | null): number | null {
   return match ? Number(match[1]) : null;
 }
 
+// Диагностика (клик-лог) показала, что scrollTop нашего <ul> всегда 0, хотя
+// колонка визуально проскроллена — значит реально скроллится не сам <ul>
+// (overflow-y-auto у него есть, но без ограниченной высоты контента это не
+// работает), а какой-то предок выше по дереву. Вместо того чтобы гадать,
+// поднимаемся от кликнутого элемента вверх и берём ближайшего предка,
+// который И имеет overflow-y auto/scroll, И реально переполнен
+// (scrollHeight > clientHeight) — то есть тот, что фактически скроллится.
+function findScrollableAncestor(start: Element | null): HTMLElement | null {
+  let node = start instanceof HTMLElement ? start.parentElement : null;
+  while (node) {
+    const style = getComputedStyle(node);
+    const scrollableY = style.overflowY === "auto" || style.overflowY === "scroll";
+    if (scrollableY && node.scrollHeight > node.clientHeight + 1) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
 // Один уровень каскада: список узлов дерева видов работ. Используется и как
 // колонка в desktop-раскладке (Finder column view), и как единственный
 // экран в mobile-раскладке.
@@ -81,22 +101,24 @@ export function CascadeColumn({
   }, [nodes, resolveAutoSkip]);
 
   useEffect(() => {
-    const el = scrollRef.current;
+    const container = findScrollableAncestor(scrollRef.current);
     // TEMP DIAGNOSTIC (см. запрос на разбор бага со скроллом каскада) —
-    // подтверждаем, доходит ли до этой колонки initialScrollTop и что видит
-    // сам DOM-элемент в момент применения. Убрать вместе с финальным фиксом.
+    // подтверждаем, доходит ли до этой колонки initialScrollTop, какой
+    // элемент реально найден как скроллящийся, и что он видит в момент
+    // применения. Убрать вместе с финальным фиксом.
     console.log("[cascade-scroll] apply-effect", {
       initialScrollTop,
-      hasEl: !!el,
-      scrollHeight: el?.scrollHeight,
-      clientHeight: el?.clientHeight,
+      containerTag: container?.tagName,
+      containerClass: container?.className,
+      scrollHeight: container?.scrollHeight,
+      clientHeight: container?.clientHeight,
       nodesLength: nodes.length,
     });
     if (!initialScrollTop) return;
-    if (!el) return;
-    const target = Math.max(0, Math.min(initialScrollTop, el.scrollHeight - el.clientHeight));
-    el.scrollTop = target;
-    console.log("[cascade-scroll] applied", { target, resultingScrollTop: el.scrollTop });
+    if (!container) return;
+    const target = Math.max(0, Math.min(initialScrollTop, container.scrollHeight - container.clientHeight));
+    container.scrollTop = target;
+    console.log("[cascade-scroll] applied", { target, resultingScrollTop: container.scrollTop });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes]);
 
@@ -158,8 +180,9 @@ export function CascadeColumn({
                   // кликнутой карточки — но только если эту колонку
                   // реально проскроллили: иначе (клик по видимой без
                   // скролла карточке) новая колонка как и раньше
-                  // открывается с нуля.
-                  const container = scrollRef.current;
+                  // открывается с нуля. Контейнер ищем динамически
+                  // (findScrollableAncestor) — см. комментарий у функции.
+                  const container = findScrollableAncestor(event.currentTarget);
                   let originOffsetPx = 0;
                   if (container && container.scrollTop > 0) {
                     const cardRect = event.currentTarget.getBoundingClientRect();
@@ -170,7 +193,8 @@ export function CascadeColumn({
                   console.log("[cascade-scroll] click", {
                     nodeId: node.id,
                     nodeName: node.name,
-                    hasContainer: !!container,
+                    containerTag: container?.tagName,
+                    containerClass: container?.className,
                     containerScrollTop: container?.scrollTop,
                     containerScrollHeight: container?.scrollHeight,
                     containerClientHeight: container?.clientHeight,
