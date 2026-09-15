@@ -1166,6 +1166,12 @@ function WorkTypePicker({
       pickOrOpenCounter(resolved.leaf, resolved.groupName);
       return;
     }
+    // TEMP DIAGNOSTIC — убрать вместе с финальным фиксом.
+    console.log("[cascade-scroll] handleSelectAtLevel", {
+      level,
+      originOffsetPx,
+      newFrontierIndex: level + resolved.chainNodes.length,
+    });
     setFrontierScrollOffset(originOffsetPx);
     setChain((prev) => [...prev.slice(0, level), ...resolved.chainNodes]);
     setStepBoundaries((prev) => [...prev.filter((b) => b <= level), level + resolved.chainNodes.length]);
@@ -1204,6 +1210,17 @@ function WorkTypePicker({
   // работ — иначе она закрывает часть карточек и мешает выбору.
   const listRef = useRef<HTMLDivElement>(null);
   useBlurOnScroll(listRef);
+
+  // TEMP DIAGNOSTIC: проверяем, не является ли listRef (общий контейнер
+  // модалки) тем элементом, который реально скроллится, когда пользователь
+  // "скроллит колонку" — убрать вместе с финальным фиксом.
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const onScroll = () => console.log("[cascade-scroll] listRef scroll event", { scrollTop: el.scrollTop });
+    el.addEventListener("scroll", onScroll);
+    return () => el.removeEventListener("scroll", onScroll);
+  });
 
   // Портал в document.body — иначе на iOS этот fixed-оверлей рендерится
   // внутри прокручиваемого #app-scroll-container и нижнее мобильное меню
@@ -1396,8 +1413,18 @@ function WorkTypePicker({
                 </>
               ) : (
                 <div className="flex gap-4 overflow-x-auto pb-2">
-                  {columns.map((col, level) =>
-                    isColumnVisible(level) ? (
+                  {columns.map((col, level) => {
+                    const isFrontier = level === chain.length;
+                    if (isFrontier) {
+                      // TEMP DIAGNOSTIC — убрать вместе с финальным фиксом.
+                      console.log("[cascade-scroll] render frontier column", {
+                        level,
+                        frontierScrollOffset,
+                        nodesLength: col.nodes.length,
+                        loading: col.loading,
+                      });
+                    }
+                    return isColumnVisible(level) ? (
                       <CascadeColumn
                         key={level}
                         className="w-72 shrink-0 overflow-y-auto"
@@ -1409,10 +1436,10 @@ function WorkTypePicker({
                         onLeaf={(node) => pickOrOpenCounter(node, chain[level - 1]?.name)}
                         onAutoSkipLeaf={(leaf, groupName) => pickOrOpenCounter(leaf, groupName)}
                         resolveAutoSkip={resolveAutoSkip}
-                        initialScrollTop={level === chain.length ? frontierScrollOffset : undefined}
+                        initialScrollTop={isFrontier ? frontierScrollOffset : undefined}
                       />
-                    ) : null,
-                  )}
+                    ) : null;
+                  })}
                 </div>
               )}
             </div>

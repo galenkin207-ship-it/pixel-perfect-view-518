@@ -81,12 +81,35 @@ export function CascadeColumn({
   }, [nodes, resolveAutoSkip]);
 
   useEffect(() => {
-    if (!initialScrollTop) return;
     const el = scrollRef.current;
+    // TEMP DIAGNOSTIC (см. запрос на разбор бага со скроллом каскада) —
+    // подтверждаем, доходит ли до этой колонки initialScrollTop и что видит
+    // сам DOM-элемент в момент применения. Убрать вместе с финальным фиксом.
+    console.log("[cascade-scroll] apply-effect", {
+      initialScrollTop,
+      hasEl: !!el,
+      scrollHeight: el?.scrollHeight,
+      clientHeight: el?.clientHeight,
+      nodesLength: nodes.length,
+    });
+    if (!initialScrollTop) return;
     if (!el) return;
-    el.scrollTop = Math.max(0, Math.min(initialScrollTop, el.scrollHeight - el.clientHeight));
+    const target = Math.max(0, Math.min(initialScrollTop, el.scrollHeight - el.clientHeight));
+    el.scrollTop = target;
+    console.log("[cascade-scroll] applied", { target, resultingScrollTop: el.scrollTop });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes]);
+
+  // TEMP DIAGNOSTIC: подтверждаем, что реальный scroll-эвент вообще
+  // происходит на этом <ul>, а не на внешнем контейнере списка. Убрать
+  // вместе с финальным фиксом.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => console.log("[cascade-scroll] ul scroll event", { scrollTop: el.scrollTop });
+    el.addEventListener("scroll", onScroll);
+    return () => el.removeEventListener("scroll", onScroll);
+  });
 
   if (loading) {
     return (
@@ -143,6 +166,16 @@ export function CascadeColumn({
                     const containerRect = container.getBoundingClientRect();
                     originOffsetPx = Math.max(0, cardRect.top - containerRect.top);
                   }
+                  // TEMP DIAGNOSTIC — убрать вместе с финальным фиксом.
+                  console.log("[cascade-scroll] click", {
+                    nodeId: node.id,
+                    nodeName: node.name,
+                    hasContainer: !!container,
+                    containerScrollTop: container?.scrollTop,
+                    containerScrollHeight: container?.scrollHeight,
+                    containerClientHeight: container?.clientHeight,
+                    originOffsetPx,
+                  });
                   onSelect(node, originOffsetPx);
                 } else {
                   onLeaf(node);
