@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { Camera, ChevronLeft, Image as ImageIcon, Plus, Search, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { MutableRefObject } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 
@@ -9,6 +10,7 @@ import { EmployeeSelect } from "@/components/app/employee-select";
 import { NumberField } from "@/components/app/number-field";
 import { ObjectSelect } from "@/components/app/object-select";
 import { CascadeColumn } from "@/components/app/work-type-cascade-column";
+import { composeCounterName, computeCounterTotal, WorkTypeCounterCard } from "@/components/app/work-type-counter-card";
 import { useBlurOnScroll } from "@/hooks/use-blur-on-scroll";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWorkTypeTree } from "@/hooks/use-work-type-tree";
@@ -17,7 +19,12 @@ import { itemQty, recordTotal, round2, syncItem } from "@/lib/record-utils";
 import { api, photoThumbUrl } from "@/lib/api-client";
 import { clearQuickDraftId } from "@/lib/quick-draft";
 import type { WorkItem, WorkRecord } from "@/data/mock";
-import type { CatalogType, WorkTypeSearchResult, WorkTypeTreeNode } from "@/data/work-type-tree";
+import type {
+  CatalogType,
+  WorkTypeCounterStep,
+  WorkTypeSearchResult,
+  WorkTypeTreeNode,
+} from "@/data/work-type-tree";
 import { useApp } from "@/state/use-app";
 
 function toIso(ru?: string) {
@@ -149,6 +156,12 @@ export function RecordForm({
   const [pendingPreviews, setPendingPreviews] = useState<string[]>([]);
   const [compressingPhotos, setCompressingPhotos] = useState(false);
   const compressionPromiseRef = useRef<Promise<void> | null>(null);
+  // Введённые значения счётчиков (step-counter), по id базовой позиции —
+  // сохраняются, пока открыта эта форма записи (не сбрасываются при
+  // закрытии/повторном открытии модалки выбора вида работ внутри одной
+  // сессии формы), но обнуляются вместе с новым монтированием RecordForm
+  // (новая запись/новый черновик).
+  const counterValuesRef = useRef(new Map<string, Record<string, number>>());
   const lastAddSignatureRef = useRef<string | null>(null);
   const lastAddTimeRef = useRef(0);
   const [saving, setSaving] = useState(false);
@@ -950,6 +963,7 @@ export function RecordForm({
       {pickerOpen && (
         <WorkTypePicker
           isAdminLike={isAdminLike}
+          counterValuesRef={counterValuesRef}
           onClose={() => setPickerOpen(false)}
           onPick={(item) => {
             setItems((prev) => [...prev, syncItem(item, crew)]);
@@ -979,12 +993,14 @@ function WorkTypePicker({
   onClose,
   onRequest,
   isAdminLike,
+  counterValuesRef,
 }: {
   types: { id: string; name: string; unit: string; price: number }[];
   onPick: (item: WorkItem) => void;
   onClose: () => void;
   onRequest: (text: string) => void;
   isAdminLike: boolean;
+  counterValuesRef: MutableRefObject<Map<string, Record<string, number>>>;
 }) {
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<WorkTypeSearchResult[] | null>(null);
@@ -1061,10 +1077,89 @@ function WorkTypePicker({
     });
   }
 
+  // Базовая позиция со связанными шаговыми модификаторами (is_counter_step,
+  // см. GET /api/work-types/:baseId/counter-steps) — вместо мгновенного
+  // коммита открываем карточку-счётчик. groupName — как и в handlePickLeaf,
+  // имя непосредственного родителя для дедупликации group/variant в имени.
+  const [counterBase, setCounterBase] = useState<{
+    base: WorkTypeTreeNode;
+    groupName: string | undefined;
+  } | null>(null);
+  const [counterSteps, setCounterSteps] = useState<WorkTypeCounterStep[] | null>(null);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const counterStepsCacheRef = useRef(new Map<string, WorkTypeCounterStep[]>());
+
+  useEffect(() => {
+    if (!counterBase) return;
+    const saved = counterValuesRef.current.get(counterBase.base.id);
+    setCounts(saved ? { ...saved } : {});
+  }, [counterBase, counterValuesRef]);
+
+  useEffect(() => {
+    if (!counterBase) {
+      setCounterSteps(null);
+      return;
+    }
+    const baseId = counterBase.base.id;
+    const cached = counterStepsCacheRef.current.get(baseId);
+    if (cached) {
+      setCounterSteps(cached);
+      return;
+    }
+    setCounterSteps(null);
+    let cancelled = false;
+    api
+      .getWorkTypeCounterSteps(baseId)
+      .then((steps) => {
+        counterStepsCacheRef.current.set(baseId, steps);
+        if (!cancelled) setCounterSteps(steps);
+      })
+      .catch(() => {
+        if (!cancelled) setCounterSteps([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [counterBase]);
+
+  function changeCounterValue(stepId: string, delta: number) {
+    if (!counterBase) return;
+    setCounts((prev) => {
+      const next = { ...prev, [stepId]: Math.max(0, (prev[stepId] ?? 0) + delta) };
+      counterValuesRef.current.set(counterBase.base.id, next);
+      return next;
+    });
+  }
+
+  function handleConfirmCounter() {
+    if (!counterBase || !counterSteps) return;
+    const baseText = computeLeafName(counterBase.base, counterBase.groupName);
+    onPick({
+      name: composeCounterName(baseText, counterSteps, counts),
+      unit: counterBase.base.unit,
+      qty: 0,
+      price: computeCounterTotal(counterBase.base, counterSteps, counts),
+      work_type_id: counterBase.base.id,
+    });
+    setCounterBase(null);
+  }
+
+  // Точка входа для любого пути, ведущего к выбору листа (обычный клик по
+  // листу в колонке, или auto-skip, разрешившийся до листа) — если у листа
+  // есть свои шаговые модификаторы, вместо мгновенного коммита открываем
+  // счётчик.
+  function pickOrOpenCounter(node: WorkTypeTreeNode | WorkTypeSearchResult, groupName?: string) {
+    if (node.has_counter_steps) {
+      setCounterBase({ base: node, groupName });
+      return;
+    }
+    handlePickLeaf(node, groupName);
+  }
+
   async function handleSelectAtLevel(level: number, node: WorkTypeTreeNode) {
     const resolved = await resolveAutoSkip(node);
     if ("leaf" in resolved) {
-      handlePickLeaf(resolved.leaf, resolved.groupName);
+      pickOrOpenCounter(resolved.leaf, resolved.groupName);
       return;
     }
     setChain((prev) => [...prev.slice(0, level), ...resolved.chainNodes]);
@@ -1130,37 +1225,50 @@ function WorkTypePicker({
           </button>
         </div>
 
-        <div className="px-6 md:px-10">
-          <div className="relative">
-            <Search className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" />
-            <input
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск по названию..."
-              className="w-full rounded-xl border border-border bg-surface py-4 pr-5 pl-12 text-base"
-            />
-          </div>
-          {isSearching && (
-            <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-              <span className="label-caps">Справочник</span>
-              <span>
-                {searchLoading
-                  ? "Поиск..."
-                  : `${searchResults?.length ?? 0} ${
-                      (searchResults?.length ?? 0) === 1
-                        ? "позиция"
-                        : (searchResults?.length ?? 0) < 5
-                          ? "позиции"
-                          : "позиций"
-                    }`}
-              </span>
+        {!counterBase && (
+          <div className="px-6 md:px-10">
+            <div className="relative">
+              <Search className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Поиск по названию..."
+                className="w-full rounded-xl border border-border bg-surface py-4 pr-5 pl-12 text-base"
+              />
             </div>
-          )}
-        </div>
+            {isSearching && (
+              <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+                <span className="label-caps">Справочник</span>
+                <span>
+                  {searchLoading
+                    ? "Поиск..."
+                    : `${searchResults?.length ?? 0} ${
+                        (searchResults?.length ?? 0) === 1
+                          ? "позиция"
+                          : (searchResults?.length ?? 0) < 5
+                            ? "позиции"
+                            : "позиций"
+                      }`}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         <div ref={listRef} className="flex-1 overflow-x-hidden overflow-y-auto px-6 py-5 md:px-10 md:py-7">
-          {isSearching ? (
+          {counterBase ? (
+            <WorkTypeCounterCard
+              base={counterBase.base}
+              baseText={computeLeafName(counterBase.base, counterBase.groupName)}
+              steps={counterSteps}
+              counts={counts}
+              isAdminLike={isAdminLike}
+              onChangeCount={changeCounterValue}
+              onConfirm={handleConfirmCounter}
+              onBack={() => setCounterBase(null)}
+            />
+          ) : isSearching ? (
             searchLoading ? (
               <div className="rounded-2xl border border-dashed border-border bg-surface p-8 text-center text-base text-muted-foreground">
                 Поиск...
@@ -1180,7 +1288,7 @@ function WorkTypePicker({
                 {searchResults!.map((t) => (
                   <li key={t.id} className="min-w-0">
                     <button
-                      onClick={() => handlePickLeaf(t, t.breadcrumb[t.breadcrumb.length - 1])}
+                      onClick={() => pickOrOpenCounter(t, t.breadcrumb[t.breadcrumb.length - 1])}
                       className="group flex h-full w-full flex-col items-start justify-between gap-4 rounded-2xl border border-border bg-surface p-5 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
                     >
                       <span className="block w-full">
@@ -1276,8 +1384,8 @@ function WorkTypePicker({
                     loading={columns[chain.length]?.loading ?? true}
                     isAdminLike={isAdminLike}
                     onSelect={(node) => handleSelectAtLevel(chain.length, node)}
-                    onLeaf={(node) => handlePickLeaf(node, chain[chain.length - 1]?.name)}
-                    onAutoSkipLeaf={(leaf, groupName) => handlePickLeaf(leaf, groupName)}
+                    onLeaf={(node) => pickOrOpenCounter(node, chain[chain.length - 1]?.name)}
+                    onAutoSkipLeaf={(leaf, groupName) => pickOrOpenCounter(leaf, groupName)}
                     resolveAutoSkip={resolveAutoSkip}
                   />
                 </>
@@ -1293,8 +1401,8 @@ function WorkTypePicker({
                         selectedId={chain[level]?.id}
                         isAdminLike={isAdminLike}
                         onSelect={(node) => handleSelectAtLevel(level, node)}
-                        onLeaf={(node) => handlePickLeaf(node, chain[level - 1]?.name)}
-                        onAutoSkipLeaf={(leaf, groupName) => handlePickLeaf(leaf, groupName)}
+                        onLeaf={(node) => pickOrOpenCounter(node, chain[level - 1]?.name)}
+                        onAutoSkipLeaf={(leaf, groupName) => pickOrOpenCounter(leaf, groupName)}
                         resolveAutoSkip={resolveAutoSkip}
                       />
                     ) : null,
@@ -1305,50 +1413,52 @@ function WorkTypePicker({
           )}
         </div>
 
-        <div className="border-t border-border px-6 py-5 md:px-10 md:py-7">
-          {!customOpen ? (
-            <button
-              onClick={() => setCustomOpen(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-4 text-base font-semibold text-primary transition-colors hover:bg-muted/40"
-            >
-              <Plus className="size-5" />
-              Не нашли нужный вид работы? Указать свой вариант
-            </button>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-base font-semibold">Свой вариант</span>
-                <button
-                  onClick={() => setCustomOpen(false)}
-                  className="text-sm text-muted-foreground"
-                >
-                  Скрыть
-                </button>
+        {!counterBase && (
+          <div className="border-t border-border px-6 py-5 md:px-10 md:py-7">
+            {!customOpen ? (
+              <button
+                onClick={() => setCustomOpen(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-4 text-base font-semibold text-primary transition-colors hover:bg-muted/40"
+              >
+                <Plus className="size-5" />
+                Не нашли нужный вид работы? Указать свой вариант
+              </button>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold">Свой вариант</span>
+                  <button
+                    onClick={() => setCustomOpen(false)}
+                    className="text-sm text-muted-foreground"
+                  >
+                    Скрыть
+                  </button>
+                </div>
+                <textarea
+                  rows={4}
+                  value={custom}
+                  onChange={(e) => setCustom(e.target.value)}
+                  placeholder="Опишите недостающие позиции, по одной на строку"
+                  className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-base"
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setCustomOpen(false)}
+                    className="flex-1 rounded-xl border border-border bg-surface py-3.5 text-base font-semibold"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    onClick={() => custom.trim() && onRequest(custom.trim())}
+                    className="flex-1 rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground"
+                  >
+                    Отправить заявку
+                  </button>
+                </div>
               </div>
-              <textarea
-                rows={4}
-                value={custom}
-                onChange={(e) => setCustom(e.target.value)}
-                placeholder="Опишите недостающие позиции, по одной на строку"
-                className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-base"
-              />
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setCustomOpen(false)}
-                  className="flex-1 rounded-xl border border-border bg-surface py-3.5 text-base font-semibold"
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={() => custom.trim() && onRequest(custom.trim())}
-                  className="flex-1 rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground"
-                >
-                  Отправить заявку
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </div>,
     document.body,

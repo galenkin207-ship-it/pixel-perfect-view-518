@@ -9,7 +9,12 @@ import type {
   WorkType,
   RequestComment,
 } from "@/data/mock";
-import type { CatalogType, WorkTypeSearchResult, WorkTypeTreeNode } from "@/data/work-type-tree";
+import type {
+  CatalogType,
+  WorkTypeCounterStep,
+  WorkTypeSearchResult,
+  WorkTypeTreeNode,
+} from "@/data/work-type-tree";
 
 // В браузере запросы идут на тот же домен (относительный /api/...) — nginx
 // проксирует /api на backend-сервис, отдельного CORS не требуется.
@@ -203,6 +208,7 @@ type RawWorkTypeTreeNode = {
   work_composition: string | null;
   labor_hours: number | string | null;
   has_children: boolean;
+  has_counter_steps: boolean;
 };
 
 function mapWorkTypeTreeNode(raw: RawWorkTypeTreeNode): WorkTypeTreeNode {
@@ -223,8 +229,16 @@ function mapWorkTypeTreeNode(raw: RawWorkTypeTreeNode): WorkTypeTreeNode {
     work_composition: raw.work_composition,
     labor_hours: raw.labor_hours === null ? null : Number(raw.labor_hours),
     has_children: raw.has_children,
+    has_counter_steps: raw.has_counter_steps,
   };
 }
+
+type RawWorkTypeCounterStep = {
+  id: number | string;
+  gesn_code: string | null;
+  step_unit_label: string | null;
+  price: string | number;
+};
 
 // ---- Публичное API ----
 
@@ -553,6 +567,18 @@ export const api = {
       `/work-types/search?q=${encodeURIComponent(q)}&limit=${limit}`,
     );
     return items.map((item) => ({ ...mapWorkTypeTreeNode(item), breadcrumb: item.breadcrumb }));
+  },
+
+  async getWorkTypeCounterSteps(baseId: string): Promise<WorkTypeCounterStep[]> {
+    const { items } = await request<{ items: RawWorkTypeCounterStep[] }>(
+      `/work-types/${baseId}/counter-steps`,
+    );
+    return items.map((item) => ({
+      id: String(item.id),
+      gesn_code: item.gesn_code,
+      step_unit_label: item.step_unit_label,
+      price: Number(item.price),
+    }));
   },
 
   async listPinnedObjects(): Promise<string[]> {

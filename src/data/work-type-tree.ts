@@ -21,6 +21,18 @@ export type WorkTypeTreeNode = {
   work_composition: string | null;
   labor_hours: number | null;
   has_children: boolean;
+  has_counter_steps: boolean;
 };
 
 export type WorkTypeSearchResult = WorkTypeTreeNode & { breadcrumb: string[] };
+
+// Независимый шаговый модификатор (is_counter_step=true) базовой позиции —
+// см. GET /api/work-types/:baseId/counter-steps. У самой базовой позиции
+// (WorkTypeTreeNode с has_counter_steps=true) цена за "стандартный" объём,
+// у каждого шага — цена за один инкремент своей единицы (step_unit_label).
+export type WorkTypeCounterStep = {
+  id: string;
+  gesn_code: string | null;
+  step_unit_label: string | null;
+  price: number;
+};
