@@ -1000,7 +1000,7 @@ function WorkTypePicker({
   const [customOpen, setCustomOpen] = useState(false);
   const [custom, setCustom] = useState("");
   const isMobile = useIsMobile();
-  const columns = useWorkTypeTree(catalogType, chain);
+  const { columns, resolveAutoSkip } = useWorkTypeTree(catalogType, chain);
 
   // Ищем на сервере (общий эндпоинт покрывает и новый каталог, и старые
   // виды работ) с debounce, чтобы не дёргать API на каждое нажатие клавиши.
@@ -1059,33 +1059,6 @@ function WorkTypePicker({
       price: node.price,
       work_type_id: node.id,
     });
-  }
-
-  // Рекурсивно "доворачивает" цепочку через узлы, у которых ровно один
-  // дочерний узел — чтобы пользователю не приходилось кликать по колонке
-  // с единственным вариантом на каждом уровне (1-4). Останавливается
-  // либо на узле с 2+ (или 0) детьми — тогда возвращает цепочку вплоть до
-  // него включительно, либо на листе (level=5) — тогда сразу отдаёт его
-  // для onPick вместе с именем непосредственного родителя (для дедупликации
-  // group/variant в handlePickLeaf).
-  async function resolveAutoSkip(
-    startNode: WorkTypeTreeNode,
-  ): Promise<{ chainNodes: WorkTypeTreeNode[] } | { leaf: WorkTypeTreeNode; groupName: string }> {
-    const chainNodes: WorkTypeTreeNode[] = [startNode];
-    let current = startNode;
-    for (;;) {
-      let children: WorkTypeTreeNode[];
-      try {
-        children = await api.getWorkTypeTree({ parentId: current.id });
-      } catch {
-        return { chainNodes };
-      }
-      const onlyChild = children.length === 1 ? children[0] : undefined;
-      if (!onlyChild) return { chainNodes };
-      if (!onlyChild.has_children) return { leaf: onlyChild, groupName: current.name };
-      chainNodes.push(onlyChild);
-      current = onlyChild;
-    }
   }
 
   async function handleSelectAtLevel(level: number, node: WorkTypeTreeNode) {
@@ -1304,6 +1277,8 @@ function WorkTypePicker({
                     isAdminLike={isAdminLike}
                     onSelect={(node) => handleSelectAtLevel(chain.length, node)}
                     onLeaf={(node) => handlePickLeaf(node, chain[chain.length - 1]?.name)}
+                    onAutoSkipLeaf={(leaf, groupName) => handlePickLeaf(leaf, groupName)}
+                    resolveAutoSkip={resolveAutoSkip}
                   />
                 </>
               ) : (
@@ -1319,6 +1294,8 @@ function WorkTypePicker({
                         isAdminLike={isAdminLike}
                         onSelect={(node) => handleSelectAtLevel(level, node)}
                         onLeaf={(node) => handlePickLeaf(node, chain[level - 1]?.name)}
+                        onAutoSkipLeaf={(leaf, groupName) => handlePickLeaf(leaf, groupName)}
+                        resolveAutoSkip={resolveAutoSkip}
                       />
                     ) : null,
                   )}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api-client";
 import type { CatalogType, WorkTypeTreeNode } from "@/data/work-type-tree";
@@ -8,6 +8,20 @@ export type WorkTypeTreeColumn = {
   loading: boolean;
 };
 
+export type AutoSkipResult =
+  | { chainNodes: WorkTypeTreeNode[] }
+  | { leaf: WorkTypeTreeNode; groupName: string };
+
+export type UseWorkTypeTreeResult = {
+  columns: WorkTypeTreeColumn[];
+  // Рекурсивно "доворачивает" цепочку через узлы, у которых ровно один
+  // дочерний узел — используется и по клику (реальный переход), и
+  // заранее, при построении колонки, чтобы решить, как отрисовать
+  // карточку узла (см. work-type-cascade-column.tsx). Использует тот же
+  // кэш по parentId, что и построение колонок, чтобы не дублировать запросы.
+  resolveAutoSkip: (startNode: WorkTypeTreeNode) => Promise<AutoSkipResult>;
+};
+
 // Один столбец на каждый уровень цепочки выбора + столбец с детьми
 // последнего выбранного узла. Кэш по parentId живёт на весь срок жизни
 // хука (пока открыта модалка), чтобы повторные переходы вперёд/назад
@@ -15,7 +29,7 @@ export type WorkTypeTreeColumn = {
 export function useWorkTypeTree(
   catalogType: CatalogType | null,
   chain: WorkTypeTreeNode[],
-): WorkTypeTreeColumn[] {
+): UseWorkTypeTreeResult {
   const cacheRef = useRef(new Map<string, WorkTypeTreeNode[]>());
   const [columns, setColumns] = useState<WorkTypeTreeColumn[]>([]);
 
@@ -64,5 +78,27 @@ export function useWorkTypeTree(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogType, chain]);
 
-  return columns;
+  const resolveAutoSkip = useCallback(async (startNode: WorkTypeTreeNode): Promise<AutoSkipResult> => {
+    const chainNodes: WorkTypeTreeNode[] = [startNode];
+    let current = startNode;
+    for (;;) {
+      const key = `parent:${current.id}`;
+      let children = cacheRef.current.get(key);
+      if (!children) {
+        try {
+          children = await api.getWorkTypeTree({ parentId: current.id });
+        } catch {
+          return { chainNodes };
+        }
+        cacheRef.current.set(key, children);
+      }
+      const onlyChild = children.length === 1 ? children[0] : undefined;
+      if (!onlyChild) return { chainNodes };
+      if (!onlyChild.has_children) return { leaf: onlyChild, groupName: current.name };
+      chainNodes.push(onlyChild);
+      current = onlyChild;
+    }
+  }, []);
+
+  return { columns, resolveAutoSkip };
 }
