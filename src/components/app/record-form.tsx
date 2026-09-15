@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { Camera, Image as ImageIcon, Plus, Search, Trash2, X } from "lucide-react";
+import { Camera, ChevronLeft, Image as ImageIcon, Plus, Search, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -8,13 +8,16 @@ import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { EmployeeSelect } from "@/components/app/employee-select";
 import { NumberField } from "@/components/app/number-field";
 import { ObjectSelect } from "@/components/app/object-select";
+import { CascadeColumn } from "@/components/app/work-type-cascade-column";
 import { useBlurOnScroll } from "@/hooks/use-blur-on-scroll";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useWorkTypeTree } from "@/hooks/use-work-type-tree";
 import { cn, objectLabel } from "@/lib/utils";
 import { itemQty, recordTotal, round2, syncItem } from "@/lib/record-utils";
-import { smartFilter } from "@/lib/smart-search";
 import { api, photoThumbUrl } from "@/lib/api-client";
 import { clearQuickDraftId } from "@/lib/quick-draft";
 import type { WorkItem, WorkRecord } from "@/data/mock";
+import type { CatalogType, WorkTypeSearchResult, WorkTypeTreeNode } from "@/data/work-type-tree";
 import { useApp } from "@/state/use-app";
 
 function toIso(ru?: string) {
@@ -984,9 +987,118 @@ function WorkTypePicker({
   isAdminLike: boolean;
 }) {
   const [query, setQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<WorkTypeSearchResult[] | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [catalogType, setCatalogType] = useState<CatalogType | null>(null);
+  const [chain, setChain] = useState<WorkTypeTreeNode[]>([]);
+  // Границы "шагов" внутри chain: каждый клик пользователя (даже если он
+  // авто-схлопнул несколько уровней подряд с единственным ребёнком) даёт
+  // одну границу — длину chain сразу после этого клика. Так "Назад" и
+  // хлебные крошки откатывают весь схлопнутый блок одним шагом, а не по
+  // одному авто-пропущенному уровню за раз.
+  const [stepBoundaries, setStepBoundaries] = useState<number[]>([]);
   const [customOpen, setCustomOpen] = useState(false);
   const [custom, setCustom] = useState("");
-  const filtered = smartFilter(types, query, (t) => t.name);
+  const isMobile = useIsMobile();
+  const { columns, resolveAutoSkip } = useWorkTypeTree(catalogType, chain);
+
+  // Ищем на сервере (общий эндпоинт покрывает и новый каталог, и старые
+  // виды работ) с debounce, чтобы не дёргать API на каждое нажатие клавиши.
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setSearchResults(null);
+      setSearchLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setSearchLoading(true);
+    const timer = setTimeout(() => {
+      api
+        .searchWorkTypes(q)
+        .then((items) => {
+          if (cancelled) return;
+          setSearchResults(items);
+          setSearchLoading(false);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setSearchResults([]);
+          setSearchLoading(false);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query]);
+
+  // Для сравнения "группа vs вариант" на предмет дублирования — без учёта
+  // регистра, лишних пробелов и хвостовой пунктуации.
+  function normalizeForCompare(s: string): string {
+    return s.trim().toLowerCase().replace(/\s+/g, " ").replace(/[.,;:]+$/, "");
+  }
+
+  // Если у листа есть variant_label и он совпадает с названием родительской
+  // группы (level=4) — они дублируют друг друга, склейка не нужна. Иначе
+  // склеиваем "Группа: Вариант" сами (а не берём готовое node.name из БД).
+  // Без variant_label (legacy-позиции) — используем node.name как раньше.
+  function computeLeafName(node: WorkTypeTreeNode | WorkTypeSearchResult, groupName?: string): string {
+    if (!node.variant_label) return node.name;
+    if (groupName && normalizeForCompare(groupName) === normalizeForCompare(node.variant_label)) {
+      return node.variant_label;
+    }
+    return groupName ? `${groupName}: ${node.variant_label}` : node.name;
+  }
+
+  function handlePickLeaf(node: WorkTypeTreeNode | WorkTypeSearchResult, groupName?: string) {
+    onPick({
+      name: computeLeafName(node, groupName),
+      unit: node.unit,
+      qty: 0,
+      price: node.price,
+      work_type_id: node.id,
+    });
+  }
+
+  async function handleSelectAtLevel(level: number, node: WorkTypeTreeNode) {
+    const resolved = await resolveAutoSkip(node);
+    if ("leaf" in resolved) {
+      handlePickLeaf(resolved.leaf, resolved.groupName);
+      return;
+    }
+    setChain((prev) => [...prev.slice(0, level), ...resolved.chainNodes]);
+    setStepBoundaries((prev) => [...prev.filter((b) => b <= level), level + resolved.chainNodes.length]);
+  }
+
+  // Колонка видна, если это корневой список (не участвует в авто-пропуске),
+  // ещё не выбранная "текущая" колонка (её мы всегда показываем), либо
+  // граница шага — конец авто-схлопнутого блока или обычный одиночный
+  // выбор. Колонки строго внутри схлопнутого блока (единственный вариант
+  // на уровне) не рендерим — по ним и так некуда было бы кликать.
+  function isColumnVisible(index: number): boolean {
+    if (index === 0 || index >= chain.length) return true;
+    return stepBoundaries.includes(index);
+  }
+
+  function handleBack() {
+    if (stepBoundaries.length > 0) {
+      const newBoundaries = stepBoundaries.slice(0, -1);
+      const newLength = newBoundaries.length > 0 ? newBoundaries[newBoundaries.length - 1] : 0;
+      setStepBoundaries(newBoundaries);
+      setChain((prev) => prev.slice(0, newLength));
+    } else {
+      setCatalogType(null);
+    }
+  }
+
+  function handleChangeType() {
+    setCatalogType(null);
+    setChain([]);
+    setStepBoundaries([]);
+  }
+
+  const isSearching = query.trim().length > 0;
 
   // Сворачиваем клавиатуру, как только начинается скролл списка видов
   // работ — иначе она закрывает часть карточек и мешает выбору.
@@ -1001,7 +1113,7 @@ function WorkTypePicker({
       data-pull-refresh-ignore
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 md:items-center md:p-4"
     >
-      <div className="flex max-h-[95vh] w-full max-w-6xl 2xl:max-w-[1600px] flex-col rounded-t-3xl bg-card shadow-2xl md:rounded-3xl">
+      <div className="flex max-h-[95vh] w-full max-w-7xl 2xl:max-w-[1800px] flex-col rounded-t-3xl bg-card shadow-2xl md:rounded-3xl">
         <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-5 md:px-10 md:pt-10 md:pb-7">
           <div>
             <h2 className="text-2xl font-bold md:text-3xl">Выбор вида работ</h2>
@@ -1029,60 +1141,167 @@ function WorkTypePicker({
               className="w-full rounded-xl border border-border bg-surface py-4 pr-5 pl-12 text-base"
             />
           </div>
-          <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-            <span className="label-caps">Справочник</span>
-            <span>
-              {filtered.length}{" "}
-              {filtered.length === 1 ? "позиция" : filtered.length < 5 ? "позиции" : "позиций"}
-            </span>
-          </div>
+          {isSearching && (
+            <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+              <span className="label-caps">Справочник</span>
+              <span>
+                {searchLoading
+                  ? "Поиск..."
+                  : `${searchResults?.length ?? 0} ${
+                      (searchResults?.length ?? 0) === 1
+                        ? "позиция"
+                        : (searchResults?.length ?? 0) < 5
+                          ? "позиции"
+                          : "позиций"
+                    }`}
+              </span>
+            </div>
+          )}
         </div>
 
         <div ref={listRef} className="flex-1 overflow-x-hidden overflow-y-auto px-6 py-5 md:px-10 md:py-7">
-          {filtered.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border bg-surface p-8 text-center">
-              <p className="text-base text-muted-foreground">Ничего не найдено</p>
+          {isSearching ? (
+            searchLoading ? (
+              <div className="rounded-2xl border border-dashed border-border bg-surface p-8 text-center text-base text-muted-foreground">
+                Поиск...
+              </div>
+            ) : (searchResults?.length ?? 0) === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border bg-surface p-8 text-center">
+                <p className="text-base text-muted-foreground">Ничего не найдено</p>
+                <button
+                  onClick={() => setCustomOpen(true)}
+                  className="mt-3 text-base font-semibold text-primary"
+                >
+                  Указать свой вариант
+                </button>
+              </div>
+            ) : (
+              <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {searchResults!.map((t) => (
+                  <li key={t.id} className="min-w-0">
+                    <button
+                      onClick={() => handlePickLeaf(t, t.breadcrumb[t.breadcrumb.length - 1])}
+                      className="group flex h-full w-full flex-col items-start justify-between gap-4 rounded-2xl border border-border bg-surface p-5 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
+                    >
+                      <span className="block w-full">
+                        {t.breadcrumb.length > 0 && (
+                          <span className="mb-1 block truncate text-xs text-muted-foreground">
+                            {t.breadcrumb.join(" → ")}
+                          </span>
+                        )}
+                        <span className="block text-base font-semibold leading-snug break-words whitespace-normal group-hover:text-primary">
+                          {t.name}
+                        </span>
+                      </span>
+                      <div className="flex w-full items-center justify-between gap-3">
+                        {isAdminLike ? (
+                          <span className="font-mono text-sm text-muted-foreground">
+                            {t.has_price ? `${t.price.toLocaleString("ru-RU")} ₽ / ${t.unit}` : "цена не указана"}
+                          </span>
+                        ) : (
+                          <span />
+                        )}
+                        <span className="shrink-0 rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                          {t.unit}
+                        </span>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : catalogType === null ? (
+            <div className="flex h-full flex-col items-stretch justify-center gap-4 sm:flex-row">
               <button
-                onClick={() => setCustomOpen(true)}
-                className="mt-3 text-base font-semibold text-primary"
+                onClick={() => setCatalogType("новое строительство")}
+                className="flex-1 rounded-2xl border border-border bg-surface p-10 text-center text-lg font-semibold transition-colors hover:border-primary/40 hover:bg-primary/5"
               >
-                Указать свой вариант
+                Строительство
+              </button>
+              <button
+                onClick={() => setCatalogType("ремонт")}
+                className="flex-1 rounded-2xl border border-border bg-surface p-10 text-center text-lg font-semibold transition-colors hover:border-primary/40 hover:bg-primary/5"
+              >
+                Ремонт
               </button>
             </div>
           ) : (
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((t) => (
-                <li key={t.id} className="min-w-0">
-                  <button
-                    onClick={() =>
-                      onPick({
-                        name: t.name,
-                        unit: t.unit,
-                        qty: 0,
-                        price: t.price,
-                        work_type_id: t.id,
-                      })
-                    }
-                    className="group flex h-full w-full flex-col items-start justify-between gap-4 rounded-2xl border border-border bg-surface p-5 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
-                  >
-                    <span className="block text-base font-semibold leading-snug break-words whitespace-normal group-hover:text-primary">
-                      {t.name}
-                    </span>
-                    <div className="flex w-full items-center justify-between gap-3">
-                      {isAdminLike && (
-                        <span className="font-mono text-sm text-muted-foreground">
-                          {t.price.toLocaleString("ru-RU")} ₽ / {t.unit}
-                        </span>
-                      )}
-                      {!isAdminLike && <span />}
-                      <span className="shrink-0 rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        {t.unit}
-                      </span>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  onClick={handleChangeType}
+                  className="flex items-center gap-1 text-sm font-semibold text-primary"
+                >
+                  <ChevronLeft className="size-4" />
+                  Сменить тип
+                </button>
+                <button
+                  onClick={handleBack}
+                  className="flex items-center gap-1 text-sm font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronLeft className="size-4" />
+                  Назад
+                </button>
+              </div>
+
+              {isMobile ? (
+                <>
+                  {stepBoundaries.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+                      {/* Один чип на "шаг" (клик), а не на узел — авто-схлопнутые
+                          промежуточные уровни отдельными чипами не показываем,
+                          чтобы переход по ним воспринимался как один шаг назад. */}
+                      {stepBoundaries.map((boundary, stepIdx) => {
+                        const node = chain[boundary - 1];
+                        if (!node) return null;
+                        return (
+                          <span key={node.id} className="flex items-center gap-1">
+                            {stepIdx > 0 && <span>→</span>}
+                            <button
+                              onClick={() => {
+                                setChain((prev) => prev.slice(0, boundary));
+                                setStepBoundaries((prev) => prev.slice(0, stepIdx + 1));
+                              }}
+                              className="hover:text-primary hover:underline"
+                            >
+                              {node.name}
+                            </button>
+                          </span>
+                        );
+                      })}
                     </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
+                  )}
+                  <CascadeColumn
+                    nodes={columns[chain.length]?.nodes ?? []}
+                    loading={columns[chain.length]?.loading ?? true}
+                    isAdminLike={isAdminLike}
+                    onSelect={(node) => handleSelectAtLevel(chain.length, node)}
+                    onLeaf={(node) => handlePickLeaf(node, chain[chain.length - 1]?.name)}
+                    onAutoSkipLeaf={(leaf, groupName) => handlePickLeaf(leaf, groupName)}
+                    resolveAutoSkip={resolveAutoSkip}
+                  />
+                </>
+              ) : (
+                <div className="flex gap-4 overflow-x-auto pb-2">
+                  {columns.map((col, level) =>
+                    isColumnVisible(level) ? (
+                      <CascadeColumn
+                        key={level}
+                        className="w-72 shrink-0 overflow-y-auto"
+                        nodes={col.nodes}
+                        loading={col.loading}
+                        selectedId={chain[level]?.id}
+                        isAdminLike={isAdminLike}
+                        onSelect={(node) => handleSelectAtLevel(level, node)}
+                        onLeaf={(node) => handlePickLeaf(node, chain[level - 1]?.name)}
+                        onAutoSkipLeaf={(leaf, groupName) => handlePickLeaf(leaf, groupName)}
+                        resolveAutoSkip={resolveAutoSkip}
+                      />
+                    ) : null,
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
 
