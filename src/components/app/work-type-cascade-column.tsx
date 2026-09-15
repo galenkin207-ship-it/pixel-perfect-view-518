@@ -8,6 +8,15 @@ import { cn } from "@/lib/utils";
 
 type AutoSkipPreview = { kind: "leaf"; leaf: WorkTypeTreeNode; groupName: string } | { kind: "branch" };
 
+// Номер сборника (уровень 1) зашит в конце gesn_code, напр. "ГЭСН01" -> 1,
+// "ГЭСНр51" -> 51. У синтетического узла "Существующие виды работ (до
+// обновления)" gesn_code пустой — для него номер не показываем.
+function extractGesnNumber(gesnCode: string | null): number | null {
+  if (!gesnCode) return null;
+  const match = /(\d+)$/.exec(gesnCode);
+  return match ? Number(match[1]) : null;
+}
+
 // Один уровень каскада: список узлов дерева видов работ. Используется и как
 // колонка в desktop-раскладке (Finder column view), и как единственный
 // экран в mobile-раскладке.
@@ -92,6 +101,12 @@ export function CascadeColumn({
         const unit = resolvesToLeaf ? resolvesToLeaf.leaf.unit : node.unit;
         const hasPrice = resolvesToLeaf ? resolvesToLeaf.leaf.has_price : node.has_price;
         const price = resolvesToLeaf ? resolvesToLeaf.leaf.price : node.price;
+        // Первый уровень (сборники) — нумерация из gesn_code и заглавные буквы
+        // визуально (CSS), без изменения самого name (используется как есть
+        // в записи/отчётах).
+        const isLevel1 = node.level === 1;
+        const gesnNumber = isLevel1 ? extractGesnNumber(node.gesn_code) : null;
+        const displayName = !node.has_children && node.variant_label ? node.variant_label : node.name;
 
         return (
           <li key={node.id}>
@@ -113,8 +128,13 @@ export function CascadeColumn({
               )}
             >
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold leading-snug break-words whitespace-normal">
-                  {!node.has_children && node.variant_label ? node.variant_label : node.name}
+                <span
+                  className={cn(
+                    "block text-sm font-semibold leading-snug break-words whitespace-normal",
+                    isLevel1 && "uppercase",
+                  )}
+                >
+                  {gesnNumber != null ? `${gesnNumber}. ${displayName}` : displayName}
                 </span>
                 {displayAsLeaf && isAdminLike && (
                   <span className="mt-1 block font-mono text-xs text-muted-foreground">
