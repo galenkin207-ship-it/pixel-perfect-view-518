@@ -1013,6 +1013,10 @@ function WorkTypePicker({
   // хлебные крошки откатывают весь схлопнутый блок одним шагом, а не по
   // одному авто-пропущенному уровню за раз.
   const [stepBoundaries, setStepBoundaries] = useState<number[]>([]);
+  // Desktop-каскад: вертикальная позиция (px), на которой открывается новая
+  // "передовая" колонка — выровнена по кликнутой карточке в проскроленной
+  // соседней колонке (см. CascadeColumn.initialScrollTop), а не всегда с нуля.
+  const [frontierScrollOffset, setFrontierScrollOffset] = useState(0);
   const [customOpen, setCustomOpen] = useState(false);
   const [custom, setCustom] = useState("");
   const isMobile = useIsMobile();
@@ -1156,12 +1160,13 @@ function WorkTypePicker({
     handlePickLeaf(node, groupName);
   }
 
-  async function handleSelectAtLevel(level: number, node: WorkTypeTreeNode) {
+  async function handleSelectAtLevel(level: number, node: WorkTypeTreeNode, originOffsetPx: number) {
     const resolved = await resolveAutoSkip(node);
     if ("leaf" in resolved) {
       pickOrOpenCounter(resolved.leaf, resolved.groupName);
       return;
     }
+    setFrontierScrollOffset(originOffsetPx);
     setChain((prev) => [...prev.slice(0, level), ...resolved.chainNodes]);
     setStepBoundaries((prev) => [...prev.filter((b) => b <= level), level + resolved.chainNodes.length]);
   }
@@ -1194,6 +1199,13 @@ function WorkTypePicker({
   }
 
   const isSearching = query.trim().length > 0;
+  // Desktop Finder-style каскад (ряд независимо скроллящихся колонок) — в
+  // этом режиме общий listRef НЕ должен сам скроллиться по вертикали
+  // (иначе все колонки физически шарят один scrollTop, см. историю бага) —
+  // вместо этого высота у него ограничена (overflow-y-hidden), а скроллит
+  // себя каждая колонка отдельно. В остальных режимах (поиск, счётчик,
+  // выбор типа) listRef скроллится как обычно, единым блоком.
+  const isDesktopCascade = !isMobile && !counterBase && !isSearching && catalogType !== null;
 
   // Сворачиваем клавиатуру, как только начинается скролл списка видов
   // работ — иначе она закрывает часть карточек и мешает выбору.
@@ -1209,24 +1221,31 @@ function WorkTypePicker({
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 md:items-center md:p-4"
     >
       <div className="flex max-h-[95vh] w-full max-w-7xl 2xl:max-w-[1800px] flex-col rounded-t-3xl bg-card shadow-2xl md:rounded-3xl">
-        <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-5 md:px-10 md:pt-10 md:pb-7">
-          <div>
-            <h2 className="text-2xl font-bold md:text-3xl">Выбор вида работ</h2>
-            <p className="mt-1.5 text-base text-muted-foreground">
+        {/* Компактная шапка: заголовок и подзаголовок в одну строку (по
+            baseline), подзаголовок скрыт на узких экранах — здесь и в
+            поисковой строке ниже вертикальные отступы сознательно урезаны,
+            чтобы отдать максимум высоты модалки под сами колонки каскада
+            (см. ниже) — это самая важная и самая "голодная" по месту часть
+            экрана. Кнопка закрытия оставлена на прежнем размере (size-6 +
+            p-2.5 = не меньше 44px тач-таргета). */}
+        <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 md:px-8 md:pt-5 md:pb-4">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <h2 className="text-lg font-bold md:text-2xl">Выбор вида работ</h2>
+            <p className="hidden truncate text-xs text-muted-foreground sm:block md:text-sm">
               Найдите позицию в справочнике или укажите свой вариант
             </p>
           </div>
           <button
             onClick={onClose}
             aria-label="Закрыть"
-            className="rounded-full p-2.5 hover:bg-muted"
+            className="shrink-0 rounded-full p-2.5 hover:bg-muted"
           >
             <X className="size-6 text-muted-foreground" />
           </button>
         </div>
 
         {!counterBase && (
-          <div className="px-6 md:px-10">
+          <div className="px-4 md:px-8">
             <div className="relative">
               <Search className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -1234,11 +1253,11 @@ function WorkTypePicker({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Поиск по названию..."
-                className="w-full rounded-xl border border-border bg-surface py-4 pr-5 pl-12 text-base"
+                className="w-full rounded-xl border border-border bg-surface py-3 pr-5 pl-12 text-base"
               />
             </div>
             {isSearching && (
-              <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+              <div className="mt-2 flex items-center justify-between text-sm text-muted-foreground">
                 <span className="label-caps">Справочник</span>
                 <span>
                   {searchLoading
@@ -1256,7 +1275,32 @@ function WorkTypePicker({
           </div>
         )}
 
-        <div ref={listRef} className="flex-1 overflow-x-hidden overflow-y-auto px-6 py-5 md:px-10 md:py-7">
+        {/* В desktop-каскаде listRef намеренно НЕ скроллится сам по
+            вертикали (overflow-y-hidden) — иначе все колонки физически
+            шарили бы один scrollTop, и проскроленная длинная колонка
+            утаскивала бы за собой видимую область остальных, включая
+            свежеоткрытую короткую. Каждая колонка скроллится независимо
+            (см. work-type-cascade-column.tsx) в границах уже ограниченной
+            здесь по высоте области. В остальных режимах (поиск, счётчик,
+            выбор типа каталога) — обычный overflow-y-auto как раньше.
+
+            КРИТИЧНО: в cascade-режиме listRef ещё и сам должен быть
+            flex-контейнером (flex flex-col), а не просто flex-item с
+            flex-1 — иначе дочерний div с "h-full" не может определить
+            свою высоту: computed height у listRef остаётся 'auto' (даже
+            если по факту после flex-grow у него есть конкретный
+            результирующий размер), а CSS-проценты у h-full резолвятся
+            только против явно заданной/flex-контейнером высоты родителя,
+            не против произвольного flex-item. Подтверждено эмпирически
+            через headless Chromium (getComputedStyle): без flex flex-col
+            здесь contentDiv раздувался по контенту вместо 663px родителя. */}
+        <div
+          ref={listRef}
+          className={cn(
+            "flex-1 overflow-x-hidden px-4 py-3 md:px-8 md:py-4",
+            isDesktopCascade ? "flex flex-col overflow-y-hidden" : "overflow-y-auto",
+          )}
+        >
           {counterBase ? (
             <WorkTypeCounterCard
               base={counterBase.base}
@@ -1334,18 +1378,18 @@ function WorkTypePicker({
               </button>
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
+            <div className={cn("flex flex-col gap-2", isDesktopCascade && "flex-1 min-h-0")}>
               <div className="flex items-center justify-between gap-3">
                 <button
                   onClick={handleChangeType}
-                  className="flex items-center gap-1 text-sm font-semibold text-primary"
+                  className="flex items-center gap-1 py-1 text-sm font-semibold text-primary"
                 >
                   <ChevronLeft className="size-4" />
                   Сменить тип
                 </button>
                 <button
                   onClick={handleBack}
-                  className="flex items-center gap-1 text-sm font-semibold text-muted-foreground hover:text-foreground"
+                  className="flex items-center gap-1 py-1 text-sm font-semibold text-muted-foreground hover:text-foreground"
                 >
                   <ChevronLeft className="size-4" />
                   Назад
@@ -1383,30 +1427,38 @@ function WorkTypePicker({
                     nodes={columns[chain.length]?.nodes ?? []}
                     loading={columns[chain.length]?.loading ?? true}
                     isAdminLike={isAdminLike}
-                    onSelect={(node) => handleSelectAtLevel(chain.length, node)}
+                    onSelect={(node, offset) => handleSelectAtLevel(chain.length, node, offset)}
                     onLeaf={(node) => pickOrOpenCounter(node, chain[chain.length - 1]?.name)}
                     onAutoSkipLeaf={(leaf, groupName) => pickOrOpenCounter(leaf, groupName)}
                     resolveAutoSkip={resolveAutoSkip}
                   />
                 </>
               ) : (
-                <div className="flex gap-4 overflow-x-auto pb-2">
-                  {columns.map((col, level) =>
-                    isColumnVisible(level) ? (
+                <div className="flex flex-1 min-h-0 gap-4 overflow-x-auto pb-2">
+                  {columns.map((col, level) => {
+                    const isFrontier = level === chain.length;
+                    return isColumnVisible(level) ? (
                       <CascadeColumn
                         key={level}
-                        className="w-72 shrink-0 overflow-y-auto"
+                        // Без h-full: высота колонки — не CSS-процент (который
+                        // не резолвится против flex-item-родителя, см. комментарий
+                        // у listRef выше), а обычный flex align-items:stretch
+                        // (по умолчанию) от родителя-строки — работает всегда,
+                        // независимо от того, "определена" ли высота родителя
+                        // в терминах CSS-процентов.
+                        className="w-72 shrink-0 overflow-y-auto [overflow-anchor:none]"
                         nodes={col.nodes}
                         loading={col.loading}
                         selectedId={chain[level]?.id}
                         isAdminLike={isAdminLike}
-                        onSelect={(node) => handleSelectAtLevel(level, node)}
+                        onSelect={(node, offset) => handleSelectAtLevel(level, node, offset)}
                         onLeaf={(node) => pickOrOpenCounter(node, chain[level - 1]?.name)}
                         onAutoSkipLeaf={(leaf, groupName) => pickOrOpenCounter(leaf, groupName)}
                         resolveAutoSkip={resolveAutoSkip}
+                        initialScrollTop={isFrontier ? frontierScrollOffset : undefined}
                       />
-                    ) : null,
-                  )}
+                    ) : null;
+                  })}
                 </div>
               )}
             </div>
