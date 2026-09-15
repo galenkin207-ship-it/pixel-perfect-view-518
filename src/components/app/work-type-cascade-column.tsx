@@ -110,6 +110,7 @@ export function CascadeColumn({
       initialScrollTop,
       containerTag: container?.tagName,
       containerClass: container?.className,
+      scrollTopBefore: container?.scrollTop,
       scrollHeight: container?.scrollHeight,
       clientHeight: container?.clientHeight,
       nodesLength: nodes.length,
@@ -182,12 +183,19 @@ export function CascadeColumn({
                   // скролла карточке) новая колонка как и раньше
                   // открывается с нуля. Контейнер ищем динамически
                   // (findScrollableAncestor) — см. комментарий у функции.
+                  //
+                  // originOffsetPx — это АБСОЛЮТНАЯ позиция кликнутой
+                  // карточки от начала прокручиваемого содержимого
+                  // (viewport-relative offset + уже накопленный scrollTop),
+                  // а не позиция внутри текущей видимой области — так,
+                  // выставленный этим числом scrollTop новой колонки ставит
+                  // её в ту же самую прокрученную позицию.
                   const container = findScrollableAncestor(event.currentTarget);
                   let originOffsetPx = 0;
                   if (container && container.scrollTop > 0) {
                     const cardRect = event.currentTarget.getBoundingClientRect();
                     const containerRect = container.getBoundingClientRect();
-                    originOffsetPx = Math.max(0, cardRect.top - containerRect.top);
+                    originOffsetPx = Math.max(0, cardRect.top - containerRect.top + container.scrollTop);
                   }
                   // TEMP DIAGNOSTIC — убрать вместе с финальным фиксом.
                   console.log("[cascade-scroll] click", {
