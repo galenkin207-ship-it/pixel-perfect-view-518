@@ -1275,12 +1275,23 @@ function WorkTypePicker({
             свежеоткрытую короткую. Каждая колонка скроллится независимо
             (см. work-type-cascade-column.tsx) в границах уже ограниченной
             здесь по высоте области. В остальных режимах (поиск, счётчик,
-            выбор типа каталога) — обычный overflow-y-auto как раньше. */}
+            выбор типа каталога) — обычный overflow-y-auto как раньше.
+
+            КРИТИЧНО: в cascade-режиме listRef ещё и сам должен быть
+            flex-контейнером (flex flex-col), а не просто flex-item с
+            flex-1 — иначе дочерний div с "h-full" не может определить
+            свою высоту: computed height у listRef остаётся 'auto' (даже
+            если по факту после flex-grow у него есть конкретный
+            результирующий размер), а CSS-проценты у h-full резолвятся
+            только против явно заданной/flex-контейнером высоты родителя,
+            не против произвольного flex-item. Подтверждено эмпирически
+            через headless Chromium (getComputedStyle): без flex flex-col
+            здесь contentDiv раздувался по контенту вместо 663px родителя. */}
         <div
           ref={listRef}
           className={cn(
             "flex-1 overflow-x-hidden px-6 py-5 md:px-10 md:py-7",
-            isDesktopCascade ? "overflow-y-hidden" : "overflow-y-auto",
+            isDesktopCascade ? "flex flex-col overflow-y-hidden" : "overflow-y-auto",
           )}
         >
           {counterBase ? (
@@ -1360,7 +1371,7 @@ function WorkTypePicker({
               </button>
             </div>
           ) : (
-            <div className={cn("flex flex-col gap-4", isDesktopCascade && "h-full min-h-0")}>
+            <div className={cn("flex flex-col gap-4", isDesktopCascade && "flex-1 min-h-0")}>
               <div className="flex items-center justify-between gap-3">
                 <button
                   onClick={handleChangeType}
@@ -1422,7 +1433,13 @@ function WorkTypePicker({
                     return isColumnVisible(level) ? (
                       <CascadeColumn
                         key={level}
-                        className="h-full w-72 shrink-0 overflow-y-auto [overflow-anchor:none]"
+                        // Без h-full: высота колонки — не CSS-процент (который
+                        // не резолвится против flex-item-родителя, см. комментарий
+                        // у listRef выше), а обычный flex align-items:stretch
+                        // (по умолчанию) от родителя-строки — работает всегда,
+                        // независимо от того, "определена" ли высота родителя
+                        // в терминах CSS-процентов.
+                        className="w-72 shrink-0 overflow-y-auto [overflow-anchor:none]"
                         nodes={col.nodes}
                         loading={col.loading}
                         selectedId={chain[level]?.id}
