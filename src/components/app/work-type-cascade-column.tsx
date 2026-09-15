@@ -181,7 +181,15 @@ export function CascadeColumn({
                 )}
               </span>
               {displayAsLeaf ? (
-                <span className="shrink-0 rounded-lg bg-muted px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                // max-w + break-words: единицы измерения в ГЭСН иногда длинные
+                // ("м2 горизонтальной проекции" и т.п.) — без ограничения
+                // ширины shrink-0 давал бейджу забрать почти всю ширину
+                // карточки (button — flex row фиксированной ширины), а
+                // соседний min-w-0 flex-1 span с названием схлопывался
+                // почти до 0px и текст рендерился по одной букве в строке.
+                // С max-w-[42%] бейдж переносится на несколько строк сам,
+                // не отжимая название.
+                <span className="max-w-[42%] shrink-0 [overflow-wrap:anywhere] rounded-lg bg-muted px-2.5 py-1 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {unit}
                 </span>
               ) : (
