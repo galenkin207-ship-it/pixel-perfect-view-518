@@ -1166,12 +1166,6 @@ function WorkTypePicker({
       pickOrOpenCounter(resolved.leaf, resolved.groupName);
       return;
     }
-    // TEMP DIAGNOSTIC — убрать вместе с финальным фиксом.
-    console.log("[cascade-scroll] handleSelectAtLevel", {
-      level,
-      originOffsetPx,
-      newFrontierIndex: level + resolved.chainNodes.length,
-    });
     setFrontierScrollOffset(originOffsetPx);
     setChain((prev) => [...prev.slice(0, level), ...resolved.chainNodes]);
     setStepBoundaries((prev) => [...prev.filter((b) => b <= level), level + resolved.chainNodes.length]);
@@ -1205,22 +1199,18 @@ function WorkTypePicker({
   }
 
   const isSearching = query.trim().length > 0;
+  // Desktop Finder-style каскад (ряд независимо скроллящихся колонок) — в
+  // этом режиме общий listRef НЕ должен сам скроллиться по вертикали
+  // (иначе все колонки физически шарят один scrollTop, см. историю бага) —
+  // вместо этого высота у него ограничена (overflow-y-hidden), а скроллит
+  // себя каждая колонка отдельно. В остальных режимах (поиск, счётчик,
+  // выбор типа) listRef скроллится как обычно, единым блоком.
+  const isDesktopCascade = !isMobile && !counterBase && !isSearching && catalogType !== null;
 
   // Сворачиваем клавиатуру, как только начинается скролл списка видов
   // работ — иначе она закрывает часть карточек и мешает выбору.
   const listRef = useRef<HTMLDivElement>(null);
   useBlurOnScroll(listRef);
-
-  // TEMP DIAGNOSTIC: проверяем, не является ли listRef (общий контейнер
-  // модалки) тем элементом, который реально скроллится, когда пользователь
-  // "скроллит колонку" — убрать вместе с финальным фиксом.
-  useEffect(() => {
-    const el = listRef.current;
-    if (!el) return;
-    const onScroll = () => console.log("[cascade-scroll] listRef scroll event", { scrollTop: el.scrollTop });
-    el.addEventListener("scroll", onScroll);
-    return () => el.removeEventListener("scroll", onScroll);
-  });
 
   // Портал в document.body — иначе на iOS этот fixed-оверлей рендерится
   // внутри прокручиваемого #app-scroll-container и нижнее мобильное меню
@@ -1278,18 +1268,20 @@ function WorkTypePicker({
           </div>
         )}
 
-        {/* overflow-anchor: none — без этого браузер может сам скорректировать
-            scrollTop, когда контент выше текущей позиции доразмечается/меняет
-            высоту (напр. когда приходят данные новой колонки каскада), сводя
-            на нет наше выравнивание scroll в work-type-cascade-column.tsx. */}
-        {/* TEMP DIAGNOSTIC data-атрибут — маркер для findScrollableAncestor,
-            чтобы однозначно (не по классу/тегу, а по факту) подтвердить в
-            логе, что найденный "скроллящийся" контейнер — это именно этот,
-            общий на все колонки сразу, div. Убрать вместе с финальным фиксом. */}
+        {/* В desktop-каскаде listRef намеренно НЕ скроллится сам по
+            вертикали (overflow-y-hidden) — иначе все колонки физически
+            шарили бы один scrollTop, и проскроленная длинная колонка
+            утаскивала бы за собой видимую область остальных, включая
+            свежеоткрытую короткую. Каждая колонка скроллится независимо
+            (см. work-type-cascade-column.tsx) в границах уже ограниченной
+            здесь по высоте области. В остальных режимах (поиск, счётчик,
+            выбор типа каталога) — обычный overflow-y-auto как раньше. */}
         <div
           ref={listRef}
-          data-cascade-scroll-root
-          className="flex-1 overflow-x-hidden overflow-y-auto px-6 py-5 md:px-10 md:py-7 [overflow-anchor:none]"
+          className={cn(
+            "flex-1 overflow-x-hidden px-6 py-5 md:px-10 md:py-7",
+            isDesktopCascade ? "overflow-y-hidden" : "overflow-y-auto",
+          )}
         >
           {counterBase ? (
             <WorkTypeCounterCard
@@ -1368,7 +1360,7 @@ function WorkTypePicker({
               </button>
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
+            <div className={cn("flex flex-col gap-4", isDesktopCascade && "h-full min-h-0")}>
               <div className="flex items-center justify-between gap-3">
                 <button
                   onClick={handleChangeType}
@@ -1424,22 +1416,13 @@ function WorkTypePicker({
                   />
                 </>
               ) : (
-                <div className="flex gap-4 overflow-x-auto pb-2">
+                <div className="flex flex-1 min-h-0 gap-4 overflow-x-auto pb-2">
                   {columns.map((col, level) => {
                     const isFrontier = level === chain.length;
-                    if (isFrontier) {
-                      // TEMP DIAGNOSTIC — убрать вместе с финальным фиксом.
-                      console.log("[cascade-scroll] render frontier column", {
-                        level,
-                        frontierScrollOffset,
-                        nodesLength: col.nodes.length,
-                        loading: col.loading,
-                      });
-                    }
                     return isColumnVisible(level) ? (
                       <CascadeColumn
                         key={level}
-                        className="w-72 shrink-0 overflow-y-auto [overflow-anchor:none]"
+                        className="h-full w-72 shrink-0 overflow-y-auto [overflow-anchor:none]"
                         nodes={col.nodes}
                         loading={col.loading}
                         selectedId={chain[level]?.id}

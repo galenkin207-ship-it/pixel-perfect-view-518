@@ -17,26 +17,6 @@ function extractGesnNumber(gesnCode: string | null): number | null {
   return match ? Number(match[1]) : null;
 }
 
-// Диагностика (клик-лог) показала, что scrollTop нашего <ul> всегда 0, хотя
-// колонка визуально проскроллена — значит реально скроллится не сам <ul>
-// (overflow-y-auto у него есть, но без ограниченной высоты контента это не
-// работает), а какой-то предок выше по дереву. Вместо того чтобы гадать,
-// поднимаемся от кликнутого элемента вверх и берём ближайшего предка,
-// который И имеет overflow-y auto/scroll, И реально переполнен
-// (scrollHeight > clientHeight) — то есть тот, что фактически скроллится.
-function findScrollableAncestor(start: Element | null): HTMLElement | null {
-  let node = start instanceof HTMLElement ? start.parentElement : null;
-  while (node) {
-    const style = getComputedStyle(node);
-    const scrollableY = style.overflowY === "auto" || style.overflowY === "scroll";
-    if (scrollableY && node.scrollHeight > node.clientHeight + 1) {
-      return node;
-    }
-    node = node.parentElement;
-  }
-  return null;
-}
-
 // Один уровень каскада: список узлов дерева видов работ. Используется и как
 // колонка в desktop-раскладке (Finder column view), и как единственный
 // экран в mobile-раскладке.
@@ -61,11 +41,13 @@ export function CascadeColumn({
   onAutoSkipLeaf: (leaf: WorkTypeTreeNode, groupName: string) => void;
   resolveAutoSkip: (node: WorkTypeTreeNode) => Promise<AutoSkipResult>;
   className?: string;
-  // Desktop Finder-style каскад: колонка, открытая кликом по карточке в
-  // проскроленной соседней колонке, должна открываться выровненной по той
-  // же высоте, а не всегда с нуля (иначе выглядит как пустая область, пока
-  // не проскроллишь её саму). Позиция в пикселях, применяется один раз,
-  // когда узлы этой колонки приходят с сервера — см. эффект ниже.
+  // Desktop Finder-style каскад: каждая колонка скроллится независимо
+  // (собственный <ul> с overflow-y-auto и ограниченной высотой — см.
+  // className, который передаёт record-form.tsx). Колонка, открытая
+  // кликом по карточке в проскроленной соседней колонке, должна
+  // открываться выровненной по той же высоте, а не всегда с нуля.
+  // Позиция в пикселях, применяется один раз, когда узлы этой колонки
+  // приходят с сервера — см. эффект ниже.
   initialScrollTop?: number | undefined;
 }) {
   const scrollRef = useRef<HTMLUListElement>(null);
@@ -102,66 +84,11 @@ export function CascadeColumn({
 
   useEffect(() => {
     if (!initialScrollTop) return;
-    let raf2 = 0;
-    // Двойной rAF: первый кадр гарантирует, что React уже закоммитил DOM
-    // этой колонки (новые <li> реально в дереве), второй — что браузер
-    // успел посчитать layout по итогам этого коммита, и scrollHeight/
-    // clientHeight отражают ФИНАЛЬНЫЕ размеры контента колонки, а не
-    // промежуточное/устаревшее состояние на момент коммита.
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => {
-        const container = findScrollableAncestor(scrollRef.current);
-        // TEMP DIAGNOSTIC — подтверждаем: (а) чьё содержимое реально
-        // измеряется (ownUlChildrenCount — фактическое число <li> в <ul>
-        // ЭТОЙ колонки, сравнить с nodesLength), (б) является ли найденный
-        // "скроллящийся" container именно общим list-контейнером на все
-        // колонки сразу (isSharedListRoot — проверка по data-атрибуту на
-        // самом listRef, а не по классу/тегу, которые могут совпадать
-        // случайно). Убрать вместе с финальным фиксом.
-        console.log("[cascade-scroll] apply-effect (after double rAF)", {
-          initialScrollTop,
-          nodesLength: nodes.length,
-          ownUlChildrenCount: scrollRef.current?.children.length,
-          containerTag: container?.tagName,
-          containerClass: container?.className,
-          isSharedListRoot: container?.hasAttribute("data-cascade-scroll-root"),
-          containerChildrenCount: container?.children.length,
-          scrollTopBefore: container?.scrollTop,
-          scrollHeight: container?.scrollHeight,
-          clientHeight: container?.clientHeight,
-        });
-        if (!container) return;
-        const target = Math.max(0, Math.min(initialScrollTop, container.scrollHeight - container.clientHeight));
-        container.scrollTop = target;
-        console.log("[cascade-scroll] applied", { target, resultingScrollTop: container.scrollTop });
-        // TEMP DIAGNOSTIC — проверяем подозрение на scroll anchoring (или
-        // любой другой поздний сброс): читаем scrollTop ещё раз чуть
-        // позже. Убрать вместе с финальным фиксом.
-        requestAnimationFrame(() => {
-          console.log("[cascade-scroll] scrollTop after rAF", { target, scrollTop: container.scrollTop });
-        });
-        setTimeout(() => {
-          console.log("[cascade-scroll] scrollTop after 150ms", { target, scrollTop: container.scrollTop });
-        }, 150);
-      });
-    });
-    return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes]);
-
-  // TEMP DIAGNOSTIC: подтверждаем, что реальный scroll-эвент вообще
-  // происходит на этом <ul>, а не на внешнем контейнере списка. Убрать
-  // вместе с финальным фиксом.
-  useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const onScroll = () => console.log("[cascade-scroll] ul scroll event", { scrollTop: el.scrollTop });
-    el.addEventListener("scroll", onScroll);
-    return () => el.removeEventListener("scroll", onScroll);
-  });
+    el.scrollTop = Math.max(0, Math.min(initialScrollTop, el.scrollHeight - el.clientHeight));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes]);
 
   if (loading) {
     return (
@@ -210,8 +137,8 @@ export function CascadeColumn({
                   // кликнутой карточки — но только если эту колонку
                   // реально проскроллили: иначе (клик по видимой без
                   // скролла карточке) новая колонка как и раньше
-                  // открывается с нуля. Контейнер ищем динамически
-                  // (findScrollableAncestor) — см. комментарий у функции.
+                  // открывается с нуля. Контейнер — собственный <ul> этой
+                  // колонки (каждая колонка скроллится независимо).
                   //
                   // originOffsetPx — это АБСОЛЮТНАЯ позиция кликнутой
                   // карточки от начала прокручиваемого содержимого
@@ -219,28 +146,13 @@ export function CascadeColumn({
                   // а не позиция внутри текущей видимой области — так,
                   // выставленный этим числом scrollTop новой колонки ставит
                   // её в ту же самую прокрученную позицию.
-                  const container = findScrollableAncestor(event.currentTarget);
+                  const container = scrollRef.current;
                   let originOffsetPx = 0;
                   if (container && container.scrollTop > 0) {
                     const cardRect = event.currentTarget.getBoundingClientRect();
                     const containerRect = container.getBoundingClientRect();
                     originOffsetPx = Math.max(0, cardRect.top - containerRect.top + container.scrollTop);
                   }
-                  // TEMP DIAGNOSTIC — то же isSharedListRoot-подтверждение,
-                  // что и в apply-эффекте, но со стороны исходной (клик)
-                  // колонки. Убрать вместе с финальным фиксом.
-                  console.log("[cascade-scroll] click", {
-                    nodeId: node.id,
-                    nodeName: node.name,
-                    ownUlChildrenCount: scrollRef.current?.children.length,
-                    containerTag: container?.tagName,
-                    containerClass: container?.className,
-                    isSharedListRoot: container?.hasAttribute("data-cascade-scroll-root"),
-                    containerScrollTop: container?.scrollTop,
-                    containerScrollHeight: container?.scrollHeight,
-                    containerClientHeight: container?.clientHeight,
-                    originOffsetPx,
-                  });
                   onSelect(node, originOffsetPx);
                 } else {
                   onLeaf(node);
