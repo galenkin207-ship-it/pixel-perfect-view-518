@@ -1278,7 +1278,14 @@ function WorkTypePicker({
           </div>
         )}
 
-        <div ref={listRef} className="flex-1 overflow-x-hidden overflow-y-auto px-6 py-5 md:px-10 md:py-7">
+        {/* overflow-anchor: none — без этого браузер может сам скорректировать
+            scrollTop, когда контент выше текущей позиции доразмечается/меняет
+            высоту (напр. когда приходят данные новой колонки каскада), сводя
+            на нет наше выравнивание scroll в work-type-cascade-column.tsx. */}
+        <div
+          ref={listRef}
+          className="flex-1 overflow-x-hidden overflow-y-auto px-6 py-5 md:px-10 md:py-7 [overflow-anchor:none]"
+        >
           {counterBase ? (
             <WorkTypeCounterCard
               base={counterBase.base}
@@ -1427,7 +1434,7 @@ function WorkTypePicker({
                     return isColumnVisible(level) ? (
                       <CascadeColumn
                         key={level}
-                        className="w-72 shrink-0 overflow-y-auto"
+                        className="w-72 shrink-0 overflow-y-auto [overflow-anchor:none]"
                         nodes={col.nodes}
                         loading={col.loading}
                         selectedId={chain[level]?.id}

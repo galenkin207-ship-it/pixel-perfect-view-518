@@ -120,6 +120,16 @@ export function CascadeColumn({
     const target = Math.max(0, Math.min(initialScrollTop, container.scrollHeight - container.clientHeight));
     container.scrollTop = target;
     console.log("[cascade-scroll] applied", { target, resultingScrollTop: container.scrollTop });
+    // TEMP DIAGNOSTIC — проверяем подозрение на scroll anchoring (или любой
+    // другой поздний сброс): читаем scrollTop ещё раз чуть позже, после
+    // того как браузер успел бы перекомпоновать/дорисовать контент колонки.
+    // Убрать вместе с финальным фиксом.
+    requestAnimationFrame(() => {
+      console.log("[cascade-scroll] scrollTop after rAF", { target, scrollTop: container.scrollTop });
+    });
+    setTimeout(() => {
+      console.log("[cascade-scroll] scrollTop after 150ms", { target, scrollTop: container.scrollTop });
+    }, 150);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes]);
 
