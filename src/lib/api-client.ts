@@ -209,6 +209,7 @@ type RawWorkTypeTreeNode = {
   labor_hours: number | string | null;
   has_children: boolean;
   has_counter_steps: boolean;
+  source?: string | null;
 };
 
 function mapWorkTypeTreeNode(raw: RawWorkTypeTreeNode): WorkTypeTreeNode {
@@ -230,6 +231,7 @@ function mapWorkTypeTreeNode(raw: RawWorkTypeTreeNode): WorkTypeTreeNode {
     labor_hours: raw.labor_hours === null ? null : Number(raw.labor_hours),
     has_children: raw.has_children,
     has_counter_steps: raw.has_counter_steps,
+    source: raw.source ?? null,
   };
 }
 

@@ -60,6 +60,12 @@ const PHOTO_ALLOWED_EXT = /\.(jpe?g|png|webp|heic|heif)$/i;
 // попытки автосохранения записи с уже выбранными снимками.
 const PHOTO_MAX_PER_RECORD = 30;
 
+// Подписи над колонками desktop Finder-style каскада — по ПОЗИЦИИ колонки
+// слева направо, а не по DB-уровню level: auto-skip схлопывает уровни с
+// единственным дочерним элементом, поэтому число реально отрендеренных
+// колонок варьируется, и level не совпадает с видимой позицией.
+const CASCADE_COLUMN_LABELS = ["Название сборника", "Раздел", "Группа", "Вариант", "Подвариант"];
+
 async function compressImage(file: File): Promise<File> {
   try {
     // HEIC/HEIF браузеры (кроме Safari) не умеют декодировать через canvas —
@@ -1206,6 +1212,11 @@ function WorkTypePicker({
   // себя каждая колонка отдельно. В остальных режимах (поиск, счётчик,
   // выбор типа) listRef скроллится как обычно, единым блоком.
   const isDesktopCascade = !isMobile && !counterBase && !isSearching && catalogType !== null;
+  // Уровни (индексы в columns), реально отрендеренные как отдельная колонка
+  // в desktop-раскладке — используется и для самих колонок, и для подписей
+  // над ними (см. CASCADE_COLUMN_LABELS), чтобы позиция подписи всегда
+  // совпадала с позицией колонки.
+  const visibleCascadeLevels = columns.map((_, level) => level).filter((level) => isColumnVisible(level));
 
   // Сворачиваем клавиатуру, как только начинается скролл списка видов
   // работ — иначе она закрывает часть карточек и мешает выбору.
@@ -1436,28 +1447,38 @@ function WorkTypePicker({
               ) : (
                 <div className="flex flex-1 min-h-0 gap-4 overflow-x-auto pb-2">
                   {columns.map((col, level) => {
+                    if (!isColumnVisible(level)) return null;
+                    const position = visibleCascadeLevels.indexOf(level);
                     const isFrontier = level === chain.length;
-                    return isColumnVisible(level) ? (
-                      <CascadeColumn
-                        key={level}
-                        // Без h-full: высота колонки — не CSS-процент (который
-                        // не резолвится против flex-item-родителя, см. комментарий
-                        // у listRef выше), а обычный flex align-items:stretch
-                        // (по умолчанию) от родителя-строки — работает всегда,
-                        // независимо от того, "определена" ли высота родителя
-                        // в терминах CSS-процентов.
-                        className="w-72 shrink-0 overflow-y-auto [overflow-anchor:none]"
-                        nodes={col.nodes}
-                        loading={col.loading}
-                        selectedId={chain[level]?.id}
-                        isAdminLike={isAdminLike}
-                        onSelect={(node, offset) => handleSelectAtLevel(level, node, offset)}
-                        onLeaf={(node) => pickOrOpenCounter(node, chain[level - 1]?.name)}
-                        onAutoSkipLeaf={(leaf, groupName) => pickOrOpenCounter(leaf, groupName)}
-                        resolveAutoSkip={resolveAutoSkip}
-                        initialScrollTop={isFrontier ? frontierScrollOffset : undefined}
-                      />
-                    ) : null;
+                    return (
+                      // Заголовок и сама колонка — в одной w-72 flex-col
+                      // обёртке, а не в двух синхронизируемых overflow-x-строках:
+                      // так подпись скроллится вместе с колонкой сама собой,
+                      // без ручной синхронизации scrollLeft.
+                      <div key={level} className="flex w-72 shrink-0 flex-col min-h-0">
+                        <div className="mb-1.5 shrink-0 px-1 text-xs font-medium text-muted-foreground">
+                          {CASCADE_COLUMN_LABELS[position] ?? ""}
+                        </div>
+                        <CascadeColumn
+                          // Без h-full: высота колонки — не CSS-процент (который
+                          // не резолвится против flex-item-родителя, см. комментарий
+                          // у listRef выше), а обычный flex align-items:stretch
+                          // (по умолчанию) от родителя-строки — работает всегда,
+                          // независимо от того, "определена" ли высота родителя
+                          // в терминах CSS-процентов.
+                          className="min-h-0 flex-1 overflow-y-auto [overflow-anchor:none]"
+                          nodes={col.nodes}
+                          loading={col.loading}
+                          selectedId={chain[level]?.id}
+                          isAdminLike={isAdminLike}
+                          onSelect={(node, offset) => handleSelectAtLevel(level, node, offset)}
+                          onLeaf={(node) => pickOrOpenCounter(node, chain[level - 1]?.name)}
+                          onAutoSkipLeaf={(leaf, groupName) => pickOrOpenCounter(leaf, groupName)}
+                          resolveAutoSkip={resolveAutoSkip}
+                          initialScrollTop={isFrontier ? frontierScrollOffset : undefined}
+                        />
+                      </div>
+                    );
                   })}
                 </div>
               )}

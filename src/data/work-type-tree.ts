@@ -22,6 +22,10 @@ export type WorkTypeTreeNode = {
   labor_hours: number | null;
   has_children: boolean;
   has_counter_steps: boolean;
+  // Происхождение позиции — присутствует только у листьев (level=5):
+  // 'gesn_catalog' — из справочника ГЭСН, иначе (legacy, user_added) — своя.
+  // У промежуточных узлов бэкенд поле не отдаёт.
+  source: string | null;
 };
 
 export type WorkTypeSearchResult = WorkTypeTreeNode & { breadcrumb: string[] };

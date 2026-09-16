@@ -119,6 +119,11 @@ export function CascadeColumn({
         const unit = resolvesToLeaf ? resolvesToLeaf.leaf.unit : node.unit;
         const hasPrice = resolvesToLeaf ? resolvesToLeaf.leaf.has_price : node.has_price;
         const price = resolvesToLeaf ? resolvesToLeaf.leaf.price : node.price;
+        // Бэкенд отдаёт source только для листьев (level=5). Любое значение
+        // кроме 'gesn_catalog' (в т.ч. legacy, user_added и отсутствие поля
+        // у промежуточных узлов) считаем "своей" позицией.
+        const source = resolvesToLeaf ? resolvesToLeaf.leaf.source : node.source;
+        const isGesnSource = source === "gesn_catalog";
         // Первый уровень (сборники) — нумерация из gesn_code и заглавные буквы
         // визуально (CSS), без изменения самого name (используется как есть
         // в записи/отчётах).
@@ -189,8 +194,18 @@ export function CascadeColumn({
                 // почти до 0px и текст рендерился по одной букве в строке.
                 // С max-w-[42%] бейдж переносится на несколько строк сам,
                 // не отжимая название.
-                <span className="max-w-[42%] shrink-0 [overflow-wrap:anywhere] rounded-lg bg-muted px-2.5 py-1 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {unit}
+                <span className="flex max-w-[42%] shrink-0 flex-col items-end gap-1">
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                      isGesnSource ? "bg-muted text-muted-foreground" : "bg-status-review-soft text-status-review",
+                    )}
+                  >
+                    {isGesnSource ? "ГЭСН" : "Наш"}
+                  </span>
+                  <span className="[overflow-wrap:anywhere] rounded-lg bg-muted px-2.5 py-1 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {unit}
+                  </span>
                 </span>
               ) : (
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
