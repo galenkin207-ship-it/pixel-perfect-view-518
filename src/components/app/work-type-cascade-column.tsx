@@ -8,13 +8,17 @@ import { cn } from "@/lib/utils";
 
 type AutoSkipPreview = { kind: "leaf"; leaf: WorkTypeTreeNode; groupName: string } | { kind: "branch" };
 
-// Номер сборника (уровень 1) зашит в конце gesn_code, напр. "ГЭСН01" -> 1,
-// "ГЭСНр51" -> 51. У синтетического узла "Существующие виды работ (до
+// Номер сборника (уровень 1) зашит в конце gesn_code, напр. "ГЭСН01" -> "1.",
+// "ГЭСНр51" -> "51.". У синтетического узла "Существующие виды работ (до
 // обновления)" gesn_code пустой — для него номер не показываем.
-function extractGesnNumber(gesnCode: string | null): number | null {
+// Отдельно: "ГЭСНм" (сборники монтажных работ, напр. "ГЭСНм08") дают "8м.",
+// а не "8." — иначе номер визуально совпадает с обычным ГЭСН08 из каталога
+// нового строительства.
+function formatGesnNumberLabel(gesnCode: string | null): string | null {
   if (!gesnCode) return null;
   const match = /(\d+)$/.exec(gesnCode);
-  return match ? Number(match[1]) : null;
+  if (!match) return null;
+  return gesnCode.startsWith("ГЭСНм") ? `${match[1]}м.` : `${match[1]}.`;
 }
 
 // Один уровень каскада: список узлов дерева видов работ. Используется и как
@@ -128,7 +132,7 @@ export function CascadeColumn({
         // визуально (CSS), без изменения самого name (используется как есть
         // в записи/отчётах).
         const isLevel1 = node.level === 1;
-        const gesnNumber = isLevel1 ? extractGesnNumber(node.gesn_code) : null;
+        const gesnNumberLabel = isLevel1 ? formatGesnNumberLabel(node.gesn_code) : null;
         const displayName = !node.has_children && node.variant_label ? node.variant_label : node.name;
 
         return (
@@ -177,7 +181,7 @@ export function CascadeColumn({
                     isLevel1 && "uppercase",
                   )}
                 >
-                  {gesnNumber != null ? `${gesnNumber}. ${displayName}` : displayName}
+                  {gesnNumberLabel != null ? `${gesnNumberLabel} ${displayName}` : displayName}
                 </span>
                 {displayAsLeaf && isAdminLike && (
                   <span className="mt-1 block font-mono text-xs text-muted-foreground">
