@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DeleteNodeDialog, NodeNameDialog } from "@/components/app/work-type-node-dialogs";
+import { AutoTextarea, LocationSelect } from "@/components/app/work-type-editor-fields";
 import type {
   CatalogType,
   WorkTypeAncestor,
@@ -174,7 +175,7 @@ export function WorkTypeEditorDialog({
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   // «Сохранено: <название>» после «Сохранить и добавить ещё».
   const [savedName, setSavedName] = useState<string | null>(null);
-  const nameInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLTextAreaElement>(null);
   // Снимок состояния на момент открытия — по нему считаем "есть несохранённые
   // изменения".
   const [initialSnapshot, setInitialSnapshot] = useState<string | null>(
@@ -483,7 +484,10 @@ export function WorkTypeEditorDialog({
     <>
       <Dialog open onOpenChange={(open) => !open && requestClose()}>
         <DialogContent
-          className="flex h-[92dvh] max-h-[92dvh] w-[calc(100%-2rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0"
+          // Ширина — по содержимому (w-max), но не уже 46rem и не шире
+          // ~1100px и не шире экрана; высота как раньше, вертикально
+          // прокручивается тело (шапка и кнопки внизу — shrink-0).
+          className="flex h-[92dvh] max-h-[92dvh] w-max min-w-[min(46rem,calc(100vw-2rem))] max-w-[min(68.75rem,calc(100vw-2rem))] flex-col gap-0 overflow-hidden p-0"
           // Закрытие только осознанное: Esc/клик мимо/крестик идут через
           // requestClose() (см. onOpenChange), поэтому при несохранённых
           // изменениях сначала спрашиваем подтверждение.
@@ -522,45 +526,44 @@ export function WorkTypeEditorDialog({
                 {/* Расположение */}
                 <section className="space-y-3">
                   <h3 className="text-sm font-bold">Расположение в справочнике</h3>
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
                     {LOCATION_LEVELS.map((lvl, i) => {
                       const key = parentKey(i, selection);
                       const opts = key ? (options[key] ?? []) : [];
                       const parentMissing = i > 0 && !selection[i - 1];
                       const isAddingHere = isAdmin && adding?.levelIdx === i;
                       return (
-                        <div key={lvl.label} className="space-y-1.5">
+                        <div key={lvl.label} className="flex max-w-full min-w-0 flex-col gap-1.5">
                           <span className={labelClass}>{lvl.label}</span>
-                          <div className="flex items-center gap-2">
-                            <select
-                              value={selection[i] ?? ""}
+                          {/* Иконки — рядом с селектором и по его верху (items-start):
+                              триггер растёт по высоте под длинное название. */}
+                          <div className="flex items-start gap-2">
+                            {/* Верхний уровень (сборник) обязателен. Ниже позиция может
+                                лежать прямо под выбранным узлом — «— нет —» это
+                                осознанный выбор, а не пустое значение. Селектор
+                                заблокирован только пока не выбран предыдущий уровень. */}
+                            <LocationSelect
+                              ariaLabel={lvl.label}
+                              value={selection[i] ?? null}
                               disabled={parentMissing || saving}
-                              onChange={(e) => changeSelection(i, e.target.value || null)}
-                              className={cn(fieldClass, "min-w-0 flex-1")}
-                            >
-                              {/* Верхний уровень (сборник) обязателен. Ниже позиция может
-                                  лежать прямо под выбранным узлом — «— нет —» это
-                                  осознанный выбор, а не пустое значение. Селектор
-                                  заблокирован только пока не выбран предыдущий уровень. */}
-                              {i === 0 ? (
-                                <option value="" disabled>
-                                  Выберите…
-                                </option>
-                              ) : (
-                                <option value="" disabled={parentMissing}>
-                                  {parentMissing && !selection[0]
+                              onChange={(id) => changeSelection(i, id)}
+                              placeholder="Выберите…"
+                              noneLabel={
+                                i === 0
+                                  ? null
+                                  : parentMissing && !selection[0]
                                     ? `Сначала выберите ${LOCATION_LEVELS[i - 1]!.label.toLowerCase()}`
-                                    : "— нет —"}
-                                </option>
-                              )}
-                              {opts.map((o) => (
-                                <option key={o.id} value={o.id}>
-                                  {i === 0 && formatGesnNumberLabel(o.gesnCode)
+                                    : "— нет —"
+                              }
+                              noneDisabled={parentMissing}
+                              options={opts.map((o) => ({
+                                id: o.id,
+                                label:
+                                  i === 0 && formatGesnNumberLabel(o.gesnCode)
                                     ? `${formatGesnNumberLabel(o.gesnCode)} ${o.name}`
-                                    : o.name}
-                                </option>
-                              ))}
-                            </select>
+                                    : o.name,
+                              }))}
+                            />
                             {isAdmin && selection[i] && (
                               <>
                                 <button
@@ -676,11 +679,11 @@ export function WorkTypeEditorDialog({
                       <span className={labelClass}>
                         Название <span className="text-destructive">*</span>
                       </span>
-                      <input
+                      <AutoTextarea
                         ref={nameInputRef}
+                        singleLine
                         value={form.name}
                         onChange={(e) => setField("name", e.target.value)}
-                        className={fieldClass}
                       />
                       {isCreate && similar.length > 0 && (
                         <div className="space-y-1.5 rounded-xl border border-border bg-muted/40 p-2.5">
@@ -705,11 +708,11 @@ export function WorkTypeEditorDialog({
                     </label>
                     <label className="block space-y-1.5 md:col-span-2">
                       <span className={labelClass}>Вариант</span>
-                      <input
+                      <AutoTextarea
+                        singleLine
                         value={form.variantLabel}
                         onChange={(e) => setField("variantLabel", e.target.value)}
                         placeholder="Подпись варианта на карточке (необязательно)"
-                        className={fieldClass}
                       />
                     </label>
                     <label className="block space-y-1.5">
@@ -803,12 +806,12 @@ export function WorkTypeEditorDialog({
                 {/* Состав работ */}
                 <section className="space-y-3">
                   <h3 className="text-sm font-bold">Состав работ</h3>
-                  <textarea
+                  <AutoTextarea
                     value={form.composition}
                     onChange={(e) => setField("composition", e.target.value)}
                     rows={7}
                     placeholder="Что входит в работу — по одному пункту на строку"
-                    className={cn(fieldClass, "resize-y leading-relaxed")}
+                    className="leading-relaxed"
                   />
                 </section>
 
@@ -837,7 +840,7 @@ export function WorkTypeEditorDialog({
                 {formError}
               </p>
             )}
-            <div className="flex items-center justify-end gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-3">
               {savedName && (
                 <p role="status" className="mr-auto min-w-0 truncate text-sm font-medium text-status-done">
                   Сохранено: {savedName}
