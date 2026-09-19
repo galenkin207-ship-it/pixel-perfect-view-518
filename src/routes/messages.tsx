@@ -1,11 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import ExcelJS from "exceljs";
-import { ChevronDown, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
+import {
+  WorkTypeEditorDialog,
+  type WorkTypeEditorTarget,
+} from "@/components/app/work-type-editor-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,6 +87,10 @@ function MessagesPage() {
 
   const isAdmin = role === "admin";
   const isForeman = role === "user";
+  // Добавить позицию в справочник видов работ прямо из заявки: admin и
+  // curator, только десктоп (форма — большая модалка каскадного справочника).
+  const canAddToCatalog = (isAdmin || role === "curator") && !isMobile;
+  const [catalogTarget, setCatalogTarget] = useState<WorkTypeEditorTarget | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [draft, setDraft] = useState<Record<string, string>>({});
   // Свёрнутость блока переписки по каждой заявке в общем списке. По
@@ -394,6 +402,34 @@ function MessagesPage() {
           </span>
         </div>
 
+        {canAddToCatalog && !inDialog && r.status === "pending" && (
+          <div className="mt-2 hidden lg:block">
+            <button
+              type="button"
+              onClick={() =>
+                // В заявке — только свободный текст (единицы в ней нет): название
+                // берём из «Итогового названия», если админ уже его вписал, иначе
+                // из текста заявки; единица — только если уже выбрана в карточке.
+                // Статус заявки не меняется.
+                setCatalogTarget({
+                  kind: "create",
+                  catalogType: "новое строительство",
+                  ancestors: [],
+                  chooseCatalogType: true,
+                  prefill: {
+                    name: (resolve[r.id]?.name.trim() || r.requested_text).trim(),
+                    unit: resolve[r.id]?.unit ?? "",
+                  },
+                })
+              }
+              className="flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-1.5 text-sm font-semibold text-primary transition-colors hover:border-primary hover:bg-primary/10"
+            >
+              <Plus className="size-4" />
+              Добавить в справочник
+            </button>
+          </div>
+        )}
+
         {r.status === "deleted" && (
           <div className="mt-2 rounded-xl bg-muted px-3 py-2">
             <p className="text-sm text-muted-foreground">
@@ -674,6 +710,19 @@ function MessagesPage() {
 
   return (
     <AppShell>
+      {catalogTarget && (
+        <WorkTypeEditorDialog
+          key="catalog-from-request"
+          target={catalogTarget}
+          onClose={() => setCatalogTarget(null)}
+          onSaved={(result, opts) => {
+            // Заявка остаётся как есть (статус не меняем) — решение по ней
+            // принимается отдельно кнопками «Одобрить»/«Отклонить».
+            if (!opts?.keepOpen) setCatalogTarget(null);
+            toast.success(`Добавлено в справочник: ${result.after.name}`);
+          }}
+        />
+      )}
       <PageHeading
         context={roleLabels[role]}
         title={isForeman ? "Моя переписка" : "Заявки на согласование"}

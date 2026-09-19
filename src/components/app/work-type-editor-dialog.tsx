@@ -30,7 +30,16 @@ export type WorkTypeEditorTarget =
   // Новая позиция: расположение предзаполнено цепочкой предков (реальные
   // узлы — сборник → раздел → таблица → группа), catalogType нужен для
   // создания нового сборника.
-  | { kind: "create"; catalogType: CatalogType; ancestors: WorkTypeAncestor[] };
+  | {
+      kind: "create";
+      catalogType: CatalogType;
+      ancestors: WorkTypeAncestor[];
+      // Предзаполнение полей (заявка мастера: название и единица).
+      prefill?: { name?: string; unit?: string };
+      // Тип каталога выбирается в самой форме (хозяин, у которого нет своей
+      // вкладки каталога — экран заявок). Только при пустом расположении.
+      chooseCatalogType?: boolean;
+    };
 
 export type WorkTypeEditorResult = {
   // Лист ДО правки (для старой цепочки предков и старого parent_id);
@@ -145,9 +154,14 @@ export function WorkTypeEditorDialog({
   const isAdmin = role === "admin";
   const isCreate = target.kind === "create";
 
+  const [createType, setCreateType] = useState<CatalogType>(isCreate ? target.catalogType : "новое строительство");
+  const canChooseType = isCreate && Boolean(target.chooseCatalogType) && target.ancestors.length === 0;
+  const initialCreateForm: FormState = isCreate
+    ? { ...EMPTY_FORM, name: target.prefill?.name ?? "", unit: target.prefill?.unit ?? "" }
+    : EMPTY_FORM;
   const [detail, setDetail] = useState<WorkTypeDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [form, setForm] = useState<FormState>(initialCreateForm);
   const [selection, setSelection] = useState<(string | null)[]>(() =>
     isCreate ? selectionFromAncestors(target.ancestors) : [null, null, null, null],
   );
@@ -165,12 +179,12 @@ export function WorkTypeEditorDialog({
   // изменения".
   const [initialSnapshot, setInitialSnapshot] = useState<string | null>(
     isCreate
-      ? JSON.stringify({ form: EMPTY_FORM, selection: selectionFromAncestors(target.ancestors) })
+      ? JSON.stringify({ form: initialCreateForm, selection: selectionFromAncestors(target.ancestors) })
       : null,
   );
 
   const catalogType: CatalogType | null =
-    detail?.catalog_type ?? (isCreate ? target.catalogType : null);
+    detail?.catalog_type ?? (isCreate ? createType : null);
   const catalogTypeRef = useRef(catalogType);
   catalogTypeRef.current = catalogType;
 
@@ -332,6 +346,17 @@ export function WorkTypeEditorDialog({
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+    setFormError(null);
+  }
+
+  // Смена типа каталога в форме создания: выбранное расположение относилось к
+  // другому каталогу — сбрасываем его, корневой список сборников перечитается.
+  function changeCatalogType(next: CatalogType) {
+    if (next === createType) return;
+    setCreateType(next);
+    setSelection([null, null, null, null]);
+    setOptions({});
+    setAdding(null);
     setFormError(null);
   }
 
@@ -756,9 +781,21 @@ export function WorkTypeEditorDialog({
                     </label>
                     <div className="space-y-1.5">
                       <span className={labelClass}>Тип каталога</span>
-                      <div className={cn(fieldClass, "bg-muted/50 text-muted-foreground")}>
-                        {catalogType === "ремонт" ? "Ремонт" : "Строительство"}
-                      </div>
+                      {canChooseType ? (
+                        <select
+                          value={createType}
+                          disabled={saving}
+                          onChange={(e) => changeCatalogType(e.target.value as CatalogType)}
+                          className={fieldClass}
+                        >
+                          <option value="новое строительство">Строительство</option>
+                          <option value="ремонт">Ремонт</option>
+                        </select>
+                      ) : (
+                        <div className={cn(fieldClass, "bg-muted/50 text-muted-foreground")}>
+                          {catalogType === "ремонт" ? "Ремонт" : "Строительство"}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </section>
