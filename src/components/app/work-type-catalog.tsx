@@ -164,8 +164,9 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
   // их скролл и выделенный лист остаются как были. Перенос в другую ветку:
   // карточка сразу исчезает из текущей колонки, а цепочка колонок при
   // необходимости откатывается на ближайшую валидную (см. use-work-type-cascade).
-  async function handleSaved({ before, after }: WorkTypeEditorResult) {
-    setEditor(null);
+  async function handleSaved({ before, after }: WorkTypeEditorResult, opts?: { keepOpen?: boolean }) {
+    const keepOpen = opts?.keepOpen ?? false;
+    if (!keepOpen) setEditor(null);
     const created = before === null;
     const moved = before !== null && before.parent_id !== after.parent_id;
     if (moved) {
@@ -180,7 +181,7 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
       moved || created
         ? [null, ...ancestorIds(before), ...ancestorIds(after)]
         : [after.parent_id];
-    toast.success(created ? "Позиция добавлена" : "Изменения сохранены");
+    if (!keepOpen) toast.success(created ? "Позиция добавлена" : "Изменения сохранены");
     if (created) {
       // Новая позиция может лежать в любой ветке (форма открывалась и из шапки
       // с пустым расположением): раскрываем каскад вдоль её цепочки предков
@@ -189,8 +190,11 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
       setSelectedLeafId(after.id);
       setQuery("");
       await cascade.revealPath(after.ancestors);
-      setFlashLeafId(after.id);
-      setTimeout(() => setFlashLeafId((prev) => (prev === after.id ? undefined : prev)), 3000);
+      // При «Сохранить и добавить ещё» форма всё ещё закрывает каскад, подсвечивать рано.
+      if (!keepOpen) {
+        setFlashLeafId(after.id);
+        setTimeout(() => setFlashLeafId((prev) => (prev === after.id ? undefined : prev)), 3000);
+      }
     } else {
       await cascade.refresh(parents, after.id);
     }
@@ -469,7 +473,7 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
           key={editor.kind === "edit" ? `edit:${editor.id}` : "create"}
           target={editor}
           onClose={() => setEditor(null)}
-          onSaved={(result) => void handleSaved(result)}
+          onSaved={(result, opts) => void handleSaved(result, opts)}
           onNodeCreated={(parentId) => handleNodeCreated(parentId)}
           onNodeRenamed={(id, name, parentId) => handleNodeRenamed(id, name, parentId)}
           onNodeDeleted={(id, parentId) => handleNodeDeleted(id, parentId)}

@@ -18,6 +18,7 @@ import type {
   WorkTypeAncestor,
   WorkTypeDetail,
   WorkTypeLeafInput,
+  WorkTypeSearchResult,
 } from "@/data/work-type-tree";
 import { api, ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
@@ -128,7 +129,9 @@ export function WorkTypeEditorDialog({
 }: {
   target: WorkTypeEditorTarget;
   onClose: () => void;
-  onSaved: (result: WorkTypeEditorResult) => void;
+  // keepOpen — «Сохранить и добавить ещё»: форма остаётся открытой (хозяин её
+  // не закрывает), но каскад под модалкой обновляется.
+  onSaved: (result: WorkTypeEditorResult, opts?: { keepOpen?: boolean }) => void;
   // Структуру справочника правят прямо из селекторов «Расположение» (только
   // admin). Хозяин (страница справочника) точечно обновляет свой каскад под
   // модалкой; parentId — реальный родитель узла (null — корень каталога).
@@ -155,6 +158,9 @@ export function WorkTypeEditorDialog({
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // «Сохранено: <название>» после «Сохранить и добавить ещё».
+  const [savedName, setSavedName] = useState<string | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   // Снимок состояния на момент открытия — по нему считаем "есть несохранённые
   // изменения".
   const [initialSnapshot, setInitialSnapshot] = useState<string | null>(
@@ -257,6 +263,64 @@ export function WorkTypeEditorDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, selection]);
 
+  // Подсказка о дублях (только создание): по мере ввода названия ищем
+  // похожие позиции существующим серверным поиском. Только информирует —
+  // сохранение не блокирует (точное совпадение в том же родителе сервер
+  // отклонит сам, 409 покажется в форме).
+  const [similar, setSimilar] = useState<WorkTypeSearchResult[]>([]);
+  useEffect(() => {
+    if (!isCreate) return;
+    const q = form.name.trim();
+    if (q.length < 3) {
+      setSimilar([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      api
+        .searchWorkTypes(q, 5)
+        .then((items) => {
+          if (!cancelled) setSimilar(items.slice(0, 5));
+        })
+        .catch(() => {
+          if (!cancelled) setSimilar([]);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isCreate, form.name]);
+
+  // Единицы соседних позиций выбранного родителя (только создание): листья
+  // самого глубокого выбранного узла — подсказка «как у соседей».
+  const [neighborUnits, setNeighborUnits] = useState<string[]>([]);
+  const deepestSelected = [...selection].reverse().find((id) => id !== null) ?? null;
+  useEffect(() => {
+    if (!isCreate || !deepestSelected) {
+      setNeighborUnits([]);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getWorkTypeTree({ parentId: deepestSelected }, { includeEmpty: isAdmin })
+      .then((nodes) => {
+        if (cancelled) return;
+        const found: string[] = [];
+        for (const n of nodes) {
+          const u = n.unit?.trim();
+          if (n.level === 5 && u && !found.includes(u)) found.push(u);
+        }
+        setNeighborUnits(found.slice(0, 6));
+      })
+      .catch(() => {
+        if (!cancelled) setNeighborUnits([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isCreate, isAdmin, deepestSelected]);
+
   const dirty =
     initialSnapshot !== null && JSON.stringify({ form, selection }) !== initialSnapshot;
 
@@ -325,8 +389,9 @@ export function WorkTypeEditorDialog({
     }
   }
 
-  async function save() {
+  async function save(another = false) {
     setFormError(null);
+    setSavedName(null);
 
     const name = form.name.trim();
     const unit = form.unit.trim();
@@ -364,7 +429,16 @@ export function WorkTypeEditorDialog({
     try {
       if (target.kind === "create") {
         const created = await api.createWorkType({ ...input, parent_id: deepest! });
-        onSaved({ before: null, after: created });
+        onSaved({ before: null, after: created }, { keepOpen: another });
+        if (another) {
+          // Расположение остаётся, поля очищаются, фокус — в название.
+          setForm(EMPTY_FORM);
+          setSimilar([]);
+          setInitialSnapshot(JSON.stringify({ form: EMPTY_FORM, selection }));
+          setSavedName(created.name);
+          setSaving(false);
+          setTimeout(() => nameInputRef.current?.focus(), 0);
+        }
       } else {
         const saved = await api.editWorkType(target.id, {
           ...input,
@@ -578,10 +652,31 @@ export function WorkTypeEditorDialog({
                         Название <span className="text-destructive">*</span>
                       </span>
                       <input
+                        ref={nameInputRef}
                         value={form.name}
                         onChange={(e) => setField("name", e.target.value)}
                         className={fieldClass}
                       />
+                      {isCreate && similar.length > 0 && (
+                        <div className="space-y-1.5 rounded-xl border border-border bg-muted/40 p-2.5">
+                          <p className="text-xs font-semibold text-muted-foreground">Уже есть в справочнике</p>
+                          <ul className="space-y-1.5">
+                            {similar.map((item) => (
+                              <li key={item.id} className="text-sm leading-snug">
+                                <span className="font-medium break-words">
+                                  {item.variant_label ? `${item.name} — ${item.variant_label}` : item.name}
+                                </span>
+                                <span className="ml-1.5 text-xs text-muted-foreground">{item.unit}</span>
+                                {item.breadcrumb.length > 0 && (
+                                  <span className="block text-xs break-words text-muted-foreground">
+                                    {item.breadcrumb.join(" › ")}
+                                  </span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </label>
                     <label className="block space-y-1.5 md:col-span-2">
                       <span className={labelClass}>Вариант</span>
@@ -612,6 +707,14 @@ export function WorkTypeEditorDialog({
                           </option>
                         ))}
                       </select>
+                      {isCreate && (
+                        <UnitChips
+                          neighbors={neighborUnits}
+                          common={units}
+                          current={form.unit}
+                          onPick={(u) => setField("unit", u)}
+                        />
+                      )}
                     </label>
                     <div className="space-y-1.5">
                       <span className={labelClass}>Цена, руб./ед.</span>
@@ -698,6 +801,11 @@ export function WorkTypeEditorDialog({
               </p>
             )}
             <div className="flex items-center justify-end gap-3">
+              {savedName && (
+                <p role="status" className="mr-auto min-w-0 truncate text-sm font-medium text-status-done">
+                  Сохранено: {savedName}
+                </p>
+              )}
               <button
                 type="button"
                 onClick={requestClose}
@@ -706,6 +814,16 @@ export function WorkTypeEditorDialog({
               >
                 Закрыть
               </button>
+              {isCreate && (
+                <button
+                  type="button"
+                  onClick={() => void save(true)}
+                  disabled={saving || !ready || Boolean(loadError)}
+                  className="rounded-xl border border-primary bg-surface px-5 py-2.5 text-sm font-semibold text-primary disabled:opacity-60"
+                >
+                  Сохранить и добавить ещё
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => void save()}
@@ -789,4 +907,52 @@ function describeLoadError(err: unknown): string {
   if (err instanceof ApiError && err.status === 404) return "Позиция не найдена — возможно, её уже удалили";
   if (err instanceof ApiError && err.status === 403) return "Недостаточно прав для просмотра позиции";
   return "Не удалось загрузить позицию";
+}
+
+// Быстрый выбор единицы: как у соседних позиций выбранного родителя и общие
+// единицы справочника (без повторов). Полный список — в селекте выше.
+function UnitChips({
+  neighbors,
+  common,
+  current,
+  onPick,
+}: {
+  neighbors: string[];
+  common: string[];
+  current: string;
+  onPick: (unit: string) => void;
+}) {
+  const commonShort = common.filter((u) => !neighbors.includes(u)).slice(0, 6);
+  if (neighbors.length === 0 && commonShort.length === 0) return null;
+  const chip = (u: string) => (
+    <button
+      key={u}
+      type="button"
+      onClick={() => onPick(u)}
+      className={cn(
+        "rounded-lg border px-2 py-1 text-xs font-semibold transition-colors",
+        u === current
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-border bg-surface text-muted-foreground hover:border-primary/50 hover:text-foreground",
+      )}
+    >
+      {u}
+    </button>
+  );
+  return (
+    <div className="space-y-1 pt-0.5">
+      {neighbors.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">Как у соседних:</span>
+          {neighbors.map(chip)}
+        </div>
+      )}
+      {commonShort.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">Общие:</span>
+          {commonShort.map(chip)}
+        </div>
+      )}
+    </div>
+  );
 }
