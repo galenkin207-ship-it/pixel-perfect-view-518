@@ -44,3 +44,55 @@ export type WorkTypeCounterStep = {
   step_unit_label: string | null;
   price: number;
 };
+
+// Звено цепочки предков листа (сборник → раздел → таблица → группа) из
+// GET /work-types/:id/detail — реальные узлы БЕЗ схлопывания дублирующих
+// групп (в отличие от /tree).
+export type WorkTypeAncestor = {
+  id: string;
+  level: number;
+  name: string;
+  catalog_type: CatalogType | null;
+};
+
+// Лист целиком для редактора (GET /work-types/:id/detail, ответ PATCH
+// /:id/edit и POST /work-types). Служебные признаки (is_step_item,
+// is_counter_step, step_*) в редакторе не показываются и не меняются, но
+// приходят с сервера — держим их в типе, чтобы не терять.
+export type WorkTypeDetail = {
+  id: string;
+  parent_id: string | null;
+  level: number;
+  catalog_type: CatalogType | null;
+  gesn_code: string | null;
+  labor_hours: number | null;
+  work_composition: string | null;
+  variant_label: string | null;
+  name: string;
+  unit: string;
+  price: number;
+  has_price: boolean;
+  sbornik_id: string | null;
+  source: string | null;
+  sort_order: number;
+  status: string;
+  is_step_item: boolean;
+  is_counter_step: boolean;
+  step_base_work_type_id: string | null;
+  step_unit_label: string | null;
+  ancestors: WorkTypeAncestor[];
+};
+
+// Редактируемые поля листа для PATCH /:id/edit и POST /work-types.
+// parent_id в PATCH передаётся только если расположение изменилось.
+export type WorkTypeLeafInput = {
+  name: string;
+  variant_label: string | null;
+  unit: string;
+  price: number;
+  has_price: boolean;
+  labor_hours: number | null;
+  gesn_code: string | null;
+  work_composition: string | null;
+  parent_id?: string;
+};

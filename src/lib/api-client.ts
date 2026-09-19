@@ -11,7 +11,10 @@ import type {
 } from "@/data/mock";
 import type {
   CatalogType,
+  WorkTypeAncestor,
   WorkTypeCounterStep,
+  WorkTypeDetail,
+  WorkTypeLeafInput,
   WorkTypeSearchResult,
   WorkTypeTreeNode,
 } from "@/data/work-type-tree";
@@ -234,6 +237,67 @@ function mapWorkTypeTreeNode(raw: RawWorkTypeTreeNode): WorkTypeTreeNode {
     has_counter_steps: raw.has_counter_steps,
     source: raw.source ?? null,
     can_edit: raw.can_edit ?? false,
+  };
+}
+
+// Postgres отдаёт NUMERIC (price, labor_hours) строкой, а id/parent_id
+// (BIGINT) — числом или строкой в зависимости от драйвера. Нормализуем так
+// же, как в mapWorkTypeTreeNode.
+type RawWorkTypeDetail = {
+  id: number | string;
+  parent_id: number | string | null;
+  level: number;
+  catalog_type: CatalogType | null;
+  gesn_code: string | null;
+  labor_hours: number | string | null;
+  work_composition: string | null;
+  variant_label: string | null;
+  name: string;
+  unit: string | null;
+  price: number | string | null;
+  has_price: boolean;
+  sbornik_id: number | string | null;
+  source: string | null;
+  sort_order: number | null;
+  status: string;
+  is_step_item: boolean;
+  is_counter_step: boolean;
+  step_base_work_type_id: number | string | null;
+  step_unit_label: string | null;
+  ancestors: { id: number | string; level: number; name: string; catalog_type: CatalogType | null }[];
+};
+
+function mapWorkTypeDetail(raw: RawWorkTypeDetail): WorkTypeDetail {
+  return {
+    id: String(raw.id),
+    parent_id: raw.parent_id == null ? null : String(raw.parent_id),
+    level: raw.level,
+    catalog_type: raw.catalog_type,
+    gesn_code: raw.gesn_code,
+    labor_hours: raw.labor_hours == null ? null : Number(raw.labor_hours),
+    work_composition: raw.work_composition,
+    variant_label: raw.variant_label,
+    name: raw.name,
+    unit: raw.unit ?? "",
+    price: Number(raw.price ?? 0),
+    has_price: raw.has_price,
+    sbornik_id: raw.sbornik_id == null ? null : String(raw.sbornik_id),
+    source: raw.source,
+    sort_order: Number(raw.sort_order ?? 0),
+    status: raw.status,
+    is_step_item: raw.is_step_item,
+    is_counter_step: raw.is_counter_step,
+    step_base_work_type_id:
+      raw.step_base_work_type_id == null ? null : String(raw.step_base_work_type_id),
+    step_unit_label: raw.step_unit_label,
+    ancestors: raw.ancestors.map(
+      (a): WorkTypeAncestor => ({
+        id: String(a.id),
+        level: a.level,
+        name: a.name,
+        catalog_type: a.catalog_type,
+      }),
+    ),
   };
 }
 
@@ -522,6 +586,46 @@ export const api = {
       unit: w.unit,
       price: Number(w.price),
     }));
+  },
+
+  // Создание листа (level=5) в дереве: POST /work-types. Плоский
+  // {name, unit, price} без parent_id бэкенд больше не принимает.
+  async createWorkType(input: WorkTypeLeafInput & { parent_id: string }): Promise<WorkTypeDetail> {
+    const raw = await request<RawWorkTypeDetail>("/work-types", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return mapWorkTypeDetail(raw);
+  },
+
+  async getWorkTypeDetail(id: string): Promise<WorkTypeDetail> {
+    return mapWorkTypeDetail(await request<RawWorkTypeDetail>(`/work-types/${id}/detail`));
+  },
+
+  async editWorkType(id: string, input: Partial<WorkTypeLeafInput>): Promise<WorkTypeDetail> {
+    const raw = await request<RawWorkTypeDetail>(`/work-types/${id}/edit`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+    return mapWorkTypeDetail(raw);
+  },
+
+  // Создание контейнера (level 1-4). parentId=null → сборник (level 1),
+  // тогда catalogType обязателен.
+  async createWorkTypeNode(input: {
+    parentId: string | null;
+    name: string;
+    catalogType?: CatalogType;
+  }): Promise<WorkTypeTreeNode> {
+    const raw = await request<RawWorkTypeTreeNode>("/work-types/nodes", {
+      method: "POST",
+      body: JSON.stringify({
+        parent_id: input.parentId,
+        name: input.name,
+        ...(input.catalogType ? { catalog_type: input.catalogType } : {}),
+      }),
+    });
+    return mapWorkTypeTreeNode(raw);
   },
 
   async archiveWorkType(id: string): Promise<void> {
