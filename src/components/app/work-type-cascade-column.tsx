@@ -28,6 +28,7 @@ export function CascadeColumn({
   selectedLeafId,
   renderLeafActions,
   renderContainerActions,
+  flashId,
   footer,
 }: {
   nodes: WorkTypeTreeNode[];
@@ -65,6 +66,10 @@ export function CascadeColumn({
   // Слот справа на карточке контейнера (уровни 1–4): меню «⋯» для admin.
   // Так же соседствует с кнопкой карточки, а не вложен в неё.
   renderContainerActions?: ((node: WorkTypeTreeNode) => ReactNode) | undefined;
+  // Карточка, к которой нужно прокрутить колонку и коротко подсветить (только
+  // что созданная позиция). Срабатывает один раз для каждого id, в той
+  // колонке, где эта карточка есть.
+  flashId?: string | undefined;
   // Хвост списка (кнопка «+ Добавить позицию»): рисуется и под карточками, и
   // в пустой колонке.
   footer?: ReactNode;
@@ -100,6 +105,31 @@ export function CascadeColumn({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, resolveAutoSkip]);
+
+  const [flashing, setFlashing] = useState<string | null>(null);
+  const flashHandledRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!flashId || loading || flashHandledRef.current === flashId) return;
+    const container = scrollRef.current;
+    const el = container?.querySelector<HTMLElement>(`[data-node-id="${flashId}"]`);
+    if (!container || !el) return;
+    flashHandledRef.current = flashId;
+    // Прокручиваем только саму колонку (не страницу и не ряд колонок):
+    // карточка встаёт примерно по центру видимой области колонки.
+    const containerRect = container.getBoundingClientRect();
+    const cardRect = el.getBoundingClientRect();
+    const top =
+      cardRect.top - containerRect.top + container.scrollTop - (container.clientHeight - cardRect.height) / 2;
+    container.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    setFlashing(flashId);
+  }, [flashId, loading, nodes]);
+
+  useEffect(() => {
+    if (!flashing) return;
+    const timer = setTimeout(() => setFlashing(null), 2200);
+    return () => clearTimeout(timer);
+  }, [flashing]);
 
   useEffect(() => {
     if (!initialScrollTop || loading) return;
@@ -171,6 +201,7 @@ export function CascadeColumn({
           // кнопка «⋯» не вложена в <button> и её клик не выбирает карточку.
           <li
             key={node.id}
+            data-node-id={node.id}
             className={cn(
               "flex items-center rounded-xl border transition-colors",
               selected
@@ -178,6 +209,8 @@ export function CascadeColumn({
                 : "border-border bg-surface hover:border-primary/40 hover:bg-primary/5",
               // Пустой контейнер (только admin в справочнике) — приглушённая карточка.
               isEmpty && "opacity-60",
+              // Только что созданная позиция — короткая подсветка.
+              flashing === node.id && "border-primary bg-primary/15 ring-2 ring-primary/40",
             )}
           >
             <button

@@ -562,7 +562,10 @@ export function WorkTypeEditorDialog({
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Позиция может лежать прямо в сборнике, разделе, таблице или группе: нижние уровни можно оставить
-                    «— нет —». Выберите другое место — позиция переедет в эту ветку справочника.
+                    «— нет —».{" "}
+                    {isCreate
+                      ? "Обязательно выберите хотя бы сборник."
+                      : "Выберите другое место — позиция переедет в эту ветку справочника."}
                   </p>
                 </section>
 
@@ -571,7 +574,9 @@ export function WorkTypeEditorDialog({
                   <h3 className="text-sm font-bold">Позиция</h3>
                   <div className="grid gap-3 md:grid-cols-2">
                     <label className="block space-y-1.5 md:col-span-2">
-                      <span className={labelClass}>Название</span>
+                      <span className={labelClass}>
+                        Название <span className="text-destructive">*</span>
+                      </span>
                       <input
                         value={form.name}
                         onChange={(e) => setField("name", e.target.value)}
@@ -588,7 +593,9 @@ export function WorkTypeEditorDialog({
                       />
                     </label>
                     <label className="block space-y-1.5">
-                      <span className={labelClass}>Ед. изм.</span>
+                      <span className={labelClass}>
+                        Ед. изм. <span className="text-destructive">*</span>
+                      </span>
                       <select
                         value={form.unit}
                         onChange={(e) => setField("unit", e.target.value)}

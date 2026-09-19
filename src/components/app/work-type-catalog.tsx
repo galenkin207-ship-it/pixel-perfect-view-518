@@ -139,6 +139,7 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
   const cascade = useWorkTypeCascade(catalogType, { browse: true, includeEmpty: showStructureTools });
   const search = useWorkTypeSearch(query);
   const [selectedLeafId, setSelectedLeafId] = useState<string | undefined>();
+  const [flashLeafId, setFlashLeafId] = useState<string | undefined>();
   const [editor, setEditor] = useState<WorkTypeEditorTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -180,8 +181,19 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
         ? [null, ...ancestorIds(before), ...ancestorIds(after)]
         : [after.parent_id];
     toast.success(created ? "Позиция добавлена" : "Изменения сохранены");
-    if (created) setSelectedLeafId(after.id);
-    await cascade.refresh(parents, after.id);
+    if (created) {
+      // Новая позиция может лежать в любой ветке (форма открывалась и из шапки
+      // с пустым расположением): раскрываем каскад вдоль её цепочки предков
+      // (списки перечитываются свежими), прокручиваем колонку к карточке и
+      // коротко её подсвечиваем. Поиск сбрасываем — иначе каскада не видно.
+      setSelectedLeafId(after.id);
+      setQuery("");
+      await cascade.revealPath(after.ancestors);
+      setFlashLeafId(after.id);
+      setTimeout(() => setFlashLeafId((prev) => (prev === after.id ? undefined : prev)), 3000);
+    } else {
+      await cascade.refresh(parents, after.id);
+    }
     void search.reload();
   }
 
@@ -291,6 +303,18 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
             className="w-full rounded-xl border border-border bg-surface py-2.5 pr-4 pl-10 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
+        {showEditTools && (
+          // Общая кнопка добавления: форма создания с пустым расположением
+          // (место выбирается в самой форме). Только десктоп ≥ lg.
+          <button
+            type="button"
+            onClick={() => setEditor({ kind: "create", catalogType, ancestors: [] })}
+            className="hidden shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 lg:flex"
+          >
+            <Plus className="size-4" />
+            Добавить в справочник
+          </button>
+        )}
       </div>
 
       {isSearching && (
@@ -360,6 +384,7 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
               isMobile={isMobile}
               isAdminLike={isAdminLike}
               selectedLeafId={selectedLeafId}
+              flashLeafId={flashLeafId}
               onLeaf={(leaf) => setSelectedLeafId(leaf.id)}
               renderLeafActions={
                 showEditTools

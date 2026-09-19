@@ -25,7 +25,7 @@ export function useWorkTypeCascade(catalogType: CatalogType | null, treeOptions?
   // "передовая" колонка — выровнена по кликнутой карточке в проскроленной
   // соседней колонке (см. CascadeColumn.initialScrollTop), а не всегда с нуля.
   const [frontierScrollOffset, setFrontierScrollOffset] = useState(0);
-  const { columns, resolveAutoSkip, refresh, removeNode } = useWorkTypeTree(
+  const { columns, resolveAutoSkip, refresh, removeNode, loadPath } = useWorkTypeTree(
     catalogType,
     chain,
     treeOptions,
@@ -88,6 +88,19 @@ export function useWorkTypeCascade(catalogType: CatalogType | null, treeOptions?
     [stepBoundaries],
   );
 
+  // Раскрывает каскад справочника (browse: auto-skip выключен, каждый уровень —
+  // отдельный шаг) вдоль цепочки предков листа, чтобы показать его в колонке
+  // родителя. Списки вдоль цепочки перечитываются свежими.
+  const revealPath = useCallback(
+    async (ancestors: { id: string }[]) => {
+      const nodes = await loadPath(ancestors);
+      setFrontierScrollOffset(0);
+      setChain(nodes);
+      setStepBoundaries(nodes.map((_, i) => i + 1));
+    },
+    [loadPath],
+  );
+
   // Узел выбранной цепочки переименовали: подставляем новое имя (хлебные
   // крошки, родитель в подписях). Если узла в цепочке нет — состояние не
   // меняется, ничего не перерисовывается.
@@ -137,6 +150,7 @@ export function useWorkTypeCascade(catalogType: CatalogType | null, treeOptions?
     refresh,
     removeNode,
     renameInChain,
+    revealPath,
     selectAtLevel,
     isColumnVisible,
     back,

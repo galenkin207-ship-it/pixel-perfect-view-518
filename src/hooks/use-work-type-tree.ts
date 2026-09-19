@@ -34,6 +34,11 @@ export type UseWorkTypeTreeResult = {
   refresh: (parentIds: (string | null)[], containingNodeId?: string) => Promise<void>;
   // Мгновенно убирает узел из всех кэшированных списков и открытых колонок.
   removeNode: (nodeId: string) => void;
+  // Свежо (мимо кэша) загружает списки детей вдоль цепочки предков листа и
+  // возвращает узлы цепочки для колонок каскада. Предок, которого нет в
+  // списке родителя (бэкенд схлопнул одноимённую группу — у куратора), пропускается:
+  // его дети уже лежат в списке родителя.
+  loadPath: (ancestors: { id: string }[]) => Promise<WorkTypeTreeNode[]>;
 };
 
 export type WorkTypeTreeOptions = {
@@ -220,5 +225,28 @@ export function useWorkTypeTree(
     setRevision((r) => r + 1);
   }, []);
 
-  return { columns, resolveAutoSkip, refresh, removeNode };
+  const loadPath = useCallback(
+    async (ancestors: { id: string }[]): Promise<WorkTypeTreeNode[]> => {
+      const type = catalogTypeRef.current;
+      if (!type) return [];
+      const mode = cacheModeRef.current;
+      const remember = (key: string, nodes: WorkTypeTreeNode[]) => {
+        if (cacheModeRef.current === mode) cacheRef.current.set(key, nodes);
+      };
+      const path: WorkTypeTreeNode[] = [];
+      let list = await fetchList({ type });
+      remember(`type:${type}`, list);
+      for (const ancestor of ancestors) {
+        const node = list.find((n) => n.id === ancestor.id);
+        if (!node) continue;
+        path.push(node);
+        list = await fetchList({ parentId: node.id });
+        remember(`parent:${node.id}`, list);
+      }
+      return path;
+    },
+    [fetchList],
+  );
+
+  return { columns, resolveAutoSkip, refresh, removeNode, loadPath };
 }
