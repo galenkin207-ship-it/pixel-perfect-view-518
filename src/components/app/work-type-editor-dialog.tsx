@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Pencil, Plus, Trash2, X } from "lucide-react";
 
 import {
   AlertDialog,
@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { DeleteNodeDialog, NodeNameDialog } from "@/components/app/work-type-node-dialogs";
 import type {
   CatalogType,
   WorkTypeAncestor,
@@ -121,10 +122,19 @@ export function WorkTypeEditorDialog({
   target,
   onClose,
   onSaved,
+  onNodeCreated,
+  onNodeRenamed,
+  onNodeDeleted,
 }: {
   target: WorkTypeEditorTarget;
   onClose: () => void;
   onSaved: (result: WorkTypeEditorResult) => void;
+  // Структуру справочника правят прямо из селекторов «Расположение» (только
+  // admin). Хозяин (страница справочника) точечно обновляет свой каскад под
+  // модалкой; parentId — реальный родитель узла (null — корень каталога).
+  onNodeCreated?: (parentId: string | null) => void | Promise<void>;
+  onNodeRenamed?: (id: string, name: string, parentId: string | null) => void | Promise<void>;
+  onNodeDeleted?: (id: string, parentId: string | null) => void | Promise<void>;
 }) {
   const { units, role } = useApp();
   // Создавать разделы (уровни 1–4) может только admin (POST /work-types/nodes
@@ -190,6 +200,11 @@ export function WorkTypeEditorDialog({
   const knownAncestors = isCreate ? target.ancestors : (detail?.ancestors ?? []);
   const ancestorSelection = selectionFromAncestors(knownAncestors);
 
+  // Селекторы получают только контейнеры; admin — ещё и пустые (иначе только
+  // что созданный раздел нельзя было бы выбрать целью переноса). Куратор
+  // выбирает только из существующих (непустых) разделов.
+  const treeOpts = { containersOnly: true, includeEmpty: isAdmin };
+
   function parentKey(levelIdx: number, sel: (string | null)[]): string | null {
     return levelIdx === 0 ? "root" : (sel[levelIdx - 1] ?? null);
   }
@@ -206,14 +221,14 @@ export function WorkTypeEditorDialog({
       const request =
         key === "root"
           ? catalogTypeRef.current
-            ? api.getWorkTypeTree({ type: catalogTypeRef.current })
+            ? api.getWorkTypeTree({ type: catalogTypeRef.current }, treeOpts)
             : Promise.resolve([])
-          : api.getWorkTypeTree({ parentId: key });
+          : api.getWorkTypeTree({ parentId: key }, treeOpts);
       request
         .then((nodes) => {
           if (cancelled) return;
           const fetched: Option[] = nodes
-            .filter((n) => n.level < 5)
+            .filter((n) => n.level < 5 && n.source !== "legacy_root")
             .map((n) => ({ id: n.id, name: n.name, gesnCode: n.gesn_code }));
           setOptions((prev) => {
             // Известный предок этого уровня, лежащий именно под этим
@@ -264,6 +279,18 @@ export function WorkTypeEditorDialog({
   // Инлайн-создание узла на уровне levelIdx («+» справа от селекта).
   const [adding, setAdding] = useState<{ levelIdx: number; name: string; busy: boolean; error: string | null } | null>(null);
 
+  // Переименование/удаление выбранного узла (карандаш/корзина справа от
+  // селектора, только admin). Форма позиции при этом не трогается: меняется
+  // только список вариантов и, при удалении выбранного узла, selection.
+  const [nodeAction, setNodeAction] = useState<
+    { kind: "rename" | "delete"; levelIdx: number; id: string; name: string } | null
+  >(null);
+
+  function optionName(levelIdx: number, id: string): string {
+    const key = parentKey(levelIdx, selection);
+    return (key ? options[key] : undefined)?.find((o) => o.id === id)?.name ?? "";
+  }
+
   async function createNode() {
     if (!adding) return;
     const name = adding.name.trim();
@@ -292,6 +319,7 @@ export function WorkTypeEditorDialog({
       // Новый узел сразу выбираем (глубже — сбрасываем, у нового пусто).
       changeSelection(levelIdx, node.id);
       setAdding(null);
+      void onNodeCreated?.(parentId);
     } catch (err) {
       setAdding({ levelIdx, name: adding.name, busy: false, error: describeError(err) });
     }
@@ -434,6 +462,44 @@ export function WorkTypeEditorDialog({
                                 </option>
                               ))}
                             </select>
+                            {isAdmin && selection[i] && (
+                              <>
+                                <button
+                                  type="button"
+                                  title={`Переименовать: ${lvl.label.toLowerCase()}`}
+                                  aria-label={`Переименовать: ${lvl.label.toLowerCase()}`}
+                                  disabled={saving}
+                                  onClick={() =>
+                                    setNodeAction({
+                                      kind: "rename",
+                                      levelIdx: i,
+                                      id: selection[i]!,
+                                      name: optionName(i, selection[i]!),
+                                    })
+                                  }
+                                  className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+                                >
+                                  <Pencil className="size-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  title={`Удалить: ${lvl.label.toLowerCase()}`}
+                                  aria-label={`Удалить: ${lvl.label.toLowerCase()}`}
+                                  disabled={saving}
+                                  onClick={() =>
+                                    setNodeAction({
+                                      kind: "delete",
+                                      levelIdx: i,
+                                      id: selection[i]!,
+                                      name: optionName(i, selection[i]!),
+                                    })
+                                  }
+                                  className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
+                                >
+                                  <Trash2 className="size-4" />
+                                </button>
+                              </>
+                            )}
                             {isAdmin && (
                               <button
                                 type="button"
@@ -665,6 +731,49 @@ export function WorkTypeEditorDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {isAdmin && nodeAction?.kind === "rename" && (
+        <NodeNameDialog
+          key={`rename:${nodeAction.id}`}
+          title={`Изменить: ${LOCATION_LEVELS[nodeAction.levelIdx]!.label.toLowerCase()}`}
+          initialName={nodeAction.name}
+          submitLabel="Сохранить"
+          onClose={() => setNodeAction(null)}
+          onSubmit={async (name) => {
+            const { levelIdx, id } = nodeAction;
+            await api.renameNode(id, name);
+            const key = parentKey(levelIdx, selection);
+            if (key) {
+              setOptions((prev) => ({
+                ...prev,
+                [key]: (prev[key] ?? []).map((o) => (o.id === id ? { ...o, name } : o)),
+              }));
+            }
+            setNodeAction(null);
+            void onNodeRenamed?.(id, name, key === "root" ? null : key);
+          }}
+        />
+      )}
+
+      {isAdmin && nodeAction?.kind === "delete" && (
+        <DeleteNodeDialog
+          key={`delete:${nodeAction.id}`}
+          node={{ id: nodeAction.id, name: nodeAction.name }}
+          onClose={() => setNodeAction(null)}
+          onDeleted={() => {
+            const { levelIdx, id } = nodeAction;
+            const key = parentKey(levelIdx, selection);
+            if (key) {
+              setOptions((prev) => ({ ...prev, [key]: (prev[key] ?? []).filter((o) => o.id !== id) }));
+            }
+            // Удалён выбранный узел — снимаем выбор этого и нижних уровней; поля
+            // самой позиции (название, цена, состав…) остаются как есть.
+            changeSelection(levelIdx, null);
+            setNodeAction(null);
+            void onNodeDeleted?.(id, key === "root" ? null : key);
+          }}
+        />
+      )}
     </>
   );
 }

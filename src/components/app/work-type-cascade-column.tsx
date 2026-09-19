@@ -27,6 +27,7 @@ export function CascadeColumn({
   scrollKey,
   selectedLeafId,
   renderLeafActions,
+  renderContainerActions,
   footer,
 }: {
   nodes: WorkTypeTreeNode[];
@@ -61,6 +62,9 @@ export function CascadeColumn({
   // группы над ним. Клик по слоту не должен выбирать карточку — это забота
   // самого слота (карточка и слот — соседи, а не вложенные кнопки).
   renderLeafActions?: ((leaf: WorkTypeTreeNode, groupName: string | undefined) => ReactNode) | undefined;
+  // Слот справа на карточке контейнера (уровни 1–4): меню «⋯» для admin.
+  // Так же соседствует с кнопкой карточки, а не вложен в неё.
+  renderContainerActions?: ((node: WorkTypeTreeNode) => ReactNode) | undefined;
   // Хвост списка (кнопка «+ Добавить позицию»): рисуется и под карточками, и
   // в пустой колонке.
   footer?: ReactNode;
@@ -124,12 +128,17 @@ export function CascadeColumn({
   return (
     <ul ref={scrollRef} className={cn("flex flex-col gap-1.5", className)}>
       {nodes.map((node) => {
+        // Контейнер — по уровню, а не по has_children: пустой контейнер
+        // (include_empty, admin) детей не имеет, но остаётся контейнером —
+        // по клику открывает свою (пустую) колонку.
+        const isContainer = node.level < 5;
+        const isEmpty = isContainer && node.is_empty;
         const preview = node.has_children ? previews[node.id] : undefined;
         const resolvesToLeaf = preview?.kind === "leaf" ? preview : undefined;
         // Карточка ведёт себя и выглядит как лист, если сам узел уже лист,
         // либо если auto-skip от него без промежуточных реальных выборов
         // доходит до листа.
-        const displayAsLeaf = !node.has_children || Boolean(resolvesToLeaf);
+        const displayAsLeaf = !isContainer || Boolean(resolvesToLeaf);
         const selected =
           node.id === selectedId ||
           (selectedLeafId != null &&
@@ -147,10 +156,13 @@ export function CascadeColumn({
         // в записи/отчётах).
         const isLevel1 = node.level === 1;
         const gesnNumberLabel = isLevel1 ? formatGesnNumberLabel(node.gesn_code) : null;
-        const displayName = !node.has_children && node.variant_label ? node.variant_label : node.name;
-        const actions =
-          displayAsLeaf && renderLeafActions
+        const displayName = !isContainer && node.variant_label ? node.variant_label : node.name;
+        const actions = displayAsLeaf
+          ? renderLeafActions
             ? renderLeafActions(resolvesToLeaf ? resolvesToLeaf.leaf : node, resolvesToLeaf?.groupName)
+            : null
+          : renderContainerActions
+            ? renderContainerActions(node)
             : null;
 
         return (
@@ -164,13 +176,15 @@ export function CascadeColumn({
               selected
                 ? "border-primary/50 bg-primary/5"
                 : "border-border bg-surface hover:border-primary/40 hover:bg-primary/5",
+              // Пустой контейнер (только admin в справочнике) — приглушённая карточка.
+              isEmpty && "opacity-60",
             )}
           >
             <button
               onClick={(event) => {
                 if (resolvesToLeaf) {
                   onAutoSkipLeaf(resolvesToLeaf.leaf, resolvesToLeaf.groupName);
-                } else if (node.has_children) {
+                } else if (isContainer) {
                   // Колонка открывается справа выровненной по высоте
                   // кликнутой карточки — но только если эту колонку
                   // реально проскроллили: иначе (клик по видимой без
@@ -236,7 +250,14 @@ export function CascadeColumn({
                   </span>
                 </span>
               ) : (
-                <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                <span className="flex shrink-0 items-center gap-2">
+                  {isEmpty && (
+                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold tracking-wide whitespace-nowrap text-muted-foreground uppercase">
+                      пусто
+                    </span>
+                  )}
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                </span>
               )}
             </button>
             {actions && <div className="shrink-0 pr-2">{actions}</div>}

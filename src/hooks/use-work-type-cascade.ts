@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 
 import type { CatalogType, WorkTypeTreeNode } from "@/data/work-type-tree";
-import { useWorkTypeTree, type AutoSkipResult } from "@/hooks/use-work-type-tree";
+import {
+  useWorkTypeTree,
+  type AutoSkipResult,
+  type WorkTypeTreeOptions,
+} from "@/hooks/use-work-type-tree";
 
 // Состояние Finder-каскада видов работ (выбранная цепочка узлов + "шаги"
 // для кнопки «Назад»/хлебных крошек + позиция открытия свежей колонки) поверх
@@ -9,7 +13,7 @@ import { useWorkTypeTree, type AutoSkipResult } from "@/hooks/use-work-type-tree
 // потому что хозяин каскада (пикер в record-form, страница справочника)
 // иногда временно размонтирует сам каскад (карточка-счётчик, результаты
 // поиска), а выбранная цепочка при этом должна сохраниться.
-export function useWorkTypeCascade(catalogType: CatalogType | null) {
+export function useWorkTypeCascade(catalogType: CatalogType | null, treeOptions?: WorkTypeTreeOptions) {
   const [chain, setChain] = useState<WorkTypeTreeNode[]>([]);
   // Границы "шагов" внутри chain: каждый клик пользователя (даже если он
   // авто-схлопнул несколько уровней подряд с единственным ребёнком) даёт
@@ -21,7 +25,11 @@ export function useWorkTypeCascade(catalogType: CatalogType | null) {
   // "передовая" колонка — выровнена по кликнутой карточке в проскроленной
   // соседней колонке (см. CascadeColumn.initialScrollTop), а не всегда с нуля.
   const [frontierScrollOffset, setFrontierScrollOffset] = useState(0);
-  const { columns, resolveAutoSkip, refresh, removeNode } = useWorkTypeTree(catalogType, chain);
+  const { columns, resolveAutoSkip, refresh, removeNode } = useWorkTypeTree(
+    catalogType,
+    chain,
+    treeOptions,
+  );
 
   // Клик по карточке узла с детьми. Если auto-skip доходит до листа —
   // возвращает его (хозяин решает, что с ним делать: выбрать в запись,
@@ -80,6 +88,17 @@ export function useWorkTypeCascade(catalogType: CatalogType | null) {
     [stepBoundaries],
   );
 
+  // Узел выбранной цепочки переименовали: подставляем новое имя (хлебные
+  // крошки, родитель в подписях). Если узла в цепочке нет — состояние не
+  // меняется, ничего не перерисовывается.
+  const renameInChain = useCallback((nodeId: string, name: string) => {
+    setChain((prev) =>
+      prev.some((node) => node.id === nodeId)
+        ? prev.map((node) => (node.id === nodeId ? { ...node, name } : node))
+        : prev,
+    );
+  }, []);
+
   const reset = useCallback(() => {
     setChain([]);
     setStepBoundaries([]);
@@ -117,6 +136,7 @@ export function useWorkTypeCascade(catalogType: CatalogType | null) {
     resolveAutoSkip,
     refresh,
     removeNode,
+    renameInChain,
     selectAtLevel,
     isColumnVisible,
     back,

@@ -34,9 +34,27 @@ export type WorkTypeTreeNode = {
   // разделов) — только admin, куратор получает false. Присутствует только у
   // контейнеров в /tree; у листьев и в /search — false.
   can_edit_node: boolean;
+  // Контейнер (уровни 1–4) без единого живого листа в поддереве. Бэкенд
+  // отдаёт true только при GET /tree?include_empty=1 (только admin); во всех
+  // остальных ответах поля нет (здесь false).
+  is_empty: boolean;
 };
 
 export type WorkTypeSearchResult = WorkTypeTreeNode & { breadcrumb: string[] };
+
+// Сколько всего внутри контейнера (GET /work-types/nodes/:id/usage, только
+// admin): листья и подконтейнеры на любой глубине поддерева.
+export type WorkTypeNodeUsage = {
+  id: string;
+  name: string;
+  level: number;
+  status: string;
+  leaves_active: number;
+  leaves_archived: number;
+  containers_active: number;
+  containers_archived: number;
+  record_items_count: number;
+};
 
 // Независимый шаговый модификатор (is_counter_step=true) базовой позиции —
 // см. GET /api/work-types/:baseId/counter-steps. У самой базовой позиции

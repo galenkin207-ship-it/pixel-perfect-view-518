@@ -36,6 +36,17 @@ export type UseWorkTypeTreeResult = {
   removeNode: (nodeId: string) => void;
 };
 
+export type WorkTypeTreeOptions = {
+  // Справочник admin/curator (browse), а не пикер записи: auto-skip
+  // единственного ребёнка отключён (при редактировании структуры нужен
+  // каждый уровень), служебные строки source='legacy_root' не показываются.
+  browse?: boolean;
+  // Только admin, только десктоп: дополнительно грузим пустые контейнеры
+  // (GET /tree?include_empty=1, is_empty=true). Пикер записи и мобильная
+  // версия этот флаг не передают.
+  includeEmpty?: boolean;
+};
+
 // Один столбец на каждый уровень цепочки выбора + столбец с детьми
 // последнего выбранного узла. Кэш по parentId живёт на весь срок жизни
 // хука (пока открыта модалка), чтобы повторные переходы вперёд/назад
@@ -43,8 +54,30 @@ export type UseWorkTypeTreeResult = {
 export function useWorkTypeTree(
   catalogType: CatalogType | null,
   chain: WorkTypeTreeNode[],
+  { browse = false, includeEmpty = false }: WorkTypeTreeOptions = {},
 ): UseWorkTypeTreeResult {
   const cacheRef = useRef(new Map<string, WorkTypeTreeNode[]>());
+  // Режим загрузки влияет на содержимое списков — при его смене (например,
+  // переключился тип указателя) кэш в прежнем режиме недействителен.
+  const cacheModeRef = useRef(`${browse}:${includeEmpty}`);
+  const modeKey = `${browse}:${includeEmpty}`;
+  if (cacheModeRef.current !== modeKey) {
+    cacheModeRef.current = modeKey;
+    cacheRef.current.clear();
+  }
+  const optsRef = useRef({ browse, includeEmpty });
+  optsRef.current = { browse, includeEmpty };
+
+  // Единая точка загрузки списков детей: режим (include_empty, скрытие
+  // legacy_root) применяется одинаково для колонок, auto-skip и refresh.
+  const fetchList = useCallback(
+    async (params: { type: CatalogType } | { parentId: string }): Promise<WorkTypeTreeNode[]> => {
+      const { browse: isBrowse, includeEmpty: withEmpty } = optsRef.current;
+      const nodes = await api.getWorkTypeTree(params, { includeEmpty: withEmpty });
+      return isBrowse ? nodes.filter((node) => node.source !== "legacy_root") : nodes;
+    },
+    [],
+  );
   const [columns, setColumns] = useState<WorkTypeTreeColumn[]>([]);
   const catalogTypeRef = useRef(catalogType);
   catalogTypeRef.current = catalogType;
@@ -77,10 +110,13 @@ export function useWorkTypeTree(
       const parent = chain[index - 1];
       const fetchNodes =
         index === 0 || !parent
-          ? api.getWorkTypeTree({ type: catalogType })
-          : api.getWorkTypeTree({ parentId: parent.id });
+          ? fetchList({ type: catalogType })
+          : fetchList({ parentId: parent.id });
       fetchNodes
         .then((nodes) => {
+          // Режим успел смениться (тип указателя определился уже после
+          // запроса) — ответ в прежнем режиме в кэш не кладём.
+          if (cacheModeRef.current !== modeKey) return;
           cacheRef.current.set(key, nodes);
           if (cancelled) return;
           setColumns((prev) =>
@@ -99,17 +135,19 @@ export function useWorkTypeTree(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalogType, chain]);
+  }, [catalogType, chain, modeKey]);
 
   const resolveAutoSkip = useCallback(async (startNode: WorkTypeTreeNode): Promise<AutoSkipResult> => {
     const chainNodes: WorkTypeTreeNode[] = [startNode];
+    // Справочник: каждый уровень виден и кликабелен, ничего не схлопываем.
+    if (optsRef.current.browse) return { chainNodes };
     let current = startNode;
     for (;;) {
       const key = `parent:${current.id}`;
       let children = cacheRef.current.get(key);
       if (!children) {
         try {
-          children = await api.getWorkTypeTree({ parentId: current.id });
+          children = await fetchList({ parentId: current.id });
         } catch {
           return { chainNodes };
         }
@@ -123,10 +161,11 @@ export function useWorkTypeTree(
     }
     // revision намеренно в зависимостях: см. комментарий у useState выше.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [revision]);
+  }, [revision, fetchList]);
 
   const refresh = useCallback(async (parentIds: (string | null)[], containingNodeId?: string) => {
     const type = catalogTypeRef.current;
+    const refreshMode = cacheModeRef.current;
     const keys = new Set<string>();
     for (const id of parentIds) {
       if (id !== null) keys.add(`parent:${id}`);
@@ -145,8 +184,9 @@ export function useWorkTypeTree(
         .map(async (key) => {
           try {
             const nodes = key.startsWith("type:")
-              ? await api.getWorkTypeTree({ type: key.slice("type:".length) as CatalogType })
-              : await api.getWorkTypeTree({ parentId: key.slice("parent:".length) });
+              ? await fetchList({ type: key.slice("type:".length) as CatalogType })
+              : await fetchList({ parentId: key.slice("parent:".length) });
+            if (cacheModeRef.current !== refreshMode) return;
             cacheRef.current.set(key, nodes);
             setColumns((prev) =>
               prev.map((col) => (col.key === key ? { key, nodes, loading: false } : col)),

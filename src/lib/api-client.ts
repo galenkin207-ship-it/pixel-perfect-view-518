@@ -15,6 +15,7 @@ import type {
   WorkTypeCounterStep,
   WorkTypeDetail,
   WorkTypeLeafInput,
+  WorkTypeNodeUsage,
   WorkTypeSearchResult,
   WorkTypeTreeNode,
 } from "@/data/work-type-tree";
@@ -215,6 +216,7 @@ type RawWorkTypeTreeNode = {
   source?: string | null;
   can_edit?: boolean;
   can_edit_node?: boolean;
+  is_empty?: boolean;
 };
 
 function mapWorkTypeTreeNode(raw: RawWorkTypeTreeNode): WorkTypeTreeNode {
@@ -239,6 +241,7 @@ function mapWorkTypeTreeNode(raw: RawWorkTypeTreeNode): WorkTypeTreeNode {
     source: raw.source ?? null,
     can_edit: raw.can_edit ?? false,
     can_edit_node: raw.can_edit_node ?? false,
+    is_empty: raw.is_empty ?? false,
   };
 }
 
@@ -630,6 +633,31 @@ export const api = {
     return mapWorkTypeTreeNode(raw);
   },
 
+  // Переименование контейнера (level 1-4): PATCH /work-types/nodes/:id, admin.
+  // Ответ сервера — только поля самой строки (без has_children), поэтому
+  // хозяин перечитывает список родителя, а не подставляет ответ в кэш.
+  async renameNode(id: string, name: string): Promise<{ id: string; name: string }> {
+    const raw = await request<{ id: number | string; name: string }>(`/work-types/nodes/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    });
+    return { id: String(raw.id), name: raw.name };
+  },
+
+  // Архивация контейнера: PATCH /work-types/nodes/:id/archive, admin. Сервер
+  // отвечает 409, если внутри остались живые листья.
+  async archiveNode(id: string): Promise<void> {
+    await request<unknown>(`/work-types/nodes/${id}/archive`, { method: "PATCH" });
+  },
+
+  // Что лежит внутри контейнера — для проверки перед удалением.
+  async getNodeUsage(id: string): Promise<WorkTypeNodeUsage> {
+    const raw = await request<Omit<WorkTypeNodeUsage, "id"> & { id: number | string }>(
+      `/work-types/nodes/${id}/usage`,
+    );
+    return { ...raw, id: String(raw.id) };
+  },
+
   async archiveWorkType(id: string): Promise<void> {
     await request<{ id: number; name: string; unit: string; price: string | number; status: string; archived_at: string | null }>(
       `/work-types/${id}/archive`,
@@ -637,11 +665,21 @@ export const api = {
     );
   },
 
-  async getWorkTypeTree(params: { type: CatalogType } | { parentId: string }): Promise<WorkTypeTreeNode[]> {
-    const qs =
+  // includeEmpty — режим редактирования структуры (только admin, сервер для
+  // остальных ролей молча игнорирует): дополнительно отдаёт пустые контейнеры
+  // с is_empty=true и реальные узлы без схлопывания одноимённых групп.
+  // containersOnly — только контейнеры (level<5), для селекторов «Расположение».
+  // Пикер записи и мобильная версия эти флаги не передают.
+  async getWorkTypeTree(
+    params: { type: CatalogType } | { parentId: string },
+    opts: { includeEmpty?: boolean; containersOnly?: boolean } = {},
+  ): Promise<WorkTypeTreeNode[]> {
+    let qs =
       "type" in params
         ? `type=${encodeURIComponent(params.type)}`
         : `parentId=${encodeURIComponent(params.parentId)}`;
+    if (opts.includeEmpty) qs += "&include_empty=1";
+    if (opts.containersOnly) qs += "&containers_only=1";
     const { items } = await request<{ items: RawWorkTypeTreeNode[] }>(`/work-types/tree?${qs}`);
     return items.map(mapWorkTypeTreeNode);
   },

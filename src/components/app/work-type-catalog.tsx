@@ -19,6 +19,7 @@ import {
   type WorkTypeEditorResult,
   type WorkTypeEditorTarget,
 } from "@/components/app/work-type-editor-dialog";
+import { DeleteNodeDialog, NodeNameDialog } from "@/components/app/work-type-node-dialogs";
 import { WorkTypeSearchResults } from "@/components/app/work-type-search-results";
 import type { CatalogType, WorkTypeDetail, WorkTypeTreeNode } from "@/data/work-type-tree";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -35,6 +36,15 @@ const CATALOG_TYPES: { value: CatalogType; label: string }[] = [
 
 type DeleteTarget = { id: string; label: string; parentId: string | null };
 
+// Что создаёт «+ Добавить …» в колонке: по уровню НОВОГО контейнера (1 — сборник
+// в корне каталога, 4 — группа под таблицей). Ниже группы контейнеров нет.
+const NEW_NODE_LABELS: Record<number, { button: string; title: string; placeholder: string }> = {
+  1: { button: "Добавить сборник", title: "Новый сборник", placeholder: "Название сборника" },
+  2: { button: "Добавить раздел", title: "Новый раздел", placeholder: "Название раздела" },
+  3: { button: "Добавить таблицу", title: "Новая таблица", placeholder: "Название таблицы" },
+  4: { button: "Добавить группу", title: "Новая группа", placeholder: "Название группы" },
+};
+
 // Название позиции так, как её видит пользователь на карточке.
 function leafLabel(leaf: { name: string; variant_label: string | null }, groupName?: string): string {
   const base = leaf.variant_label || leaf.name;
@@ -49,11 +59,14 @@ function LeafActionsMenu({
   canDelete,
   onEdit,
   onDelete,
+  subject = "позицией",
 }: {
   label: string;
   canDelete: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  // «Действия с <subject> «…»» — позиция или раздел (контейнер).
+  subject?: string;
 }) {
   const [open, setOpen] = useState(false);
   const itemClass =
@@ -63,7 +76,7 @@ function LeafActionsMenu({
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={`Действия с позицией «${label}»`}
+          aria-label={`Действия с ${subject} «${label}»`}
           className="hidden size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:flex"
         >
           <MoreVertical className="size-4" />
@@ -113,16 +126,27 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
   const canDelete = role === "admin";
   const isMobile = useIsMobile();
   const showEditTools = isAdminLike && !isMobile;
+  // Правка структуры (разделы, таблицы, группы) — только role === "admin"
+  // (не isAdminLike: куратор разделы не правит) и только десктоп.
+  const showStructureTools = role === "admin" && !isMobile;
 
   const [catalogType, setCatalogType] = useState<CatalogType>("новое строительство");
   const [query, setQuery] = useState("");
-  const cascade = useWorkTypeCascade(catalogType);
+  // Справочник (browse): auto-skip единственного ребёнка отключён — при
+  // редактировании структуры виден каждый уровень. Пустые контейнеры
+  // (include_empty) подгружаются только админу на десктопе; мобильная версия
+  // и пикер записи их не запрашивают.
+  const cascade = useWorkTypeCascade(catalogType, { browse: true, includeEmpty: showStructureTools });
   const search = useWorkTypeSearch(query);
   const [selectedLeafId, setSelectedLeafId] = useState<string | undefined>();
   const [editor, setEditor] = useState<WorkTypeEditorTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [preparingCreateFor, setPreparingCreateFor] = useState<string | null>(null);
+  const [renameNodeTarget, setRenameNodeTarget] = useState<WorkTypeTreeNode | null>(null);
+  const [deleteNodeTarget, setDeleteNodeTarget] = useState<WorkTypeTreeNode | null>(null);
+  // parent — родитель нового раздела (undefined — корень текущего каталога).
+  const [addSectionParent, setAddSectionParent] = useState<{ parent: WorkTypeTreeNode | undefined } | null>(null);
 
   const isSearching = query.trim().length > 0;
 
@@ -186,6 +210,31 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
     } finally {
       setDeleting(false);
     }
+  }
+
+  // Правка структуры — из колонок каскада и из селекторов редактора позиции
+  // (одни и те же обработчики). Везде точечно: перечитываем только список
+  // родителя (уже загруженные колонки обновляются на месте — выбранный путь и
+  // скролл остаются), без сброса каскада. parentId — реальный родитель узла
+  // (null — корень каталога).
+  async function handleNodeCreated(parentId: string | null) {
+    await cascade.refresh([parentId], parentId ?? undefined);
+  }
+
+  async function handleNodeRenamed(id: string, name: string, parentId: string | null) {
+    await cascade.refresh([parentId], id);
+    // Имя в выбранной цепочке (подписи над колонками, хлебные крошки).
+    cascade.renameInChain(id, name);
+    void search.reload();
+  }
+
+  // Узел исчезает из кэшей и колонок сразу. Если он был на открытом пути,
+  // хук каскада сам сворачивает цепочку до колонки его родителя (см. эффект
+  // в use-work-type-cascade) — остальные колонки, скролл и выбор не трогаются.
+  async function handleNodeDeleted(id: string, parentId: string | null) {
+    cascade.removeNode(id);
+    void search.reload();
+    await cascade.refresh([parentId]);
   }
 
   // «+ Добавить позицию» в конце колонки, где родитель — таблица/группа.
@@ -331,23 +380,56 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
                       ) : null
                   : undefined
               }
+              renderContainerActions={
+                showStructureTools
+                  ? (node) => (
+                      <LeafActionsMenu
+                        label={node.name}
+                        subject="разделом"
+                        canDelete
+                        onEdit={() => setRenameNodeTarget(node)}
+                        onDelete={() => setDeleteNodeTarget(node)}
+                      />
+                    )
+                  : undefined
+              }
               renderColumnFooter={
                 showEditTools
                   ? ({ parent, nodes }) => {
-                      if (!parent) return null;
                       const siblingLeaf = nodes.find((n) => n.level === 5);
-                      const canAddHere = parent.level === 4 || (parent.level === 3 && siblingLeaf);
-                      if (!canAddHere) return null;
+                      const canAddPosition =
+                        parent !== undefined && (parent.level === 4 || (parent.level === 3 && siblingLeaf));
+                      // Новый контейнер: в корне каталога — сборник, под узлом
+                      // уровня L (L < 4) — контейнер уровня L + 1. Только admin.
+                      const newLevel = parent ? parent.level + 1 : 1;
+                      const canAddSection = showStructureTools && newLevel <= 4;
+                      if (!canAddPosition && !canAddSection) return null;
+                      const buttonClass =
+                        "flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border py-3 text-sm font-semibold text-primary transition-colors hover:border-primary hover:bg-primary/10 disabled:opacity-60";
                       return (
-                        <button
-                          type="button"
-                          disabled={preparingCreateFor === parent.id}
-                          onClick={() => void openCreate(parent, siblingLeaf)}
-                          className="hidden w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border py-3 text-sm font-semibold text-primary transition-colors hover:border-primary hover:bg-primary/10 disabled:opacity-60 lg:flex"
-                        >
-                          <Plus className="size-4" />
-                          {preparingCreateFor === parent.id ? "Открываем…" : "Добавить позицию"}
-                        </button>
+                        <div className="hidden flex-col gap-1.5 lg:flex">
+                          {canAddSection && (
+                            <button
+                              type="button"
+                              onClick={() => setAddSectionParent({ parent })}
+                              className={buttonClass}
+                            >
+                              <Plus className="size-4" />
+                              {NEW_NODE_LABELS[newLevel]!.button}
+                            </button>
+                          )}
+                          {canAddPosition && (
+                            <button
+                              type="button"
+                              disabled={preparingCreateFor === parent.id}
+                              onClick={() => void openCreate(parent, siblingLeaf)}
+                              className={buttonClass}
+                            >
+                              <Plus className="size-4" />
+                              {preparingCreateFor === parent.id ? "Открываем…" : "Добавить позицию"}
+                            </button>
+                          )}
+                        </div>
                       );
                     }
                   : undefined
@@ -363,6 +445,63 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
           target={editor}
           onClose={() => setEditor(null)}
           onSaved={(result) => void handleSaved(result)}
+          onNodeCreated={(parentId) => handleNodeCreated(parentId)}
+          onNodeRenamed={(id, name, parentId) => handleNodeRenamed(id, name, parentId)}
+          onNodeDeleted={(id, parentId) => handleNodeDeleted(id, parentId)}
+        />
+      )}
+
+      {showStructureTools && renameNodeTarget && (
+        <NodeNameDialog
+          key={renameNodeTarget.id}
+          title="Изменить раздел"
+          initialName={renameNodeTarget.name}
+          submitLabel="Сохранить"
+          onClose={() => setRenameNodeTarget(null)}
+          onSubmit={async (name) => {
+            const node = renameNodeTarget;
+            await api.renameNode(node.id, name);
+            setRenameNodeTarget(null);
+            toast.success("Название изменено");
+            await handleNodeRenamed(node.id, name, node.parent_id);
+          }}
+        />
+      )}
+
+      {showStructureTools && deleteNodeTarget && (
+        <DeleteNodeDialog
+          key={deleteNodeTarget.id}
+          node={{ id: deleteNodeTarget.id, name: deleteNodeTarget.name }}
+          onClose={() => setDeleteNodeTarget(null)}
+          onDeleted={async () => {
+            const node = deleteNodeTarget;
+            setDeleteNodeTarget(null);
+            toast.success("Раздел удалён");
+            await handleNodeDeleted(node.id, node.parent_id);
+          }}
+        />
+      )}
+
+      {showStructureTools && addSectionParent && (
+        <NodeNameDialog
+          key={addSectionParent.parent?.id ?? "root"}
+          title={NEW_NODE_LABELS[addSectionParent.parent ? addSectionParent.parent.level + 1 : 1]!.title}
+          placeholder={NEW_NODE_LABELS[addSectionParent.parent ? addSectionParent.parent.level + 1 : 1]!.placeholder}
+          submitLabel="Создать"
+          onClose={() => setAddSectionParent(null)}
+          onSubmit={async (name) => {
+            const { parent } = addSectionParent;
+            await api.createWorkTypeNode({
+              parentId: parent?.id ?? null,
+              name,
+              // Для сборника (корень) сервер требует catalog_type; у вложенных
+              // узлов он наследуется от родителя.
+              ...(parent ? {} : { catalogType }),
+            });
+            setAddSectionParent(null);
+            toast.success("Раздел добавлен");
+            await handleNodeCreated(parent?.id ?? null);
+          }}
         />
       )}
 

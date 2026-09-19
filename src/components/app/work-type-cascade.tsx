@@ -10,6 +10,9 @@ import type { WorkTypeCascadeState } from "@/hooks/use-work-type-cascade";
 // поэтому число реально отрендеренных колонок варьируется, и level не
 // совпадает с видимой позицией.
 const CASCADE_COLUMN_LABELS = ["Название сборника", "Раздел", "Группа", "Вариант", "Подвариант"];
+// В справочнике (browse) auto-skip выключен — колонка i всегда содержит узлы
+// уровня i + 1 (под таблицей рядом с группами могут лежать и позиции).
+const BROWSE_COLUMN_LABELS = ["Сборник", "Раздел", "Таблица", "Группа", "Позиции"];
 
 export type ColumnFooterContext = {
   // Колонка, у которой это хвост списка: родитель (undefined у корневой),
@@ -37,6 +40,7 @@ export function WorkTypeCascade({
   onLeaf,
   selectedLeafId,
   renderLeafActions,
+  renderContainerActions,
   renderColumnFooter,
   className,
 }: {
@@ -49,6 +53,8 @@ export function WorkTypeCascade({
   onLeaf: (leaf: WorkTypeTreeNode, groupName: string | undefined) => void;
   selectedLeafId?: string | undefined;
   renderLeafActions?: ((leaf: WorkTypeTreeNode, groupName: string | undefined) => ReactNode) | undefined;
+  // Меню «⋯» на карточке контейнера (уровни 1–4) — только admin.
+  renderContainerActions?: ((node: WorkTypeTreeNode) => ReactNode) | undefined;
   renderColumnFooter?: ((ctx: ColumnFooterContext) => ReactNode) | undefined;
   // Класс корня desktop-раскладки (высоту/flex задаёт хозяин).
   className?: string | undefined;
@@ -129,7 +135,7 @@ export function WorkTypeCascade({
           // вместе с колонкой сама собой, без ручной синхронизации scrollLeft.
           <div key={level} className="flex w-72 shrink-0 min-h-0 flex-col">
             <div className="mb-1.5 shrink-0 px-1 text-xs font-medium text-muted-foreground">
-              {CASCADE_COLUMN_LABELS[position] ?? ""}
+              {(browse ? BROWSE_COLUMN_LABELS[level] : CASCADE_COLUMN_LABELS[position]) ?? ""}
             </div>
             <CascadeColumn
               // Без h-full: высота колонки — не CSS-процент (который не
@@ -151,6 +157,7 @@ export function WorkTypeCascade({
               resolveAutoSkip={resolveAutoSkip}
               initialScrollTop={isFrontier ? frontierScrollOffset : undefined}
               renderLeafActions={browse ? renderLeafActions : undefined}
+              renderContainerActions={browse ? renderContainerActions : undefined}
               footer={browse ? renderColumnFooter?.({ parent, level, nodes: col.nodes }) : undefined}
             />
           </div>
