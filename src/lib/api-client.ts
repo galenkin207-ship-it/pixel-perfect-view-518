@@ -214,6 +214,7 @@ type RawWorkTypeTreeNode = {
   has_counter_steps: boolean;
   source?: string | null;
   can_edit?: boolean;
+  can_edit_node?: boolean;
 };
 
 function mapWorkTypeTreeNode(raw: RawWorkTypeTreeNode): WorkTypeTreeNode {
@@ -237,6 +238,7 @@ function mapWorkTypeTreeNode(raw: RawWorkTypeTreeNode): WorkTypeTreeNode {
     has_counter_steps: raw.has_counter_steps,
     source: raw.source ?? null,
     can_edit: raw.can_edit ?? false,
+    can_edit_node: raw.can_edit_node ?? false,
   };
 }
 

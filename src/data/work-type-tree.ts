@@ -30,6 +30,10 @@ export type WorkTypeTreeNode = {
   // /search такого поля нет (там false; для карточек поиска ориентируемся
   // на роль). Сервер всё равно проверяет права на каждую мутацию.
   can_edit: boolean;
+  // Право на правку контейнера (уровни 1–4: создание/переименование/архив
+  // разделов) — только admin, куратор получает false. Присутствует только у
+  // контейнеров в /tree; у листьев и в /search — false.
+  can_edit_node: boolean;
 };
 
 export type WorkTypeSearchResult = WorkTypeTreeNode & { breadcrumb: string[] };

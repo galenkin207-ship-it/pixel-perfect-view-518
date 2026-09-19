@@ -122,7 +122,10 @@ export function WorkTypeEditorDialog({
   onClose: () => void;
   onSaved: (result: WorkTypeEditorResult) => void;
 }) {
-  const { units } = useApp();
+  const { units, role } = useApp();
+  // Создавать разделы (уровни 1–4) может только admin (POST /work-types/nodes
+  // для куратора — 403): куратор выбирает расположение только из существующих.
+  const isAdmin = role === "admin";
   const isCreate = target.kind === "create";
 
   const [detail, setDetail] = useState<WorkTypeDetail | null>(null);
@@ -391,7 +394,7 @@ export function WorkTypeEditorDialog({
                       const key = parentKey(i, selection);
                       const opts = key ? (options[key] ?? []) : [];
                       const parentMissing = i > 0 && !selection[i - 1];
-                      const isAddingHere = adding?.levelIdx === i;
+                      const isAddingHere = isAdmin && adding?.levelIdx === i;
                       return (
                         <div key={lvl.label} className="space-y-1.5">
                           <span className={labelClass}>{lvl.label}</span>
@@ -413,21 +416,23 @@ export function WorkTypeEditorDialog({
                                 </option>
                               ))}
                             </select>
-                            <button
-                              type="button"
-                              title={lvl.addTitle}
-                              aria-label={lvl.addTitle}
-                              disabled={parentMissing || saving}
-                              onClick={() =>
-                                setAdding(isAddingHere ? null : { levelIdx: i, name: "", busy: false, error: null })
-                              }
-                              className={cn(
-                                "flex size-10 shrink-0 items-center justify-center rounded-xl border border-dashed border-border text-primary transition-colors hover:border-primary hover:bg-primary/10 disabled:opacity-40",
-                                isAddingHere && "border-primary bg-primary/10",
-                              )}
-                            >
-                              <Plus className="size-4" />
-                            </button>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                title={lvl.addTitle}
+                                aria-label={lvl.addTitle}
+                                disabled={parentMissing || saving}
+                                onClick={() =>
+                                  setAdding(isAddingHere ? null : { levelIdx: i, name: "", busy: false, error: null })
+                                }
+                                className={cn(
+                                  "flex size-10 shrink-0 items-center justify-center rounded-xl border border-dashed border-border text-primary transition-colors hover:border-primary hover:bg-primary/10 disabled:opacity-40",
+                                  isAddingHere && "border-primary bg-primary/10",
+                                )}
+                              >
+                                <Plus className="size-4" />
+                              </button>
+                            )}
                           </div>
                           {isAddingHere && adding && (
                             <div className="space-y-1.5 rounded-xl border border-border bg-muted/40 p-2.5">
