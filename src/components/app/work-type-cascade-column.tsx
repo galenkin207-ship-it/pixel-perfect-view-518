@@ -245,53 +245,50 @@ export function CascadeColumn({
               }}
               className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left"
             >
-              <span className="min-w-0 flex-1">
+              {/* Название получает всю оставшуюся ширину и переносится по
+                  словам целиком (без truncate/line-clamp). Всё остальное —
+                  бейдж источника, единица, цена, «пусто» — идёт ОТДЕЛЬНОЙ
+                  строкой под названием, а не справа от него: раньше длинная
+                  единица ("м2 горизонтальной проекции") отжимала название
+                  в узкую полоску. Справа остаётся только шеврон контейнера.
+                  Высоту карточки задаёт содержимое. */}
+              <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <span
                   className={cn(
-                    "block text-sm font-semibold leading-snug break-words whitespace-normal",
+                    "block min-w-0 text-sm font-semibold leading-snug break-words whitespace-normal",
                     isLevel1 && "uppercase",
                   )}
                 >
                   {gesnNumberLabel != null ? `${gesnNumberLabel} ${displayName}` : displayName}
                 </span>
-                {displayAsLeaf && isAdminLike && (
-                  <span className="mt-1 block font-mono text-xs text-muted-foreground">
-                    {hasPrice ? `${price.toLocaleString("ru-RU")} ₽ / ${unit}` : "цена не указана"}
-                  </span>
-                )}
-              </span>
-              {displayAsLeaf ? (
-                // max-w + break-words: единицы измерения в ГЭСН иногда длинные
-                // ("м2 горизонтальной проекции" и т.п.) — без ограничения
-                // ширины shrink-0 давал бейджу забрать почти всю ширину
-                // карточки (button — flex row фиксированной ширины), а
-                // соседний min-w-0 flex-1 span с названием схлопывался
-                // почти до 0px и текст рендерился по одной букве в строке.
-                // С max-w-[42%] бейдж переносится на несколько строк сам,
-                // не отжимая название.
-                <span className="flex max-w-[42%] shrink-0 flex-col items-end gap-1">
-                  <span
-                    className={cn(
-                      "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                      isGesnSource ? "bg-muted text-muted-foreground" : "bg-status-review-soft text-status-review",
+                {displayAsLeaf ? (
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide whitespace-nowrap uppercase",
+                        isGesnSource ? "bg-muted text-muted-foreground" : "bg-status-review-soft text-status-review",
+                      )}
+                    >
+                      {isGesnSource ? "ГЭСН" : "Наш"}
+                    </span>
+                    <span className="max-w-full rounded-lg bg-muted px-2 py-0.5 text-xs font-semibold tracking-wide break-words text-muted-foreground uppercase">
+                      {unit}
+                    </span>
+                    {isAdminLike && (
+                      <span className="font-mono text-xs break-words text-muted-foreground">
+                        {hasPrice ? `${price.toLocaleString("ru-RU")} ₽ / ${unit}` : "цена не указана"}
+                      </span>
                     )}
-                  >
-                    {isGesnSource ? "ГЭСН" : "Наш"}
                   </span>
-                  <span className="[overflow-wrap:anywhere] rounded-lg bg-muted px-2.5 py-1 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {unit}
-                  </span>
-                </span>
-              ) : (
-                <span className="flex shrink-0 items-center gap-2">
-                  {isEmpty && (
-                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold tracking-wide whitespace-nowrap text-muted-foreground uppercase">
+                ) : (
+                  isEmpty && (
+                    <span className="self-start rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold tracking-wide whitespace-nowrap text-muted-foreground uppercase">
                       пусто
                     </span>
-                  )}
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                </span>
-              )}
+                  )
+                )}
+              </span>
+              {!displayAsLeaf && <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
             </button>
             {actions && <div className="shrink-0 pr-2">{actions}</div>}
           </li>
