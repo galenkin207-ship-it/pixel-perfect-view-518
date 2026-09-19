@@ -86,8 +86,12 @@ function formFromDetail(d: WorkTypeDetail): FormState {
   };
 }
 
+// Цепочка предков сопоставляется с селекторами по ПОРЯДКУ (i-й предок от
+// корня — i-й селектор), а не по level: позиция может лежать прямо под
+// сборником, разделом, таблицей или группой — недостающие нижние селекторы
+// остаются пустыми («— нет —»).
 function selectionFromAncestors(ancestors: WorkTypeAncestor[]): (string | null)[] {
-  return LOCATION_LEVELS.map((_, i) => ancestors.find((a) => a.level === i + 1)?.id ?? null);
+  return LOCATION_LEVELS.map((_, i) => ancestors[i]?.id ?? null);
 }
 
 function parseNumber(raw: string): number | null {
@@ -209,14 +213,16 @@ export function WorkTypeEditorDialog({
         .then((nodes) => {
           if (cancelled) return;
           const fetched: Option[] = nodes
-            .filter((n) => n.level === i + 1)
+            .filter((n) => n.level < 5)
             .map((n) => ({ id: n.id, name: n.name, gesnCode: n.gesn_code }));
           setOptions((prev) => {
             // Известный предок этого уровня, лежащий именно под этим
             // родителем, гарантированно остаётся в списке.
-            const seeded: Option[] = knownAncestors
-              .filter((a) => a.level === i + 1 && key === (i === 0 ? "root" : ancestorSelection[i - 1]))
-              .map((a) => ({ id: a.id, name: a.name, gesnCode: null }));
+            const seededAncestor = knownAncestors[i];
+            const seeded: Option[] =
+              seededAncestor && key === (i === 0 ? "root" : ancestorSelection[i - 1])
+                ? [{ id: seededAncestor.id, name: seededAncestor.name, gesnCode: null }]
+                : [];
             const existing = prev[key] ?? [];
             const merged = [...fetched];
             for (const extra of [...existing, ...seeded]) {
@@ -311,8 +317,8 @@ export function WorkTypeEditorDialog({
     const deepest = [...selection].reverse().find((id) => id !== null) ?? null;
     const originalParent = detail?.parent_id ?? null;
     const locationChanged = isCreate || deepest !== originalParent;
-    if (locationChanged && !selection[3]) {
-      return setFormError("Выберите расположение до группы включительно");
+    if (locationChanged && !deepest) {
+      return setFormError("Выберите хотя бы сборник");
     }
 
     const input: WorkTypeLeafInput = {
@@ -329,7 +335,7 @@ export function WorkTypeEditorDialog({
     setSaving(true);
     try {
       if (target.kind === "create") {
-        const created = await api.createWorkType({ ...input, parent_id: selection[3]! });
+        const created = await api.createWorkType({ ...input, parent_id: deepest! });
         onSaved({ before: null, after: created });
       } else {
         const saved = await api.editWorkType(target.id, {
@@ -405,9 +411,21 @@ export function WorkTypeEditorDialog({
                               onChange={(e) => changeSelection(i, e.target.value || null)}
                               className={cn(fieldClass, "min-w-0 flex-1")}
                             >
-                              <option value="" disabled>
-                                {parentMissing ? `Сначала выберите ${LOCATION_LEVELS[i - 1]!.label.toLowerCase()}` : "Выберите…"}
-                              </option>
+                              {/* Верхний уровень (сборник) обязателен. Ниже позиция может
+                                  лежать прямо под выбранным узлом — «— нет —» это
+                                  осознанный выбор, а не пустое значение. Селектор
+                                  заблокирован только пока не выбран предыдущий уровень. */}
+                              {i === 0 ? (
+                                <option value="" disabled>
+                                  Выберите…
+                                </option>
+                              ) : (
+                                <option value="" disabled={parentMissing}>
+                                  {parentMissing && !selection[0]
+                                    ? `Сначала выберите ${LOCATION_LEVELS[i - 1]!.label.toLowerCase()}`
+                                    : "— нет —"}
+                                </option>
+                              )}
                               {opts.map((o) => (
                                 <option key={o.id} value={o.id}>
                                   {i === 0 && formatGesnNumberLabel(o.gesnCode)
@@ -477,7 +495,8 @@ export function WorkTypeEditorDialog({
                     })}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Выберите другой раздел, таблицу или группу — позиция переедет в эту ветку справочника.
+                    Позиция может лежать прямо в сборнике, разделе, таблице или группе: нижние уровни можно оставить
+                    «— нет —». Выберите другое место — позиция переедет в эту ветку справочника.
                   </p>
                 </section>
 
