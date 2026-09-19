@@ -14,6 +14,14 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DeleteNodeDialog, NodeNameDialog } from "@/components/app/work-type-node-dialogs";
 import { AutoTextarea, LocationSelect } from "@/components/app/work-type-editor-fields";
+import {
+  fieldClass,
+  labelClass,
+  PriceField,
+  UnitField,
+  VariantList,
+  type VariantForm,
+} from "@/components/app/work-type-variant-fields";
 import type {
   CatalogType,
   WorkTypeAncestor,
@@ -59,43 +67,63 @@ const LOCATION_LEVELS = [
   { label: "Группа", addTitle: "Добавить новую группу", placeholder: "Название новой группы" },
 ];
 
-const fieldClass =
-  "w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60";
-const labelClass = "label-caps";
-
+// Общие поля позиции (название, состав) + строки вариантов. В режиме правки
+// строка ровно одна и описывает саму позицию; в режиме создания строк может
+// быть несколько — каждая станет отдельным листом «<Название> <Вариант>».
 type FormState = {
   name: string;
-  variantLabel: string;
-  unit: string;
-  price: string;
-  hasPrice: boolean;
-  laborHours: string;
-  gesnCode: string;
   composition: string;
+  variants: VariantForm[];
 };
 
-const EMPTY_FORM: FormState = {
-  name: "",
-  variantLabel: "",
-  unit: "",
-  price: "",
-  hasPrice: true,
-  laborHours: "",
-  gesnCode: "",
-  composition: "",
-};
+let variantKeySeq = 0;
+
+function newVariant(patch: Partial<VariantForm> = {}): VariantForm {
+  variantKeySeq += 1;
+  return {
+    key: `v${variantKeySeq}`,
+    variantLabel: "",
+    unit: "",
+    price: "",
+    hasPrice: true,
+    laborHours: "",
+    gesnCode: "",
+    showMore: false,
+    ...patch,
+  };
+}
+
+function emptyForm(): FormState {
+  return { name: "", composition: "", variants: [newVariant()] };
+}
 
 function formFromDetail(d: WorkTypeDetail): FormState {
   return {
     name: d.name,
-    variantLabel: d.variant_label ?? "",
-    unit: d.unit,
-    price: String(d.price),
-    hasPrice: d.has_price,
-    laborHours: d.labor_hours == null ? "" : String(d.labor_hours),
-    gesnCode: d.gesn_code ?? "",
     composition: d.work_composition ?? "",
+    variants: [
+      newVariant({
+        variantLabel: d.variant_label ?? "",
+        unit: d.unit,
+        price: String(d.price),
+        hasPrice: d.has_price,
+        laborHours: d.labor_hours == null ? "" : String(d.labor_hours),
+        gesnCode: d.gesn_code ?? "",
+      }),
+    ],
   };
+}
+
+// Ключи строк и «раскрыто ли Ещё» — не данные формы: в снимок «есть
+// несохранённые изменения» не попадают.
+function snapshotOf(form: FormState, selection: (string | null)[]): string {
+  return JSON.stringify({
+    form: {
+      ...form,
+      variants: form.variants.map(({ key: _key, showMore: _showMore, ...rest }) => rest),
+    },
+    selection,
+  });
 }
 
 // Слот i соответствует типу узла level = i + 1. Предки сопоставляются со
@@ -129,6 +157,13 @@ function parseNumber(raw: string): number | null {
   if (!normalized) return null;
   const n = Number(normalized);
   return Number.isFinite(n) ? n : NaN;
+}
+
+// Ошибка batch приходит как «Строка N: текст» — разбираем, чтобы показать её у
+// нужной строки формы. null — сообщение без номера строки.
+function parseRowError(message: string): { row: number; text: string } | null {
+  const m = /^Строка (\d+):\s*([\s\S]*)$/.exec(message);
+  return m ? { row: Number(m[1]) - 1, text: m[2]! } : null;
 }
 
 // Понятный русский текст для ошибки сохранения. Сервер на 400/409 отдаёт
@@ -175,9 +210,15 @@ export function WorkTypeEditorDialog({
 
   const [createType, setCreateType] = useState<CatalogType>(isCreate ? target.catalogType : "новое строительство");
   const canChooseType = isCreate && Boolean(target.chooseCatalogType) && target.ancestors.length === 0;
-  const initialCreateForm: FormState = isCreate
-    ? { ...EMPTY_FORM, name: target.prefill?.name ?? "", unit: target.prefill?.unit ?? "" }
-    : EMPTY_FORM;
+  const [initialCreateForm] = useState<FormState>(() =>
+    isCreate
+      ? {
+          ...emptyForm(),
+          name: target.prefill?.name ?? "",
+          variants: [newVariant({ unit: target.prefill?.unit ?? "" })],
+        }
+      : emptyForm(),
+  );
   const [detail, setDetail] = useState<WorkTypeDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(initialCreateForm);
@@ -197,10 +238,10 @@ export function WorkTypeEditorDialog({
   // Снимок состояния на момент открытия — по нему считаем "есть несохранённые
   // изменения".
   const [initialSnapshot, setInitialSnapshot] = useState<string | null>(
-    isCreate
-      ? JSON.stringify({ form: initialCreateForm, selection: selectionFromAncestors(target.ancestors) })
-      : null,
+    isCreate ? snapshotOf(initialCreateForm, selectionFromAncestors(target.ancestors)) : null,
   );
+  // Ошибки по индексу строки вариантов (клиентская проверка и «Строка N» из batch).
+  const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
 
   const catalogType: CatalogType | null =
     detail?.catalog_type ?? (isCreate ? createType : null);
@@ -224,7 +265,7 @@ export function WorkTypeEditorDialog({
         setDetail(d);
         setForm(f);
         setSelection(sel);
-        setInitialSnapshot(JSON.stringify({ form: f, selection: sel }));
+        setInitialSnapshot(snapshotOf(f, sel));
         setReady(true);
       })
       .catch((err) => {
@@ -357,8 +398,7 @@ export function WorkTypeEditorDialog({
     };
   }, [isCreate, isAdmin, deepestSelected]);
 
-  const dirty =
-    initialSnapshot !== null && JSON.stringify({ form, selection }) !== initialSnapshot;
+  const dirty = initialSnapshot !== null && snapshotOf(form, selection) !== initialSnapshot;
 
   function requestClose() {
     if (saving) return;
@@ -366,9 +406,41 @@ export function WorkTypeEditorDialog({
     else onClose();
   }
 
-  function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
+  function setField<K extends "name" | "composition">(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
     setFormError(null);
+  }
+
+  function setVariant(index: number, patch: Partial<VariantForm>) {
+    setForm((prev) => ({
+      ...prev,
+      variants: prev.variants.map((v, i) => (i === index ? { ...v, ...patch } : v)),
+    }));
+    // «Ещё» — только раскрытие, ошибку строки не гасит.
+    if (Object.keys(patch).some((k) => k !== "showMore")) {
+      setFormError(null);
+      setRowErrors((prev) => {
+        if (!(index in prev)) return prev;
+        const { [index]: _dropped, ...rest } = prev;
+        return rest;
+      });
+    }
+  }
+
+  // Новая строка: единица — как у предыдущей, цена пустая.
+  function addVariant() {
+    setForm((prev) => ({
+      ...prev,
+      variants: [...prev.variants, newVariant({ unit: prev.variants[prev.variants.length - 1]?.unit ?? "" })],
+    }));
+  }
+
+  function removeVariant(index: number) {
+    setForm((prev) =>
+      prev.variants.length > 1 ? { ...prev, variants: prev.variants.filter((_, i) => i !== index) } : prev,
+    );
+    // Индексы строк сдвинулись — старые ошибки к ним уже не относятся.
+    setRowErrors({});
   }
 
   // Смена типа каталога в форме создания: выбранное расположение относилось к
@@ -461,20 +533,27 @@ export function WorkTypeEditorDialog({
 
   async function save(another = false) {
     setFormError(null);
+    setRowErrors({});
     setSavedName(null);
 
     const name = form.name.trim();
-    const unit = form.unit.trim();
     if (!name) return setFormError("Укажите название позиции");
-    if (!unit) return setFormError("Укажите единицу измерения");
 
-    const price = parseNumber(form.price);
-    if (price !== null && (Number.isNaN(price) || price < 0)) {
-      return setFormError("Цена должна быть неотрицательным числом");
-    }
-    const laborHours = parseNumber(form.laborHours);
-    if (laborHours !== null && (Number.isNaN(laborHours) || laborHours < 0)) {
-      return setFormError("Трудозатраты должны быть неотрицательным числом");
+    // Проверка строк: ошибки показываем у самой строки.
+    const errors: Record<number, string> = {};
+    const parsed = form.variants.map((v, i) => {
+      const price = parseNumber(v.price);
+      const laborHours = parseNumber(v.laborHours);
+      if (!v.unit.trim()) errors[i] = "Укажите единицу измерения";
+      else if (price !== null && (Number.isNaN(price) || price < 0)) errors[i] = "Цена должна быть неотрицательным числом";
+      else if (laborHours !== null && (Number.isNaN(laborHours) || laborHours < 0)) {
+        errors[i] = "Трудозатраты должны быть неотрицательным числом";
+      }
+      return { price, laborHours };
+    });
+    if (Object.keys(errors).length > 0) {
+      setRowErrors(errors);
+      return scrollToRow(Math.min(...Object.keys(errors).map(Number)));
     }
 
     const deepest = [...selection].reverse().find((id) => id !== null) ?? null;
@@ -484,43 +563,120 @@ export function WorkTypeEditorDialog({
       return setFormError("Выберите хотя бы сборник");
     }
 
-    const input: WorkTypeLeafInput = {
-      name,
-      variant_label: form.variantLabel.trim() || null,
-      unit,
-      price: price ?? 0,
-      has_price: form.hasPrice,
-      labor_hours: laborHours,
-      gesn_code: form.gesnCode.trim() || null,
-      work_composition: form.composition.trim() ? form.composition : null,
+    const composition = form.composition.trim() ? form.composition : null;
+    // Строка → поля листа (в режиме правки строка одна).
+    const leafFields = (i: number) => {
+      const v = form.variants[i]!;
+      return {
+        variant_label: v.variantLabel.trim() || null,
+        unit: v.unit.trim(),
+        price: parsed[i]!.price ?? 0,
+        has_price: v.hasPrice,
+        labor_hours: parsed[i]!.laborHours,
+        gesn_code: v.gesnCode.trim() || null,
+      };
     };
 
     setSaving(true);
     try {
       if (target.kind === "create") {
-        const created = await api.createWorkType({ ...input, parent_id: deepest! });
+        const single = form.variants.length === 1 && !form.variants[0]!.variantLabel.trim();
+        let created: WorkTypeDetail;
+        let savedLabel: string;
+        if (single) {
+          created = await api.createWorkType({
+            name,
+            ...leafFields(0),
+            work_composition: composition,
+            parent_id: deepest!,
+          });
+          savedLabel = created.name;
+        } else {
+          const items = await api.createWorkTypeBatch({
+            parent_id: deepest!,
+            name,
+            work_composition: composition,
+            variants: form.variants.map((_, i) => leafFields(i)),
+          });
+          savedLabel = `${name} — вариантов: ${items.length}`;
+          // Хозяину нужен полный лист (цепочка предков — раскрыть каскад):
+          // берём первый созданный. Варианты к этому моменту уже сохранены.
+          try {
+            created = await api.getWorkTypeDetail(items[0]!.id);
+          } catch {
+            const fresh = emptyForm();
+            setForm(fresh);
+            setSimilar([]);
+            setInitialSnapshot(snapshotOf(fresh, selection));
+            setFormError(
+              `Варианты сохранены (${items.length}), но справочник не обновился — закройте окно и обновите страницу`,
+            );
+            setSaving(false);
+            return;
+          }
+        }
         onSaved({ before: null, after: created }, { keepOpen: another });
         if (another) {
-          // Расположение остаётся, поля очищаются, фокус — в название.
-          setForm(EMPTY_FORM);
+          // Расположение остаётся, название и строки очищаются, фокус — в название.
+          const fresh = emptyForm();
+          setForm(fresh);
           setSimilar([]);
-          setInitialSnapshot(JSON.stringify({ form: EMPTY_FORM, selection }));
-          setSavedName(created.name);
+          setInitialSnapshot(snapshotOf(fresh, selection));
+          setSavedName(savedLabel);
           setSaving(false);
           setTimeout(() => nameInputRef.current?.focus(), 0);
         }
       } else {
         const saved = await api.editWorkType(target.id, {
-          ...input,
+          name,
+          ...leafFields(0),
+          work_composition: composition,
           ...(locationChanged && deepest ? { parent_id: deepest } : {}),
         });
         onSaved({ before: detail, after: saved });
       }
     } catch (err) {
-      setFormError(describeError(err));
+      const message = describeError(err);
+      const rowError = target.kind === "create" ? parseRowError(message) : null;
+      if (rowError && rowError.row >= 0 && rowError.row < form.variants.length) {
+        // Ошибка batch — у нужной строки, окно не закрываем.
+        setRowErrors({ [rowError.row]: rowError.text });
+        scrollToRow(rowError.row);
+      } else {
+        setFormError(message);
+      }
       setSaving(false);
     }
   }
+
+  function scrollToRow(index: number) {
+    setTimeout(() => {
+      document
+        .querySelector(`[data-variant-row="${index}"]`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 0);
+  }
+
+  const catalogTypeField = (
+    <div className="space-y-1.5">
+      <span className={labelClass}>Тип каталога</span>
+      {canChooseType ? (
+        <select
+          value={createType}
+          disabled={saving}
+          onChange={(e) => changeCatalogType(e.target.value as CatalogType)}
+          className={fieldClass}
+        >
+          <option value="новое строительство">Строительство</option>
+          <option value="ремонт">Ремонт</option>
+        </select>
+      ) : (
+        <div className={cn(fieldClass, "bg-muted/50 text-muted-foreground")}>
+          {catalogType === "ремонт" ? "Ремонт" : "Строительство"}
+        </div>
+      )}
+    </div>
+  );
 
   const title = isCreate ? "Новая позиция" : "Редактирование позиции";
 
@@ -740,114 +896,84 @@ export function WorkTypeEditorDialog({
                         </div>
                       )}
                     </label>
-                    <label className="block space-y-1.5 md:col-span-2">
-                      <span className={labelClass}>Вариант</span>
-                      <AutoTextarea
-                        singleLine
-                        value={form.variantLabel}
-                        onChange={(e) => setField("variantLabel", e.target.value)}
-                        placeholder="Подпись варианта на карточке (необязательно)"
-                      />
-                    </label>
-                    <label className="block space-y-1.5">
-                      <span className={labelClass}>
-                        Ед. изм. <span className="text-destructive">*</span>
-                      </span>
-                      <select
-                        value={form.unit}
-                        onChange={(e) => setField("unit", e.target.value)}
-                        className={fieldClass}
-                      >
-                        <option value="" disabled>
-                          Выберите ед. изм.
-                        </option>
-                        {/* Единица, которой нет в справочнике (ГЭСН-единицы вроде
-                            «100 м2»), всё равно показывается выбранной. */}
-                        {(form.unit && !units.includes(form.unit) ? [form.unit, ...units] : units).map((u) => (
-                          <option key={u} value={u}>
-                            {u}
-                          </option>
-                        ))}
-                      </select>
-                      {isCreate && (
-                        <UnitChips
-                          neighbors={neighborUnits}
-                          common={units}
-                          current={form.unit}
-                          onPick={(u) => setField("unit", u)}
-                        />
-                      )}
-                    </label>
-                    <div className="space-y-1.5">
-                      <span className={labelClass}>Цена, руб./ед.</span>
-                      <div className="flex items-center gap-3">
-                        <input
-                          value={form.price}
-                          onChange={(e) => setField("price", e.target.value)}
-                          inputMode="decimal"
-                          disabled={!form.hasPrice}
-                          className={cn(fieldClass, "min-w-0 flex-1")}
-                        />
-                        <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={form.hasPrice}
-                            onChange={(e) => setField("hasPrice", e.target.checked)}
-                            className="size-4 accent-primary"
+                    {isCreate ? (
+                      <div className="md:col-span-2">{catalogTypeField}</div>
+                    ) : (
+                      <>
+                        <label className="block space-y-1.5 md:col-span-2">
+                          <span className={labelClass}>Вариант</span>
+                          <AutoTextarea
+                            singleLine
+                            value={form.variants[0]!.variantLabel}
+                            onChange={(e) => setVariant(0, { variantLabel: e.target.value })}
+                            placeholder="Подпись варианта на карточке (необязательно)"
                           />
-                          Цена указана
                         </label>
-                      </div>
-                    </div>
-                    <label className="block space-y-1.5">
-                      <span className={labelClass}>Трудозатраты, чел.-ч</span>
-                      <input
-                        value={form.laborHours}
-                        onChange={(e) => setField("laborHours", e.target.value)}
-                        inputMode="decimal"
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block space-y-1.5">
-                      <span className={labelClass}>Код ГЭСН</span>
-                      <input
-                        value={form.gesnCode}
-                        onChange={(e) => setField("gesnCode", e.target.value)}
-                        className={fieldClass}
-                      />
-                    </label>
-                    <div className="space-y-1.5">
-                      <span className={labelClass}>Тип каталога</span>
-                      {canChooseType ? (
-                        <select
-                          value={createType}
-                          disabled={saving}
-                          onChange={(e) => changeCatalogType(e.target.value as CatalogType)}
-                          className={fieldClass}
-                        >
-                          <option value="новое строительство">Строительство</option>
-                          <option value="ремонт">Ремонт</option>
-                        </select>
-                      ) : (
-                        <div className={cn(fieldClass, "bg-muted/50 text-muted-foreground")}>
-                          {catalogType === "ремонт" ? "Ремонт" : "Строительство"}
-                        </div>
-                      )}
-                    </div>
+                        <UnitField
+                          value={form.variants[0]!.unit}
+                          units={units}
+                          neighbors={neighborUnits}
+                          showChips={false}
+                          onChange={(unit) => setVariant(0, { unit })}
+                        />
+                        <PriceField
+                          price={form.variants[0]!.price}
+                          hasPrice={form.variants[0]!.hasPrice}
+                          onPriceChange={(price) => setVariant(0, { price })}
+                          onHasPriceChange={(hasPrice) => setVariant(0, { hasPrice })}
+                        />
+                        <label className="block space-y-1.5">
+                          <span className={labelClass}>Трудозатраты, чел.-ч</span>
+                          <input
+                            value={form.variants[0]!.laborHours}
+                            onChange={(e) => setVariant(0, { laborHours: e.target.value })}
+                            inputMode="decimal"
+                            className={fieldClass}
+                          />
+                        </label>
+                        <label className="block space-y-1.5">
+                          <span className={labelClass}>Код ГЭСН</span>
+                          <input
+                            value={form.variants[0]!.gesnCode}
+                            onChange={(e) => setVariant(0, { gesnCode: e.target.value })}
+                            className={fieldClass}
+                          />
+                        </label>
+                        {catalogTypeField}
+                        {rowErrors[0] && (
+                          <p role="alert" className="text-sm text-destructive md:col-span-2">
+                            {rowErrors[0]}
+                          </p>
+                        )}
+                      </>
+                    )}
                   </div>
+                  {isCreate && <CompositionField withLabel value={form.composition} onChange={(v) => setField("composition", v)} />}
                 </section>
 
-                {/* Состав работ */}
-                <section className="space-y-3">
-                  <h3 className="text-sm font-bold">Состав работ</h3>
-                  <AutoTextarea
-                    value={form.composition}
-                    onChange={(e) => setField("composition", e.target.value)}
-                    rows={7}
-                    placeholder="Что входит в работу — по одному пункту на строку"
-                    className="leading-relaxed"
-                  />
-                </section>
+                {isCreate ? (
+                  /* Варианты: по строке на лист справочника */
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-bold">Варианты</h3>
+                    <VariantList
+                      name={form.name}
+                      rows={form.variants}
+                      rowErrors={rowErrors}
+                      units={units}
+                      neighbors={neighborUnits}
+                      disabled={saving}
+                      onChange={setVariant}
+                      onAdd={addVariant}
+                      onRemove={removeVariant}
+                    />
+                  </section>
+                ) : (
+                  /* Состав работ */
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-bold">Состав работ</h3>
+                    <CompositionField value={form.composition} onChange={(v) => setField("composition", v)} />
+                  </section>
+                )}
 
                 {/* Материалы — пока только внешний вид, без запросов */}
                 <section className="space-y-3">
@@ -984,50 +1110,25 @@ function describeLoadError(err: unknown): string {
   return "Не удалось загрузить позицию";
 }
 
-// Быстрый выбор единицы: как у соседних позиций выбранного родителя и общие
-// единицы справочника (без повторов). Полный список — в селекте выше.
-function UnitChips({
-  neighbors,
-  common,
-  current,
-  onPick,
+function CompositionField({
+  value,
+  onChange,
+  withLabel,
 }: {
-  neighbors: string[];
-  common: string[];
-  current: string;
-  onPick: (unit: string) => void;
+  value: string;
+  onChange: (value: string) => void;
+  withLabel?: boolean;
 }) {
-  const commonShort = common.filter((u) => !neighbors.includes(u)).slice(0, 6);
-  if (neighbors.length === 0 && commonShort.length === 0) return null;
-  const chip = (u: string) => (
-    <button
-      key={u}
-      type="button"
-      onClick={() => onPick(u)}
-      className={cn(
-        "rounded-lg border px-2 py-1 text-xs font-semibold transition-colors",
-        u === current
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-border bg-surface text-muted-foreground hover:border-primary/50 hover:text-foreground",
-      )}
-    >
-      {u}
-    </button>
-  );
   return (
-    <div className="space-y-1 pt-0.5">
-      {neighbors.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">Как у соседних:</span>
-          {neighbors.map(chip)}
-        </div>
-      )}
-      {commonShort.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">Общие:</span>
-          {commonShort.map(chip)}
-        </div>
-      )}
+    <div className="space-y-1.5">
+      {withLabel && <span className={labelClass}>Состав работ</span>}
+      <AutoTextarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={7}
+        placeholder="Что входит в работу — по одному пункту на строку"
+        className="leading-relaxed"
+      />
     </div>
   );
 }

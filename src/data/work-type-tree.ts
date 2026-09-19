@@ -118,3 +118,21 @@ export type WorkTypeLeafInput = {
   work_composition: string | null;
   parent_id?: string;
 };
+
+// Тело POST /work-types/batch: общая часть (название, состав работ) и варианты —
+// по одному листу на вариант под одним родителем-контейнером.
+export type WorkTypeBatchVariantInput = {
+  variant_label: string | null;
+  unit: string;
+  price: number;
+  has_price: boolean;
+  labor_hours: number | null;
+  gesn_code: string | null;
+};
+
+export type WorkTypeBatchInput = {
+  parent_id: string;
+  name: string;
+  work_composition: string | null;
+  variants: WorkTypeBatchVariantInput[];
+};

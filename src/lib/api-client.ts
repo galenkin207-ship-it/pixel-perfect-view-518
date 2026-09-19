@@ -12,6 +12,7 @@ import type {
 import type {
   CatalogType,
   WorkTypeAncestor,
+  WorkTypeBatchInput,
   WorkTypeCounterStep,
   WorkTypeDetail,
   WorkTypeLeafInput,
@@ -601,6 +602,18 @@ export const api = {
       body: JSON.stringify(input),
     });
     return mapWorkTypeDetail(raw);
+  },
+
+  // Несколько вариантов одной позиции под одним контейнером за один запрос
+  // (одна транзакция): POST /work-types/batch, admin/curator. Итоговое имя
+  // листа = name + " " + variant_label. Ошибки приходят с номером строки
+  // («Строка N: ...»), при любой ошибке не создаётся ничего.
+  async createWorkTypeBatch(input: WorkTypeBatchInput): Promise<WorkTypeTreeNode[]> {
+    const { items } = await request<{ items: RawWorkTypeTreeNode[] }>("/work-types/batch", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return items.map(mapWorkTypeTreeNode);
   },
 
   async getWorkTypeDetail(id: string): Promise<WorkTypeDetail> {
