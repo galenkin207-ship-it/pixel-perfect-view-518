@@ -67,9 +67,6 @@ export function WorkTypeCascade({
   const browse = mode === "browse";
   const rowRef = useRef<HTMLDivElement>(null);
   const visibleColumnCount = columns.filter((_, level) => isColumnVisible(level)).length;
-  // Колонка "Загрузка..." узкая (min-w), а после загрузки растягивается по
-  // содержимому — докручиваем вправо ещё раз, когда загрузка закончилась.
-  const anyColumnLoading = columns.some((col, level) => isColumnVisible(level) && col.loading);
 
   // На странице справочника колонки не влезают в ширину окна (5 колонок по
   // 18rem) — при открытии новой колонки докручиваем ряд вправо, чтобы
@@ -80,7 +77,7 @@ export function WorkTypeCascade({
     if (!browse || isMobile) return;
     const el = rowRef.current;
     if (el) el.scrollTo({ left: el.scrollWidth, behavior: "smooth" });
-  }, [browse, isMobile, visibleColumnCount, anyColumnLoading]);
+  }, [browse, isMobile, visibleColumnCount]);
 
   async function handleSelectAtLevel(level: number, node: WorkTypeTreeNode, originOffsetPx: number) {
     const leaf = await cascade.selectAtLevel(level, node, originOffsetPx);
@@ -101,10 +98,7 @@ export function WorkTypeCascade({
               return (
                 <span key={node.id} className="flex items-center gap-1">
                   {stepIdx > 0 && <span>→</span>}
-                  <button
-                    onClick={() => cascade.goToStep(stepIdx)}
-                    className="text-left break-words hover:text-primary hover:underline"
-                  >
+                  <button onClick={() => cascade.goToStep(stepIdx)} className="hover:text-primary hover:underline">
                     {node.name}
                   </button>
                 </span>
@@ -140,14 +134,10 @@ export function WorkTypeCascade({
         const isFrontier = level === chain.length;
         const parent = chain[level - 1];
         return (
-          // Заголовок и сама колонка — в одной flex-col обёртке, а не в
+          // Заголовок и сама колонка — в одной w-72 flex-col обёртке, а не в
           // двух синхронизируемых overflow-x-строках: так подпись скроллится
           // вместе с колонкой сама собой, без ручной синхронизации scrollLeft.
-          // Ширина колонки — по самой длинной карточке (w-max), но не меньше
-          // 15rem (240px) и не больше 32.5rem (520px): дальше текст
-          // переносится. Ширина задана здесь, на уровне колонки, поэтому все
-          // карточки колонки (stretch во flex-col) одной ширины.
-          <div key={level} className="flex w-max min-w-60 max-w-[32.5rem] shrink-0 min-h-0 flex-col">
+          <div key={level} className="flex w-72 shrink-0 min-h-0 flex-col">
             <div className="mb-1.5 shrink-0 px-1 text-xs font-medium text-muted-foreground">
               {(browse ? BROWSE_COLUMN_LABELS[level] : CASCADE_COLUMN_LABELS[position]) ?? ""}
             </div>
@@ -158,7 +148,7 @@ export function WorkTypeCascade({
               // независимо от того, "определена" ли высота родителя в
               // терминах CSS-процентов. min-h-0 + собственный overflow-y —
               // каждая колонка скроллится независимо.
-              className="min-h-0 flex-1 overflow-y-auto [overflow-anchor:none] [scrollbar-gutter:stable]"
+              className="min-h-0 flex-1 overflow-y-auto [overflow-anchor:none]"
               nodes={col.nodes}
               loading={col.loading}
               scrollKey={col.key}
