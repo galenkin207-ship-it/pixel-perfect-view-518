@@ -9,11 +9,13 @@ import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { EmployeeSelect } from "@/components/app/employee-select";
 import { NumberField } from "@/components/app/number-field";
 import { ObjectSelect } from "@/components/app/object-select";
-import { CascadeColumn } from "@/components/app/work-type-cascade-column";
+import { WorkTypeCascade } from "@/components/app/work-type-cascade";
 import { composeCounterName, computeCounterTotal, WorkTypeCounterCard } from "@/components/app/work-type-counter-card";
+import { WorkTypeSearchResults } from "@/components/app/work-type-search-results";
 import { useBlurOnScroll } from "@/hooks/use-blur-on-scroll";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useWorkTypeTree } from "@/hooks/use-work-type-tree";
+import { useWorkTypeCascade } from "@/hooks/use-work-type-cascade";
+import { useWorkTypeSearch } from "@/hooks/use-work-type-search";
 import { cn, objectLabel } from "@/lib/utils";
 import { itemQty, recordTotal, round2, syncItem } from "@/lib/record-utils";
 import { api, photoThumbUrl } from "@/lib/api-client";
@@ -59,12 +61,6 @@ const PHOTO_ALLOWED_EXT = /\.(jpe?g|png|webp|heic|heif)$/i;
 // мастер узнавал о лимите сразу при выборе фото, а не только после неудачной
 // попытки автосохранения записи с уже выбранными снимками.
 const PHOTO_MAX_PER_RECORD = 30;
-
-// Подписи над колонками desktop Finder-style каскада — по ПОЗИЦИИ колонки
-// слева направо, а не по DB-уровню level: auto-skip схлопывает уровни с
-// единственным дочерним элементом, поэтому число реально отрендеренных
-// колонок варьируется, и level не совпадает с видимой позицией.
-const CASCADE_COLUMN_LABELS = ["Название сборника", "Раздел", "Группа", "Вариант", "Подвариант"];
 
 async function compressImage(file: File): Promise<File> {
   try {
@@ -1009,55 +1005,12 @@ function WorkTypePicker({
   counterValuesRef: MutableRefObject<Map<string, Record<string, number>>>;
 }) {
   const [query, setQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<WorkTypeSearchResult[] | null>(null);
-  const [searchLoading, setSearchLoading] = useState(false);
+  const { results: searchResults, loading: searchLoading } = useWorkTypeSearch(query);
   const [catalogType, setCatalogType] = useState<CatalogType | null>(null);
-  const [chain, setChain] = useState<WorkTypeTreeNode[]>([]);
-  // Границы "шагов" внутри chain: каждый клик пользователя (даже если он
-  // авто-схлопнул несколько уровней подряд с единственным ребёнком) даёт
-  // одну границу — длину chain сразу после этого клика. Так "Назад" и
-  // хлебные крошки откатывают весь схлопнутый блок одним шагом, а не по
-  // одному авто-пропущенному уровню за раз.
-  const [stepBoundaries, setStepBoundaries] = useState<number[]>([]);
-  // Desktop-каскад: вертикальная позиция (px), на которой открывается новая
-  // "передовая" колонка — выровнена по кликнутой карточке в проскроленной
-  // соседней колонке (см. CascadeColumn.initialScrollTop), а не всегда с нуля.
-  const [frontierScrollOffset, setFrontierScrollOffset] = useState(0);
+  const cascade = useWorkTypeCascade(catalogType);
   const [customOpen, setCustomOpen] = useState(false);
   const [custom, setCustom] = useState("");
   const isMobile = useIsMobile();
-  const { columns, resolveAutoSkip } = useWorkTypeTree(catalogType, chain);
-
-  // Ищем на сервере (общий эндпоинт покрывает и новый каталог, и старые
-  // виды работ) с debounce, чтобы не дёргать API на каждое нажатие клавиши.
-  useEffect(() => {
-    const q = query.trim();
-    if (!q) {
-      setSearchResults(null);
-      setSearchLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setSearchLoading(true);
-    const timer = setTimeout(() => {
-      api
-        .searchWorkTypes(q)
-        .then((items) => {
-          if (cancelled) return;
-          setSearchResults(items);
-          setSearchLoading(false);
-        })
-        .catch(() => {
-          if (cancelled) return;
-          setSearchResults([]);
-          setSearchLoading(false);
-        });
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [query]);
 
   // Для сравнения "группа vs вариант" на предмет дублирования — без учёта
   // регистра, лишних пробелов и хвостовой пунктуации.
@@ -1166,42 +1119,13 @@ function WorkTypePicker({
     handlePickLeaf(node, groupName);
   }
 
-  async function handleSelectAtLevel(level: number, node: WorkTypeTreeNode, originOffsetPx: number) {
-    const resolved = await resolveAutoSkip(node);
-    if ("leaf" in resolved) {
-      pickOrOpenCounter(resolved.leaf, resolved.groupName);
-      return;
-    }
-    setFrontierScrollOffset(originOffsetPx);
-    setChain((prev) => [...prev.slice(0, level), ...resolved.chainNodes]);
-    setStepBoundaries((prev) => [...prev.filter((b) => b <= level), level + resolved.chainNodes.length]);
-  }
-
-  // Колонка видна, если это корневой список (не участвует в авто-пропуске),
-  // ещё не выбранная "текущая" колонка (её мы всегда показываем), либо
-  // граница шага — конец авто-схлопнутого блока или обычный одиночный
-  // выбор. Колонки строго внутри схлопнутого блока (единственный вариант
-  // на уровне) не рендерим — по ним и так некуда было бы кликать.
-  function isColumnVisible(index: number): boolean {
-    if (index === 0 || index >= chain.length) return true;
-    return stepBoundaries.includes(index);
-  }
-
   function handleBack() {
-    if (stepBoundaries.length > 0) {
-      const newBoundaries = stepBoundaries.slice(0, -1);
-      const newLength = newBoundaries.length > 0 ? newBoundaries[newBoundaries.length - 1] : 0;
-      setStepBoundaries(newBoundaries);
-      setChain((prev) => prev.slice(0, newLength));
-    } else {
-      setCatalogType(null);
-    }
+    if (!cascade.back()) setCatalogType(null);
   }
 
   function handleChangeType() {
     setCatalogType(null);
-    setChain([]);
-    setStepBoundaries([]);
+    cascade.reset();
   }
 
   const isSearching = query.trim().length > 0;
@@ -1212,12 +1136,6 @@ function WorkTypePicker({
   // себя каждая колонка отдельно. В остальных режимах (поиск, счётчик,
   // выбор типа) listRef скроллится как обычно, единым блоком.
   const isDesktopCascade = !isMobile && !counterBase && !isSearching && catalogType !== null;
-  // Уровни (индексы в columns), реально отрендеренные как отдельная колонка
-  // в desktop-раскладке — используется и для самих колонок, и для подписей
-  // над ними (см. CASCADE_COLUMN_LABELS), чтобы позиция подписи всегда
-  // совпадала с позицией колонки.
-  const visibleCascadeLevels = columns.map((_, level) => level).filter((level) => isColumnVisible(level));
-
   // Сворачиваем клавиатуру, как только начинается скролл списка видов
   // работ — иначе она закрывает часть карточек и мешает выбору.
   const listRef = useRef<HTMLDivElement>(null);
@@ -1339,39 +1257,11 @@ function WorkTypePicker({
                 </button>
               </div>
             ) : (
-              <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {searchResults!.map((t) => (
-                  <li key={t.id} className="min-w-0">
-                    <button
-                      onClick={() => pickOrOpenCounter(t, t.breadcrumb[t.breadcrumb.length - 1])}
-                      className="group flex h-full w-full flex-col items-start justify-between gap-4 rounded-2xl border border-border bg-surface p-5 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
-                    >
-                      <span className="block w-full">
-                        {t.breadcrumb.length > 0 && (
-                          <span className="mb-1 block truncate text-xs text-muted-foreground">
-                            {t.breadcrumb.join(" → ")}
-                          </span>
-                        )}
-                        <span className="block text-base font-semibold leading-snug break-words whitespace-normal group-hover:text-primary">
-                          {t.name}
-                        </span>
-                      </span>
-                      <div className="flex w-full items-center justify-between gap-3">
-                        {isAdminLike ? (
-                          <span className="font-mono text-sm text-muted-foreground">
-                            {t.has_price ? `${t.price.toLocaleString("ru-RU")} ₽ / ${t.unit}` : "цена не указана"}
-                          </span>
-                        ) : (
-                          <span />
-                        )}
-                        <span className="shrink-0 rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                          {t.unit}
-                        </span>
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <WorkTypeSearchResults
+                results={searchResults!}
+                isAdminLike={isAdminLike}
+                onPick={(t) => pickOrOpenCounter(t, t.breadcrumb[t.breadcrumb.length - 1])}
+              />
             )
           ) : catalogType === null ? (
             <div className="flex h-full flex-col items-stretch justify-center gap-4 sm:flex-row">
@@ -1407,81 +1297,13 @@ function WorkTypePicker({
                 </button>
               </div>
 
-              {isMobile ? (
-                <>
-                  {stepBoundaries.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
-                      {/* Один чип на "шаг" (клик), а не на узел — авто-схлопнутые
-                          промежуточные уровни отдельными чипами не показываем,
-                          чтобы переход по ним воспринимался как один шаг назад. */}
-                      {stepBoundaries.map((boundary, stepIdx) => {
-                        const node = chain[boundary - 1];
-                        if (!node) return null;
-                        return (
-                          <span key={node.id} className="flex items-center gap-1">
-                            {stepIdx > 0 && <span>→</span>}
-                            <button
-                              onClick={() => {
-                                setChain((prev) => prev.slice(0, boundary));
-                                setStepBoundaries((prev) => prev.slice(0, stepIdx + 1));
-                              }}
-                              className="hover:text-primary hover:underline"
-                            >
-                              {node.name}
-                            </button>
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <CascadeColumn
-                    nodes={columns[chain.length]?.nodes ?? []}
-                    loading={columns[chain.length]?.loading ?? true}
-                    isAdminLike={isAdminLike}
-                    onSelect={(node, offset) => handleSelectAtLevel(chain.length, node, offset)}
-                    onLeaf={(node) => pickOrOpenCounter(node, chain[chain.length - 1]?.name)}
-                    onAutoSkipLeaf={(leaf, groupName) => pickOrOpenCounter(leaf, groupName)}
-                    resolveAutoSkip={resolveAutoSkip}
-                  />
-                </>
-              ) : (
-                <div className="flex flex-1 min-h-0 gap-4 overflow-x-auto pb-2">
-                  {columns.map((col, level) => {
-                    if (!isColumnVisible(level)) return null;
-                    const position = visibleCascadeLevels.indexOf(level);
-                    const isFrontier = level === chain.length;
-                    return (
-                      // Заголовок и сама колонка — в одной w-72 flex-col
-                      // обёртке, а не в двух синхронизируемых overflow-x-строках:
-                      // так подпись скроллится вместе с колонкой сама собой,
-                      // без ручной синхронизации scrollLeft.
-                      <div key={level} className="flex w-72 shrink-0 flex-col min-h-0">
-                        <div className="mb-1.5 shrink-0 px-1 text-xs font-medium text-muted-foreground">
-                          {CASCADE_COLUMN_LABELS[position] ?? ""}
-                        </div>
-                        <CascadeColumn
-                          // Без h-full: высота колонки — не CSS-процент (который
-                          // не резолвится против flex-item-родителя, см. комментарий
-                          // у listRef выше), а обычный flex align-items:stretch
-                          // (по умолчанию) от родителя-строки — работает всегда,
-                          // независимо от того, "определена" ли высота родителя
-                          // в терминах CSS-процентов.
-                          className="min-h-0 flex-1 overflow-y-auto [overflow-anchor:none]"
-                          nodes={col.nodes}
-                          loading={col.loading}
-                          selectedId={chain[level]?.id}
-                          isAdminLike={isAdminLike}
-                          onSelect={(node, offset) => handleSelectAtLevel(level, node, offset)}
-                          onLeaf={(node) => pickOrOpenCounter(node, chain[level - 1]?.name)}
-                          onAutoSkipLeaf={(leaf, groupName) => pickOrOpenCounter(leaf, groupName)}
-                          resolveAutoSkip={resolveAutoSkip}
-                          initialScrollTop={isFrontier ? frontierScrollOffset : undefined}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <WorkTypeCascade
+                cascade={cascade}
+                mode="select"
+                isMobile={isMobile}
+                isAdminLike={isAdminLike}
+                onLeaf={(leaf, groupName) => pickOrOpenCounter(leaf, groupName)}
+              />
             </div>
           )}
         </div>

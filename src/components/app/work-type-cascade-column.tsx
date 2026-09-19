@@ -1,25 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
 import { ChevronRight } from "lucide-react";
 
 import type { AutoSkipResult } from "@/hooks/use-work-type-tree";
 import type { WorkTypeTreeNode } from "@/data/work-type-tree";
+import { formatGesnNumberLabel } from "@/lib/work-type-format";
 import { cn } from "@/lib/utils";
 
 type AutoSkipPreview = { kind: "leaf"; leaf: WorkTypeTreeNode; groupName: string } | { kind: "branch" };
-
-// Номер сборника (уровень 1) зашит в конце gesn_code, напр. "ГЭСН01" -> "1.",
-// "ГЭСНр51" -> "51.". У синтетического узла "Существующие виды работ (до
-// обновления)" gesn_code пустой — для него номер не показываем.
-// Отдельно: "ГЭСНм" (сборники монтажных работ, напр. "ГЭСНм08") дают "8м.",
-// а не "8." — иначе номер визуально совпадает с обычным ГЭСН08 из каталога
-// нового строительства.
-function formatGesnNumberLabel(gesnCode: string | null): string | null {
-  if (!gesnCode) return null;
-  const match = /(\d+)$/.exec(gesnCode);
-  if (!match) return null;
-  return gesnCode.startsWith("ГЭСНм") ? `${match[1]}м.` : `${match[1]}.`;
-}
 
 // Один уровень каскада: список узлов дерева видов работ. Используется и как
 // колонка в desktop-раскладке (Finder column view), и как единственный
@@ -35,6 +24,10 @@ export function CascadeColumn({
   resolveAutoSkip,
   className,
   initialScrollTop,
+  scrollKey,
+  selectedLeafId,
+  renderLeafActions,
+  footer,
 }: {
   nodes: WorkTypeTreeNode[];
   loading: boolean;
@@ -53,6 +46,24 @@ export function CascadeColumn({
   // Позиция в пикселях, применяется один раз, когда узлы этой колонки
   // приходят с сервера — см. эффект ниже.
   initialScrollTop?: number | undefined;
+  // Что колонка сейчас показывает (ключ кэша родителя). initialScrollTop
+  // применяется только когда меняется этот ключ или колонка доезжает из
+  // "Загрузки" — а не при каждом обновлении массива nodes: в браузе после
+  // правки позиции список перечитывается на месте (см. refresh() в
+  // use-work-type-tree), и скролл при этом прыгать не должен.
+  scrollKey?: string | undefined;
+  // browse-режим справочника: подсвеченный лист (клик по листу ничего не
+  // "коммитит"). Карточка группы, которая через auto-skip показывает этот
+  // лист, подсвечивается так же.
+  selectedLeafId?: string | undefined;
+  // Слот справа на карточке, которая выглядит как лист (меню «⋯»). Получает
+  // сам лист (для auto-skip — лист, спрятанный за карточкой группы) и имя
+  // группы над ним. Клик по слоту не должен выбирать карточку — это забота
+  // самого слота (карточка и слот — соседи, а не вложенные кнопки).
+  renderLeafActions?: ((leaf: WorkTypeTreeNode, groupName: string | undefined) => ReactNode) | undefined;
+  // Хвост списка (кнопка «+ Добавить позицию»): рисуется и под карточками, и
+  // в пустой колонке.
+  footer?: ReactNode;
 }) {
   const scrollRef = useRef<HTMLUListElement>(null);
   // Заранее (на этапе построения колонки, а не по клику) прогоняем
@@ -87,12 +98,11 @@ export function CascadeColumn({
   }, [nodes, resolveAutoSkip]);
 
   useEffect(() => {
-    if (!initialScrollTop) return;
+    if (!initialScrollTop || loading) return;
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTop = Math.max(0, Math.min(initialScrollTop, el.scrollHeight - el.clientHeight));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes]);
+  }, [scrollKey, loading]);
 
   if (loading) {
     return (
@@ -106,6 +116,7 @@ export function CascadeColumn({
     return (
       <div className={cn("p-8 text-center text-sm text-muted-foreground", className)}>
         Здесь пока пусто
+        {footer && <div className="mt-4 text-left">{footer}</div>}
       </div>
     );
   }
@@ -113,13 +124,16 @@ export function CascadeColumn({
   return (
     <ul ref={scrollRef} className={cn("flex flex-col gap-1.5", className)}>
       {nodes.map((node) => {
-        const selected = node.id === selectedId;
         const preview = node.has_children ? previews[node.id] : undefined;
         const resolvesToLeaf = preview?.kind === "leaf" ? preview : undefined;
         // Карточка ведёт себя и выглядит как лист, если сам узел уже лист,
         // либо если auto-skip от него без промежуточных реальных выборов
         // доходит до листа.
         const displayAsLeaf = !node.has_children || Boolean(resolvesToLeaf);
+        const selected =
+          node.id === selectedId ||
+          (selectedLeafId != null &&
+            (node.id === selectedLeafId || resolvesToLeaf?.leaf.id === selectedLeafId));
         const unit = resolvesToLeaf ? resolvesToLeaf.leaf.unit : node.unit;
         const hasPrice = resolvesToLeaf ? resolvesToLeaf.leaf.has_price : node.has_price;
         const price = resolvesToLeaf ? resolvesToLeaf.leaf.price : node.price;
@@ -134,9 +148,24 @@ export function CascadeColumn({
         const isLevel1 = node.level === 1;
         const gesnNumberLabel = isLevel1 ? formatGesnNumberLabel(node.gesn_code) : null;
         const displayName = !node.has_children && node.variant_label ? node.variant_label : node.name;
+        const actions =
+          displayAsLeaf && renderLeafActions
+            ? renderLeafActions(resolvesToLeaf ? resolvesToLeaf.leaf : node, resolvesToLeaf?.groupName)
+            : null;
 
         return (
-          <li key={node.id}>
+          // Карточка — это <li> (рамка/фон/hover), а внутри неё две соседние
+          // сущности: основная кнопка и необязательный слот действий. Так
+          // кнопка «⋯» не вложена в <button> и её клик не выбирает карточку.
+          <li
+            key={node.id}
+            className={cn(
+              "flex items-center rounded-xl border transition-colors",
+              selected
+                ? "border-primary/50 bg-primary/5"
+                : "border-border bg-surface hover:border-primary/40 hover:bg-primary/5",
+            )}
+          >
             <button
               onClick={(event) => {
                 if (resolvesToLeaf) {
@@ -167,12 +196,7 @@ export function CascadeColumn({
                   onLeaf(node);
                 }
               }}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
-                selected
-                  ? "border-primary/50 bg-primary/5"
-                  : "border-border bg-surface hover:border-primary/40 hover:bg-primary/5",
-              )}
+              className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left"
             >
               <span className="min-w-0 flex-1">
                 <span
@@ -215,9 +239,11 @@ export function CascadeColumn({
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
               )}
             </button>
+            {actions && <div className="shrink-0 pr-2">{actions}</div>}
           </li>
         );
       })}
+      {footer && <li className="shrink-0">{footer}</li>}
     </ul>
   );
 }

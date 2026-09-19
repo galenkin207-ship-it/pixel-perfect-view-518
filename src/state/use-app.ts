@@ -73,12 +73,6 @@ export type AppState = {
   deleteRequestComment: (requestId: string, commentId: string) => Promise<void>;
   workTypes: WorkType[];
   setWorkTypes: React.Dispatch<React.SetStateAction<WorkType[]>>;
-  addWorkType: (input: { name: string; unit: string; price: number }) => Promise<WorkType>;
-  updateWorkType: (
-    id: string,
-    input: { name: string; unit: string; price: number },
-  ) => Promise<WorkType>;
-  deleteWorkType: (id: string) => Promise<void>;
   archiveWorkType: (id: string) => Promise<void>;
   employees: string[];
   setEmployees: React.Dispatch<React.SetStateAction<string[]>>;

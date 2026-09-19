@@ -210,6 +210,7 @@ type RawWorkTypeTreeNode = {
   has_children: boolean;
   has_counter_steps: boolean;
   source?: string | null;
+  can_edit?: boolean;
 };
 
 function mapWorkTypeTreeNode(raw: RawWorkTypeTreeNode): WorkTypeTreeNode {
@@ -232,6 +233,7 @@ function mapWorkTypeTreeNode(raw: RawWorkTypeTreeNode): WorkTypeTreeNode {
     has_children: raw.has_children,
     has_counter_steps: raw.has_counter_steps,
     source: raw.source ?? null,
+    can_edit: raw.can_edit ?? false,
   };
 }
 
@@ -520,32 +522,6 @@ export const api = {
       unit: w.unit,
       price: Number(w.price),
     }));
-  },
-
-  async createWorkType(input: { name: string; unit: string; price: number }): Promise<WorkType> {
-    const row = await request<{ id: number; name: string; unit: string; price: string | number }>(
-      "/work-types",
-      {
-        method: "POST",
-        body: JSON.stringify(input),
-      },
-    );
-    return { id: String(row.id), name: row.name, unit: row.unit, price: Number(row.price) };
-  },
-
-  async updateWorkType(
-    id: string,
-    input: { name: string; unit: string; price: number },
-  ): Promise<WorkType> {
-    const row = await request<{ id: number; name: string; unit: string; price: string | number }>(
-      `/work-types/${id}`,
-      { method: "PUT", body: JSON.stringify(input) },
-    );
-    return { id: String(row.id), name: row.name, unit: row.unit, price: Number(row.price) };
-  },
-
-  async deleteWorkType(id: string): Promise<void> {
-    await request<{ deleted: number }>(`/work-types/${id}`, { method: "DELETE" });
   },
 
   async archiveWorkType(id: string): Promise<void> {

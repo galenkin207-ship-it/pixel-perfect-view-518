@@ -77,7 +77,7 @@ export function AppShell({
   ];
   const manage: NavItem[] = [
     { to: "/brigades", label: "Бригады", icon: HardHat },
-    { to: "/profile/manage/work-types", label: "Виды работ", icon: ClipboardList },
+    { to: "/work-types", label: "Виды работ", icon: ClipboardList },
     { to: "/profile/manage/objects", label: "Объекты", icon: Building2 },
     { to: "/profile/manage/employees", label: "Сотрудники", icon: Users },
     { to: "/profile/manage/units", label: "Единицы измерения", icon: Ruler },

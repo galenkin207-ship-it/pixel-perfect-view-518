@@ -841,42 +841,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addWorkType = async (input: {
-    name: string;
-    unit: string;
-    price: number;
-  }): Promise<WorkType> => {
-    try {
-      const created = await api.createWorkType(input);
-      setWorkTypes((prev) => [...prev, created]);
-      return created;
-    } catch (err) {
-      throw err instanceof ApiError ? err : new Error("failed to create work type");
-    }
-  };
-
-  const updateWorkType = async (
-    id: string,
-    input: { name: string; unit: string; price: number },
-  ): Promise<WorkType> => {
-    try {
-      const saved = await api.updateWorkType(id, input);
-      setWorkTypes((prev) => prev.map((w) => (w.id === saved.id ? { ...w, ...saved } : w)));
-      return saved;
-    } catch (err) {
-      throw err instanceof ApiError ? err : new Error("failed to update work type");
-    }
-  };
-
-  const deleteWorkType = async (id: string): Promise<void> => {
-    try {
-      await api.deleteWorkType(id);
-      setWorkTypes((prev) => prev.filter((w) => w.id !== id));
-    } catch (err) {
-      throw err instanceof ApiError ? err : new Error("failed to delete work type");
-    }
-  };
-
   const archiveWorkType = async (id: string): Promise<void> => {
     try {
       await api.archiveWorkType(id);
@@ -1022,9 +986,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     deleteRequestComment,
     workTypes,
     setWorkTypes,
-    addWorkType,
-    updateWorkType,
-    deleteWorkType,
     archiveWorkType,
     employees,
     setEmployees,

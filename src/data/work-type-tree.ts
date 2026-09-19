@@ -26,6 +26,10 @@ export type WorkTypeTreeNode = {
   // 'gesn_catalog' — из справочника ГЭСН, иначе (legacy, user_added) — своя.
   // У промежуточных узлов бэкенд поле не отдаёт.
   source: string | null;
+  // Право на правку узла (admin/curator) — приходит только из /tree, у
+  // /search такого поля нет (там false; для карточек поиска ориентируемся
+  // на роль). Сервер всё равно проверяет права на каждую мутацию.
+  can_edit: boolean;
 };
 
 export type WorkTypeSearchResult = WorkTypeTreeNode & { breadcrumb: string[] };

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
 import { SwipeToAddRow } from "@/components/app/swipe-to-add-row";
+import { WorkTypeCatalog } from "@/components/app/work-type-catalog";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useBlurOnScroll } from "@/hooks/use-blur-on-scroll";
 import { smartFilter } from "@/lib/smart-search";
@@ -29,12 +30,33 @@ export const Route = createFileRoute("/work-types")({
 const PER_PAGE = 30;
 
 function WorkTypesPage() {
-  const { workTypes, role, records, addRecord, updateRecord, currentUser, createRequest } =
-    useApp();
+  const { role } = useApp();
+  return role === "admin" || role === "curator" ? <WorkTypeCatalogPage /> : <FlatWorkTypesPage />;
+}
+
+// admin/curator: тот же каскад, что и в модалке выбора вида работ, но
+// страницей на весь экран (+ правка позиций на десктопе). На десктопе
+// страница ровно по высоте окна (минус вертикальные паддинги контента
+// AppShell), чтобы колонки каскада скроллились каждая внутри себя, а не
+// страница целиком.
+function WorkTypeCatalogPage() {
+  return (
+    <AppShell>
+      <div className="flex flex-col desktop:h-[calc(100dvh-3rem)] desktop:xl:h-[calc(100dvh-4rem)]">
+        <PageHeading context="Справочник" title="Все виды работ" />
+        <WorkTypeCatalog className="mt-4 min-h-[28rem] flex-1" />
+      </div>
+    </AppShell>
+  );
+}
+
+// Мастера (роль user) по-прежнему видят плоский список с быстрым добавлением
+// позиции в запись и заявкой на новый вид работы.
+function FlatWorkTypesPage() {
+  const { workTypes, records, addRecord, updateRecord, currentUser, createRequest } = useApp();
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
-  const isAdminLike = role === "admin" || role === "curator";
 
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestText, setRequestText] = useState("");
@@ -159,11 +181,6 @@ function WorkTypesPage() {
                 <span className="min-w-0 flex-1 text-sm font-medium break-words">{w.name}</span>
                 <span className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground sm:gap-0">
                   <span className="sm:w-16 sm:text-right">{w.unit}</span>
-                  {isAdminLike && (
-                    <span className="font-semibold text-foreground sm:w-24 sm:text-right">
-                      {w.price.toLocaleString("ru-RU")} ₽
-                    </span>
-                  )}
                   <button
                     type="button"
                     onClick={() => void handleAddToRecord(w)}
