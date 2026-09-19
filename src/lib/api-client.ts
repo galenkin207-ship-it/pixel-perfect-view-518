@@ -616,11 +616,14 @@ export const api = {
   },
 
   // Создание контейнера (level 1-4). parentId=null → сборник (level 1),
-  // тогда catalogType обязателен.
+  // тогда catalogType обязателен. level — необязательный тип узла (не глубина):
+  // по умолчанию parent.level+1, явный нужен, чтобы пропустить уровни (группа
+  // level=4 прямо под сборником); допустимо parent.level < level <= 4.
   async createWorkTypeNode(input: {
     parentId: string | null;
     name: string;
     catalogType?: CatalogType;
+    level?: number;
   }): Promise<WorkTypeTreeNode> {
     const raw = await request<RawWorkTypeTreeNode>("/work-types/nodes", {
       method: "POST",
@@ -628,6 +631,7 @@ export const api = {
         parent_id: input.parentId,
         name: input.name,
         ...(input.catalogType ? { catalog_type: input.catalogType } : {}),
+        ...(input.level != null ? { level: input.level } : {}),
       }),
     });
     return mapWorkTypeTreeNode(raw);
@@ -672,7 +676,7 @@ export const api = {
   // Пикер записи и мобильная версия эти флаги не передают.
   async getWorkTypeTree(
     params: { type: CatalogType } | { parentId: string },
-    opts: { includeEmpty?: boolean; containersOnly?: boolean } = {},
+    opts: { includeEmpty?: boolean; containersOnly?: boolean; level?: number } = {},
   ): Promise<WorkTypeTreeNode[]> {
     let qs =
       "type" in params
@@ -680,6 +684,8 @@ export const api = {
         : `parentId=${encodeURIComponent(params.parentId)}`;
     if (opts.includeEmpty) qs += "&include_empty=1";
     if (opts.containersOnly) qs += "&containers_only=1";
+    // Только прямые дети с этим level (тип узла, не глубина) — слоты «Расположения».
+    if (opts.level != null) qs += `&level=${opts.level}`;
     const { items } = await request<{ items: RawWorkTypeTreeNode[] }>(`/work-types/tree?${qs}`);
     return items.map(mapWorkTypeTreeNode);
   },

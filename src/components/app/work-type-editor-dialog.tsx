@@ -98,12 +98,30 @@ function formFromDetail(d: WorkTypeDetail): FormState {
   };
 }
 
-// Цепочка предков сопоставляется с селекторами по ПОРЯДКУ (i-й предок от
-// корня — i-й селектор), а не по level: позиция может лежать прямо под
-// сборником, разделом, таблицей или группой — недостающие нижние селекторы
-// остаются пустыми («— нет —»).
+// Слот i соответствует типу узла level = i + 1. Предки сопоставляются со
+// слотами по level предка (а не по порядку): позиция может лежать прямо под
+// сборником, а группа (level 4) — прямо под сборником, минуя раздел и таблицу.
+// Недостающие уровни остаются пустыми («— нет —»).
 function selectionFromAncestors(ancestors: WorkTypeAncestor[]): (string | null)[] {
-  return LOCATION_LEVELS.map((_, i) => ancestors[i]?.id ?? null);
+  return LOCATION_LEVELS.map((_, i) => ancestors.find((a) => a.level === i + 1)?.id ?? null);
+}
+
+// Родитель списка слота — самый глубокий выбранный узел ВЫШЕ слота ("root" —
+// для сборников). null — слот пока недоступен (сборник не выбран).
+function slotParentId(slotIdx: number, sel: (string | null)[]): string | null {
+  if (slotIdx === 0) return "root";
+  for (let j = slotIdx - 1; j >= 0; j -= 1) {
+    const id = sel[j];
+    if (id) return id;
+  }
+  return null;
+}
+
+// Ключ кэша списка слота: родитель + level (у одного родителя разные слоты —
+// разные списки: level=2, level=3, level=4 среди его прямых детей).
+function slotKey(slotIdx: number, sel: (string | null)[]): string | null {
+  const parent = slotParentId(slotIdx, sel);
+  return parent ? `${parent}:${slotIdx + 1}` : null;
 }
 
 function parseNumber(raw: string): number | null {
@@ -166,8 +184,8 @@ export function WorkTypeEditorDialog({
   const [selection, setSelection] = useState<(string | null)[]>(() =>
     isCreate ? selectionFromAncestors(target.ancestors) : [null, null, null, null],
   );
-  // Ключ — id родителя (или "root" для сборников), значение — уже известные
-  // варианты выбора на этом уровне.
+  // Ключ — slotKey (родитель + level слота), значение — уже известные
+  // варианты выбора в этом слоте.
   const [options, setOptions] = useState<Record<string, Option[]>>({});
   const [ready, setReady] = useState(isCreate);
   const [saving, setSaving] = useState(false);
@@ -186,6 +204,10 @@ export function WorkTypeEditorDialog({
 
   const catalogType: CatalogType | null =
     detail?.catalog_type ?? (isCreate ? createType : null);
+  // Актуальное расположение для async-обработчиков (создание узла ждёт ответ
+  // сервера, а выбор за это время мог поменяться).
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
   const catalogTypeRef = useRef(catalogType);
   catalogTypeRef.current = catalogType;
 
@@ -226,37 +248,36 @@ export function WorkTypeEditorDialog({
   // выбирает только из существующих (непустых) разделов.
   const treeOpts = { containersOnly: true, includeEmpty: isAdmin };
 
-  function parentKey(levelIdx: number, sel: (string | null)[]): string | null {
-    return levelIdx === 0 ? "root" : (sel[levelIdx - 1] ?? null);
-  }
-
-  // Подгружаем варианты для каждого выбранного родителя: корневой список
-  // сборников, затем детей выбранного сборника, раздела, таблицы.
+  // Список слота уровня N = контейнеры level=N среди ПРЯМЫХ детей самого
+  // глубокого выбранного узла выше (эндпоинт детей с параметром level);
+  // сборники — корневой список каталога. Слоты 2–4 доступны, как только выбран
+  // сборник, даже если предыдущие слоты — «— нет —».
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
     LOCATION_LEVELS.forEach((_, i) => {
-      const key = parentKey(i, selection);
+      const key = slotKey(i, selection);
       if (!key) return;
       if (options[key]) return;
+      const parentId = slotParentId(i, selection)!;
       const request =
-        key === "root"
+        i === 0
           ? catalogTypeRef.current
             ? api.getWorkTypeTree({ type: catalogTypeRef.current }, treeOpts)
             : Promise.resolve([])
-          : api.getWorkTypeTree({ parentId: key }, treeOpts);
+          : api.getWorkTypeTree({ parentId }, { ...treeOpts, level: i + 1 });
       request
         .then((nodes) => {
           if (cancelled) return;
           const fetched: Option[] = nodes
-            .filter((n) => n.level < 5 && n.source !== "legacy_root")
+            .filter((n) => n.level === i + 1 && n.source !== "legacy_root")
             .map((n) => ({ id: n.id, name: n.name, gesnCode: n.gesn_code }));
           setOptions((prev) => {
-            // Известный предок этого уровня, лежащий именно под этим
-            // родителем, гарантированно остаётся в списке.
-            const seededAncestor = knownAncestors[i];
+            // Известный предок этого уровня, лежащий именно в этом списке,
+            // гарантированно остаётся в нём.
+            const seededAncestor = knownAncestors.find((a) => a.level === i + 1);
             const seeded: Option[] =
-              seededAncestor && key === (i === 0 ? "root" : ancestorSelection[i - 1])
+              seededAncestor && key === slotKey(i, ancestorSelection)
                 ? [{ id: seededAncestor.id, name: seededAncestor.name, gesnCode: null }]
                 : [];
             const existing = prev[key] ?? [];
@@ -361,8 +382,19 @@ export function WorkTypeEditorDialog({
     setFormError(null);
   }
 
+  // Смена слота сбрасывает слоты ниже; их списки (родитель мог поменяться)
+  // выкидываем из кэша — эффект выше перечитает их с сервера.
   function changeSelection(levelIdx: number, id: string | null) {
-    setSelection((prev) => prev.map((v, i) => (i < levelIdx ? v : i === levelIdx ? id : null)));
+    const next = selectionRef.current.map((v, i) => (i < levelIdx ? v : i === levelIdx ? id : null));
+    setSelection(next);
+    setOptions((prev) => {
+      const copy = { ...prev };
+      for (let j = levelIdx + 1; j < LOCATION_LEVELS.length; j += 1) {
+        const key = slotKey(j, next);
+        if (key) delete copy[key];
+      }
+      return copy;
+    });
     setFormError(null);
   }
 
@@ -377,8 +409,15 @@ export function WorkTypeEditorDialog({
   >(null);
 
   function optionName(levelIdx: number, id: string): string {
-    const key = parentKey(levelIdx, selection);
+    const key = slotKey(levelIdx, selection);
     return (key ? options[key] : undefined)?.find((o) => o.id === id)?.name ?? "";
+  }
+
+  // Реальный родитель узла слота (null — корень каталога): для обработчиков
+  // хозяина, которые перечитывают список этого родителя.
+  function slotNodeParent(levelIdx: number, sel: (string | null)[]): string | null {
+    const parent = slotParentId(levelIdx, sel);
+    return parent === "root" ? null : parent;
   }
 
   async function createNode() {
@@ -389,16 +428,21 @@ export function WorkTypeEditorDialog({
       return;
     }
     const { levelIdx } = adding;
-    const parentId = levelIdx === 0 ? null : (selection[levelIdx - 1] ?? null);
+    // Родитель — самый глубокий выбранный узел выше слота; level — номер слота
+    // (явно, иначе сервер поставил бы parent.level+1 и пропущенный уровень
+    // «схлопнулся» бы).
+    const parentId = slotNodeParent(levelIdx, selection);
     if (levelIdx > 0 && !parentId) return;
+    const key = slotKey(levelIdx, selection);
+    if (!key) return;
     setAdding({ ...adding, busy: true, error: null });
     try {
       const node = await api.createWorkTypeNode({
         parentId,
         name,
         ...(parentId === null && catalogType ? { catalogType } : {}),
+        ...(levelIdx > 0 ? { level: levelIdx + 1 } : {}),
       });
-      const key = parentId ?? "root";
       setOptions((prev) => ({
         ...prev,
         [key]: [
@@ -526,51 +570,46 @@ export function WorkTypeEditorDialog({
                 {/* Расположение */}
                 <section className="space-y-3">
                   <h3 className="text-sm font-bold">Расположение в справочнике</h3>
-                  <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
+                  <div className="space-y-3">
                     {LOCATION_LEVELS.map((lvl, i) => {
-                      const key = parentKey(i, selection);
+                      const key = slotKey(i, selection);
                       const opts = key ? (options[key] ?? []) : [];
-                      const parentMissing = i > 0 && !selection[i - 1];
+                      // Сборник обязателен и доступен всегда; остальные слоты —
+                      // как только выбран сборник (предыдущие могут быть «— нет —»).
+                      const slotLocked = i > 0 && !selection[0];
                       const isAddingHere = isAdmin && adding?.levelIdx === i;
                       return (
-                        <div key={lvl.label} className="flex max-w-full min-w-0 flex-col gap-1.5">
+                        <div key={lvl.label} className="flex min-w-0 flex-col gap-1.5">
                           <span className={labelClass}>{lvl.label}</span>
-                          {/* Иконки — рядом с селектором и по его верху (items-start):
-                              триггер растёт по высоте под длинное название. */}
+                          {/* Селектор — на всю ширину, иконки — в ряд справа от него
+                              и по его верху (items-start): триггер растёт по высоте
+                              под длинное название. */}
                           <div className="flex items-start gap-2">
-                            {/* Верхний уровень (сборник) обязателен. Ниже позиция может
-                                лежать прямо под выбранным узлом — «— нет —» это
-                                осознанный выбор, а не пустое значение. Селектор
-                                заблокирован только пока не выбран предыдущий уровень. */}
-                            <LocationSelect
-                              ariaLabel={lvl.label}
-                              value={selection[i] ?? null}
-                              disabled={parentMissing || saving}
-                              onChange={(id) => changeSelection(i, id)}
-                              placeholder="Выберите…"
-                              noneLabel={
-                                i === 0
-                                  ? null
-                                  : parentMissing && !selection[0]
-                                    ? `Сначала выберите ${LOCATION_LEVELS[i - 1]!.label.toLowerCase()}`
-                                    : "— нет —"
-                              }
-                              noneDisabled={parentMissing}
-                              options={opts.map((o) => ({
-                                id: o.id,
-                                label:
-                                  i === 0 && formatGesnNumberLabel(o.gesnCode)
-                                    ? `${formatGesnNumberLabel(o.gesnCode)} ${o.name}`
-                                    : o.name,
-                              }))}
-                            />
-                            {isAdmin && selection[i] && (
+                            <div className="min-w-0 flex-1">
+                              <LocationSelect
+                                ariaLabel={lvl.label}
+                                value={selection[i] ?? null}
+                                disabled={slotLocked || saving}
+                                onChange={(id) => changeSelection(i, id)}
+                                placeholder="Выберите…"
+                                noneLabel={i === 0 ? null : slotLocked ? "Сначала выберите сборник" : "— нет —"}
+                                noneDisabled={slotLocked}
+                                options={opts.map((o) => ({
+                                  id: o.id,
+                                  label:
+                                    i === 0 && formatGesnNumberLabel(o.gesnCode)
+                                      ? `${formatGesnNumberLabel(o.gesnCode)} ${o.name}`
+                                      : o.name,
+                                }))}
+                              />
+                            </div>
+                            {isAdmin && (
                               <>
                                 <button
                                   type="button"
                                   title={`Переименовать: ${lvl.label.toLowerCase()}`}
                                   aria-label={`Переименовать: ${lvl.label.toLowerCase()}`}
-                                  disabled={saving}
+                                  disabled={!selection[i] || saving}
                                   onClick={() =>
                                     setNodeAction({
                                       kind: "rename",
@@ -587,7 +626,7 @@ export function WorkTypeEditorDialog({
                                   type="button"
                                   title={`Удалить: ${lvl.label.toLowerCase()}`}
                                   aria-label={`Удалить: ${lvl.label.toLowerCase()}`}
-                                  disabled={saving}
+                                  disabled={!selection[i] || saving}
                                   onClick={() =>
                                     setNodeAction({
                                       kind: "delete",
@@ -600,24 +639,22 @@ export function WorkTypeEditorDialog({
                                 >
                                   <Trash2 className="size-4" />
                                 </button>
+                                <button
+                                  type="button"
+                                  title={lvl.addTitle}
+                                  aria-label={lvl.addTitle}
+                                  disabled={slotLocked || saving}
+                                  onClick={() =>
+                                    setAdding(isAddingHere ? null : { levelIdx: i, name: "", busy: false, error: null })
+                                  }
+                                  className={cn(
+                                    "flex size-10 shrink-0 items-center justify-center rounded-xl border border-dashed border-border text-primary transition-colors hover:border-primary hover:bg-primary/10 disabled:opacity-40",
+                                    isAddingHere && "border-primary bg-primary/10",
+                                  )}
+                                >
+                                  <Plus className="size-4" />
+                                </button>
                               </>
-                            )}
-                            {isAdmin && (
-                              <button
-                                type="button"
-                                title={lvl.addTitle}
-                                aria-label={lvl.addTitle}
-                                disabled={parentMissing || saving}
-                                onClick={() =>
-                                  setAdding(isAddingHere ? null : { levelIdx: i, name: "", busy: false, error: null })
-                                }
-                                className={cn(
-                                  "flex size-10 shrink-0 items-center justify-center rounded-xl border border-dashed border-border text-primary transition-colors hover:border-primary hover:bg-primary/10 disabled:opacity-40",
-                                  isAddingHere && "border-primary bg-primary/10",
-                                )}
-                              >
-                                <Plus className="size-4" />
-                              </button>
                             )}
                           </div>
                           {isAddingHere && adding && (
@@ -663,11 +700,8 @@ export function WorkTypeEditorDialog({
                     })}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Позиция может лежать прямо в сборнике, разделе, таблице или группе: нижние уровни можно оставить
-                    «— нет —».{" "}
-                    {isCreate
-                      ? "Обязательно выберите хотя бы сборник."
-                      : "Выберите другое место — позиция переедет в эту ветку справочника."}
+                    Пропущенные уровни можно оставить «— нет —»: позиция в справочнике сместится влево.
+                    {!isCreate && " Выберите другое место — позиция переедет в эту ветку справочника."}
                   </p>
                 </section>
 
@@ -907,7 +941,7 @@ export function WorkTypeEditorDialog({
           onSubmit={async (name) => {
             const { levelIdx, id } = nodeAction;
             await api.renameNode(id, name);
-            const key = parentKey(levelIdx, selection);
+            const key = slotKey(levelIdx, selection);
             if (key) {
               setOptions((prev) => ({
                 ...prev,
@@ -915,7 +949,7 @@ export function WorkTypeEditorDialog({
               }));
             }
             setNodeAction(null);
-            void onNodeRenamed?.(id, name, key === "root" ? null : key);
+            void onNodeRenamed?.(id, name, slotNodeParent(levelIdx, selection));
           }}
         />
       )}
@@ -927,15 +961,16 @@ export function WorkTypeEditorDialog({
           onClose={() => setNodeAction(null)}
           onDeleted={() => {
             const { levelIdx, id } = nodeAction;
-            const key = parentKey(levelIdx, selection);
+            const key = slotKey(levelIdx, selection);
+            const parentId = slotNodeParent(levelIdx, selection);
+            // Удалён выбранный узел — снимаем выбор этого и нижних слотов; поля
+            // самой позиции (название, цена, состав…) остаются как есть.
+            changeSelection(levelIdx, null);
             if (key) {
               setOptions((prev) => ({ ...prev, [key]: (prev[key] ?? []).filter((o) => o.id !== id) }));
             }
-            // Удалён выбранный узел — снимаем выбор этого и нижних уровней; поля
-            // самой позиции (название, цена, состав…) остаются как есть.
-            changeSelection(levelIdx, null);
             setNodeAction(null);
-            void onNodeDeleted?.(id, key === "root" ? null : key);
+            void onNodeDeleted?.(id, parentId);
           }}
         />
       )}

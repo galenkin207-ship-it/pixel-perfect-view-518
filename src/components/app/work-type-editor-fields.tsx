@@ -14,7 +14,8 @@ const FIELD_BOX =
   "rounded-xl border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60";
 
 // Поле, которое растёт по высоте вместе с текстом (без внутренней прокрутки),
-// пока не упрётся в max-h (~50% высоты окна) — дальше прокручивается само.
+// пока не упрётся в max-h (~50% высоты окна) — только тогда появляется
+// внутренняя прокрутка.
 // singleLine — для полей, которые раньше были однострочным <input> (название,
 // вариант): Enter не вставляет перенос, а вставленные переносы строк
 // заменяются пробелом — как это делал <input>. Значение по-прежнему строка
@@ -40,8 +41,19 @@ export const AutoTextarea = forwardRef<
     if (!el) return;
     // Сначала сбрасываем высоту, чтобы scrollHeight отражал именно текст
     // (а не прежнюю, возможно большую высоту), затем ставим по содержимому.
+    el.style.overflowY = "hidden";
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
+    const needed = el.scrollHeight + (el.offsetHeight - el.clientHeight);
+    const max = parseFloat(getComputedStyle(el).maxHeight);
+    // Полоса прокрутки (со стрелками, как у числового спиннера) появляется
+    // только когда текст действительно не влезает в max-h; иначе overflow
+    // скрыт — округление scrollHeight на долю пикселя не рисует полосу.
+    if (Number.isFinite(max) && needed > max) {
+      el.style.height = `${max}px`;
+      el.style.overflowY = "auto";
+    } else {
+      el.style.height = `${needed}px`;
+    }
   }, []);
 
   useLayoutEffect(() => {
@@ -77,7 +89,7 @@ export const AutoTextarea = forwardRef<
         if (singleLine && event.key === "Enter") event.preventDefault();
         onKeyDown?.(event);
       }}
-      className={cn(FIELD_BOX, "block w-full max-h-[46dvh] resize-none overflow-y-auto leading-snug", className)}
+      className={cn(FIELD_BOX, "block w-full max-h-[46dvh] resize-none overflow-hidden leading-snug", className)}
       {...props}
     />
   );
@@ -88,12 +100,10 @@ export type LocationOption = { id: string; label: string };
 
 // Селектор одного уровня блока «Расположение». Вместо нативного <select>
 // (его закрытое состояние не умеет переносить текст) — Radix Select:
+//  - занимает всю ширину контейнера (контейнер задаёт ширину: flex-1 min-w-0);
 //  - выбранное значение показывается целиком, с переносом по словам, триггер
 //    растёт по высоте;
-//  - пункты списка переносят длинные названия;
-//  - ширина триггера — по самому длинному варианту (невидимая копия всех
-//    названий в одной ячейке grid с выбранным значением, без JS-измерений),
-//    в границах min-w/max-w; при превышении — перенос.
+//  - пункты списка переносят длинные названия.
 export function LocationSelect({
   value,
   options,
@@ -126,25 +136,12 @@ export function LocationSelect({
         aria-label={ariaLabel}
         className={cn(
           FIELD_BOX,
-          "h-auto min-h-10 w-full items-center gap-2 whitespace-normal py-2 shadow-none [&>span]:line-clamp-none",
-          "sm:w-auto sm:min-w-[13.75rem] sm:max-w-[26.25rem]",
+          "h-auto min-h-10 w-full min-w-0 items-center gap-2 whitespace-normal py-2 shadow-none [&>span]:line-clamp-none",
           "focus:ring-0",
         )}
       >
         <span className="min-w-0 flex-1 text-left">
-          <span className="grid">
-            <SelectValue
-              placeholder={placeholder}
-              className="col-start-1 row-start-1 min-w-0 whitespace-normal break-words"
-            />
-            <span aria-hidden className="invisible col-start-1 row-start-1 h-0 overflow-hidden">
-              {options.map((option) => (
-                <span key={option.id} className="block whitespace-nowrap">
-                  {option.label}
-                </span>
-              ))}
-            </span>
-          </span>
+          <SelectValue placeholder={placeholder} className="block min-w-0 whitespace-normal break-words" />
         </span>
       </SelectTrigger>
       <SelectContent className="max-w-[min(28rem,var(--radix-select-content-available-width))]">
