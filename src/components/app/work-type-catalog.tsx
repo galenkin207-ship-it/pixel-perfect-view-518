@@ -20,8 +20,14 @@ import {
   type WorkTypeEditorTarget,
 } from "@/components/app/work-type-editor-dialog";
 import { DeleteNodeDialog, NodeNameDialog } from "@/components/app/work-type-node-dialogs";
+import { WorkTypeLeafCard } from "@/components/app/work-type-leaf-card";
 import { WorkTypeSearchResults } from "@/components/app/work-type-search-results";
-import type { CatalogType, WorkTypeDetail, WorkTypeTreeNode } from "@/data/work-type-tree";
+import type {
+  CatalogType,
+  WorkTypeDetail,
+  WorkTypeSearchResult,
+  WorkTypeTreeNode,
+} from "@/data/work-type-tree";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWorkTypeCascade } from "@/hooks/use-work-type-cascade";
 import { useWorkTypeSearch } from "@/hooks/use-work-type-search";
@@ -118,9 +124,23 @@ function LeafActionsMenu({
 // позиций. Один и тот же компонент для «Все виды работ» и «Управление → Виды
 // работ». Высоту задаёт хозяин через className (на десктопе каскаду нужна
 // определённая высота, внутри которой колонки скроллятся независимо).
-export function WorkTypeCatalog({ className }: { className?: string }) {
+//
+// Для мастера (не admin/curator) тот же каскад работает только на чтение:
+// вкладки, поиск, схлопывание одиночных узлов как в пикере, но без правки,
+// меню «⋯», кнопок «+ Добавить …» и пустых разделов. Клик по позиции показывает
+// карточку (название, единица, состав работ), цену мастер не видит.
+// onAddToRecord — быстрое добавление позиции в запись (кнопка на карточке).
+// Это только UI: права на каждую мутацию проверяет сервер.
+export function WorkTypeCatalog({
+  className,
+  onAddToRecord,
+}: {
+  className?: string;
+  onAddToRecord?: (leaf: { id: string; name: string; unit: string; price: number }) => void;
+}) {
   const { role, archiveWorkType } = useApp();
   const isAdminLike = role === "admin" || role === "curator";
+  const readOnly = !isAdminLike;
   // Архивация на сервере разрешена только admin (PATCH /:id/archive), правка
   // и создание — admin и curator.
   const canDelete = role === "admin";
@@ -136,9 +156,15 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
   // редактировании структуры виден каждый уровень. Пустые контейнеры
   // (include_empty) подгружаются только админу на десктопе; мобильная версия
   // и пикер записи их не запрашивают.
-  const cascade = useWorkTypeCascade(catalogType, { browse: true, includeEmpty: showStructureTools });
+  const cascade = useWorkTypeCascade(catalogType, {
+    browse: true,
+    includeEmpty: showStructureTools,
+    collapseSingles: readOnly,
+  });
   const search = useWorkTypeSearch(query);
   const [selectedLeafId, setSelectedLeafId] = useState<string | undefined>();
+  // Только чтение (мастер): выбранная позиция целиком — для карточки.
+  const [selectedLeaf, setSelectedLeaf] = useState<WorkTypeTreeNode | WorkTypeSearchResult | null>(null);
   const [flashLeafIds, setFlashLeafIds] = useState<string[]>([]);
   const [editor, setEditor] = useState<WorkTypeEditorTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
@@ -156,6 +182,12 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
     setCatalogType(next);
     cascade.reset();
     setSelectedLeafId(undefined);
+    setSelectedLeaf(null);
+  }
+
+  function pickLeaf(leaf: WorkTypeTreeNode | WorkTypeSearchResult) {
+    setSelectedLeafId(leaf.id);
+    if (readOnly) setSelectedLeaf(leaf);
   }
 
   // Сохранение позиции. Каскад под модалкой не размонтировался — здесь
@@ -358,7 +390,7 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
               results={search.results!}
               isAdminLike={isAdminLike}
               selectedId={selectedLeafId}
-              onPick={(item) => setSelectedLeafId(item.id)}
+              onPick={pickLeaf}
               renderActions={
                 showEditTools
                   ? (item) => (
@@ -394,7 +426,8 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
               isAdminLike={isAdminLike}
               selectedLeafId={selectedLeafId}
               flashLeafIds={flashLeafIds}
-              onLeaf={(leaf) => setSelectedLeafId(leaf.id)}
+              collapseSingles={readOnly}
+              onLeaf={pickLeaf}
               renderLeafActions={
                 showEditTools
                   ? (leaf, groupName) =>
@@ -473,7 +506,20 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
         )}
       </div>
 
-      {editor && (
+      {readOnly && selectedLeaf && (
+        // На телефоне карточка прилипает к нижнему краю списка над нижним меню.
+        <WorkTypeLeafCard
+          leaf={selectedLeaf}
+          onAddToRecord={onAddToRecord ? () => onAddToRecord(selectedLeaf) : undefined}
+          onClose={() => {
+            setSelectedLeaf(null);
+            setSelectedLeafId(undefined);
+          }}
+          className={isMobile ? "sticky bottom-20 z-10" : undefined}
+        />
+      )}
+
+      {editor && !readOnly && (
         <WorkTypeEditorDialog
           key={editor.kind === "edit" ? `edit:${editor.id}` : "create"}
           target={editor}
