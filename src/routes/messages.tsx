@@ -415,7 +415,6 @@ function MessagesPage() {
                   kind: "create",
                   catalogType: "новое строительство",
                   ancestors: [],
-                  chooseCatalogType: true,
                   prefill: {
                     name: (resolve[r.id]?.name.trim() || r.requested_text).trim(),
                     unit: resolve[r.id]?.unit ?? "",

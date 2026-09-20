@@ -45,9 +45,6 @@ export type WorkTypeEditorTarget =
       ancestors: WorkTypeAncestor[];
       // Предзаполнение полей (заявка мастера: название и единица).
       prefill?: { name?: string; unit?: string };
-      // Тип каталога выбирается в самой форме (хозяин, у которого нет своей
-      // вкладки каталога — экран заявок). Только при пустом расположении.
-      chooseCatalogType?: boolean;
     };
 
 export type WorkTypeEditorResult = {
@@ -65,6 +62,11 @@ const LOCATION_LEVELS = [
   { label: "Раздел", addTitle: "Добавить новый раздел", placeholder: "Название нового раздела" },
   { label: "Таблица", addTitle: "Добавить новую таблицу", placeholder: "Название новой таблицы" },
   { label: "Группа", addTitle: "Добавить новую группу", placeholder: "Название новой группы" },
+];
+
+const CATALOG_TYPE_OPTIONS: { value: CatalogType; label: string }[] = [
+  { value: "новое строительство", label: "Строительство" },
+  { value: "ремонт", label: "Ремонт" },
 ];
 
 // Общие поля позиции (название, состав) + строки вариантов. В режиме правки
@@ -209,7 +211,6 @@ export function WorkTypeEditorDialog({
   const isCreate = target.kind === "create";
 
   const [createType, setCreateType] = useState<CatalogType>(isCreate ? target.catalogType : "новое строительство");
-  const canChooseType = isCreate && Boolean(target.chooseCatalogType) && target.ancestors.length === 0;
   const [initialCreateForm] = useState<FormState>(() =>
     isCreate
       ? {
@@ -443,14 +444,16 @@ export function WorkTypeEditorDialog({
     setRowErrors({});
   }
 
-  // Смена типа каталога в форме создания: выбранное расположение относилось к
-  // другому каталогу — сбрасываем его, корневой список сборников перечитается.
+  // Смена типа каталога (только создание): выбранное расположение относилось к
+  // другому каталогу — сбрасываем все слоты, список сборников перечитается для
+  // нового типа. Введённые поля позиции остаются.
   function changeCatalogType(next: CatalogType) {
     if (next === createType) return;
     setCreateType(next);
     setSelection([null, null, null, null]);
     setOptions({});
     setAdding(null);
+    setNodeAction(null);
     setFormError(null);
   }
 
@@ -657,24 +660,13 @@ export function WorkTypeEditorDialog({
     }, 0);
   }
 
+  // Тип каталога позиции в режиме правки (не меняется — только показывается).
   const catalogTypeField = (
     <div className="space-y-1.5">
       <span className={labelClass}>Тип каталога</span>
-      {canChooseType ? (
-        <select
-          value={createType}
-          disabled={saving}
-          onChange={(e) => changeCatalogType(e.target.value as CatalogType)}
-          className={fieldClass}
-        >
-          <option value="новое строительство">Строительство</option>
-          <option value="ремонт">Ремонт</option>
-        </select>
-      ) : (
-        <div className={cn(fieldClass, "bg-muted/50 text-muted-foreground")}>
-          {catalogType === "ремонт" ? "Ремонт" : "Строительство"}
-        </div>
-      )}
+      <div className={cn(fieldClass, "bg-muted/50 text-muted-foreground")}>
+        {catalogType === "ремонт" ? "Ремонт" : "Строительство"}
+      </div>
     </div>
   );
 
@@ -725,7 +717,37 @@ export function WorkTypeEditorDialog({
               <div className="space-y-6">
                 {/* Расположение */}
                 <section className="space-y-3">
-                  <h3 className="text-sm font-bold">Расположение в справочнике</h3>
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <h3 className="text-sm font-bold">Расположение в справочнике</h3>
+                    {isCreate && (
+                      <span className="text-xs text-muted-foreground">
+                        Тип каталога: {catalogType === "ремонт" ? "Ремонт" : "Строительство"}
+                      </span>
+                    )}
+                  </div>
+                  {isCreate && (
+                    // Переключатель типа каталога: от него зависит список
+                    // сборников, «+» у слота «Сборник» создаёт сборник этого типа.
+                    <div role="group" aria-label="Тип каталога" className="flex w-fit rounded-xl border border-border bg-surface p-1">
+                      {CATALOG_TYPE_OPTIONS.map((t) => (
+                        <button
+                          key={t.value}
+                          type="button"
+                          disabled={saving}
+                          aria-pressed={t.value === createType}
+                          onClick={() => changeCatalogType(t.value)}
+                          className={cn(
+                            "rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors disabled:opacity-60",
+                            t.value === createType
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <div className="space-y-3">
                     {LOCATION_LEVELS.map((lvl, i) => {
                       const key = slotKey(i, selection);
@@ -896,9 +918,7 @@ export function WorkTypeEditorDialog({
                         </div>
                       )}
                     </label>
-                    {isCreate ? (
-                      <div className="md:col-span-2">{catalogTypeField}</div>
-                    ) : (
+                    {!isCreate && (
                       <>
                         <label className="block space-y-1.5 md:col-span-2">
                           <span className={labelClass}>Вариант</span>
