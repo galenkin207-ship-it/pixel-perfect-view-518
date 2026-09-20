@@ -139,7 +139,7 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
   const cascade = useWorkTypeCascade(catalogType, { browse: true, includeEmpty: showStructureTools });
   const search = useWorkTypeSearch(query);
   const [selectedLeafId, setSelectedLeafId] = useState<string | undefined>();
-  const [flashLeafId, setFlashLeafId] = useState<string | undefined>();
+  const [flashLeafIds, setFlashLeafIds] = useState<string[]>([]);
   const [editor, setEditor] = useState<WorkTypeEditorTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -164,7 +164,7 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
   // их скролл и выделенный лист остаются как были. Перенос в другую ветку:
   // карточка сразу исчезает из текущей колонки, а цепочка колонок при
   // необходимости откатывается на ближайшую валидную (см. use-work-type-cascade).
-  async function handleSaved({ before, after }: WorkTypeEditorResult, opts?: { keepOpen?: boolean }) {
+  async function handleSaved({ before, after, createdIds }: WorkTypeEditorResult, opts?: { keepOpen?: boolean }) {
     const keepOpen = opts?.keepOpen ?? false;
     if (!keepOpen) setEditor(null);
     const created = before === null;
@@ -181,19 +181,24 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
       moved || created
         ? [null, ...ancestorIds(before), ...ancestorIds(after)]
         : [after.parent_id];
-    if (!keepOpen) toast.success(created ? "Позиция добавлена" : "Изменения сохранены");
+    if (!keepOpen) {
+      toast.success(
+        created ? ((createdIds?.length ?? 1) > 1 ? `Позиции добавлены: ${createdIds!.length}` : "Позиция добавлена") : "Изменения сохранены",
+      );
+    }
     if (created) {
-      // Новая позиция может лежать в любой ветке (форма открывалась и из шапки
-      // с пустым расположением): раскрываем каскад вдоль её цепочки предков
-      // (списки перечитываются свежими), прокручиваем колонку к карточке и
-      // коротко её подсвечиваем. Поиск сбрасываем — иначе каскада не видно.
+      // Новые позиции могут лежать в любой ветке (форма открывалась и из шапки
+      // с пустым расположением): раскрываем каскад вдоль цепочки предков первой
+      // созданной (списки перечитываются свежими), прокручиваем колонку к ней и
+      // коротко подсвечиваем все созданные. Поиск сбрасываем — иначе каскада не видно.
       setSelectedLeafId(after.id);
       setQuery("");
       await cascade.revealPath(after.ancestors);
       // При «Сохранить и добавить ещё» форма всё ещё закрывает каскад, подсвечивать рано.
       if (!keepOpen) {
-        setFlashLeafId(after.id);
-        setTimeout(() => setFlashLeafId((prev) => (prev === after.id ? undefined : prev)), 3000);
+        const flashed = createdIds?.length ? createdIds : [after.id];
+        setFlashLeafIds(flashed);
+        setTimeout(() => setFlashLeafIds((prev) => (prev === flashed ? [] : prev)), 3000);
       }
     } else {
       await cascade.refresh(parents, after.id);
@@ -388,7 +393,7 @@ export function WorkTypeCatalog({ className }: { className?: string }) {
               isMobile={isMobile}
               isAdminLike={isAdminLike}
               selectedLeafId={selectedLeafId}
-              flashLeafId={flashLeafId}
+              flashLeafIds={flashLeafIds}
               onLeaf={(leaf) => setSelectedLeafId(leaf.id)}
               renderLeafActions={
                 showEditTools

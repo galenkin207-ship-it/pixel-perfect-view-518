@@ -28,7 +28,7 @@ export function CascadeColumn({
   selectedLeafId,
   renderLeafActions,
   renderContainerActions,
-  flashId,
+  flashIds,
   footer,
 }: {
   nodes: WorkTypeTreeNode[];
@@ -66,10 +66,10 @@ export function CascadeColumn({
   // Слот справа на карточке контейнера (уровни 1–4): меню «⋯» для admin.
   // Так же соседствует с кнопкой карточки, а не вложен в неё.
   renderContainerActions?: ((node: WorkTypeTreeNode) => ReactNode) | undefined;
-  // Карточка, к которой нужно прокрутить колонку и коротко подсветить (только
-  // что созданная позиция). Срабатывает один раз для каждого id, в той
-  // колонке, где эта карточка есть.
-  flashId?: string | undefined;
+  // Карточки, которые нужно коротко подсветить (только что созданные позиции);
+  // колонка прокручивается к первой из них. Срабатывает один раз для каждого
+  // набора, в той колонке, где эти карточки есть.
+  flashIds?: readonly string[] | undefined;
   // Хвост списка (кнопка «+ Добавить позицию»): рисуется и под карточками, и
   // в пустой колонке.
   footer?: ReactNode;
@@ -106,15 +106,18 @@ export function CascadeColumn({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, resolveAutoSkip]);
 
-  const [flashing, setFlashing] = useState<string | null>(null);
+  const [flashing, setFlashing] = useState<readonly string[]>([]);
   const flashHandledRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!flashId || loading || flashHandledRef.current === flashId) return;
+    if (!flashIds?.length || loading) return;
+    const key = flashIds.join(",");
+    if (flashHandledRef.current === key) return;
     const container = scrollRef.current;
-    const el = container?.querySelector<HTMLElement>(`[data-node-id="${flashId}"]`);
+    const present = flashIds.filter((id) => container?.querySelector(`[data-node-id="${id}"]`));
+    const el = present[0] ? container?.querySelector<HTMLElement>(`[data-node-id="${present[0]}"]`) : null;
     if (!container || !el) return;
-    flashHandledRef.current = flashId;
+    flashHandledRef.current = key;
     // Прокручиваем только саму колонку (не страницу и не ряд колонок):
     // карточка встаёт примерно по центру видимой области колонки.
     const containerRect = container.getBoundingClientRect();
@@ -122,12 +125,12 @@ export function CascadeColumn({
     const top =
       cardRect.top - containerRect.top + container.scrollTop - (container.clientHeight - cardRect.height) / 2;
     container.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-    setFlashing(flashId);
-  }, [flashId, loading, nodes]);
+    setFlashing(present);
+  }, [flashIds, loading, nodes]);
 
   useEffect(() => {
-    if (!flashing) return;
-    const timer = setTimeout(() => setFlashing(null), 2200);
+    if (flashing.length === 0) return;
+    const timer = setTimeout(() => setFlashing([]), 2200);
     return () => clearTimeout(timer);
   }, [flashing]);
 
@@ -210,7 +213,7 @@ export function CascadeColumn({
               // Пустой контейнер (только admin в справочнике) — приглушённая карточка.
               isEmpty && "opacity-60",
               // Только что созданная позиция — короткая подсветка.
-              flashing === node.id && "border-primary bg-primary/15 ring-2 ring-primary/40",
+              flashing.includes(node.id) && "border-primary bg-primary/15 ring-2 ring-primary/40",
             )}
           >
             <button

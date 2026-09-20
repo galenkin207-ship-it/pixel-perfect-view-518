@@ -27,7 +27,6 @@ import type {
   WorkTypeAncestor,
   WorkTypeDetail,
   WorkTypeLeafInput,
-  WorkTypeSearchResult,
 } from "@/data/work-type-tree";
 import { api, ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
@@ -51,7 +50,11 @@ export type WorkTypeEditorResult = {
   // Лист ДО правки (для старой цепочки предков и старого parent_id);
   // null при создании.
   before: WorkTypeDetail | null;
+  // При создании — первый созданный лист (по его цепочке предков хозяин
+  // раскрывает каскад).
   after: WorkTypeDetail;
+  // Только создание: id всех созданных позиций (в порядке создания).
+  createdIds?: string[];
 };
 
 type Option = { id: string; name: string; gesnCode: string | null };
@@ -69,9 +72,10 @@ const CATALOG_TYPE_OPTIONS: { value: CatalogType; label: string }[] = [
   { value: "ремонт", label: "Ремонт" },
 ];
 
-// Общие поля позиции (название, состав) + строки вариантов. В режиме правки
-// строка ровно одна и описывает саму позицию; в режиме создания строк может
-// быть несколько — каждая станет отдельным листом «<Название> <Вариант>».
+// Состав работ + строки позиций. Режим создания: строк несколько, каждая —
+// отдельный лист (text = вариант под группой или полное название без группы),
+// name не используется. Режим правки: строка одна (text — вариант позиции под
+// группой), name — название позиции, когда группы нет.
 type FormState = {
   name: string;
   composition: string;
@@ -84,7 +88,7 @@ function newVariant(patch: Partial<VariantForm> = {}): VariantForm {
   variantKeySeq += 1;
   return {
     key: `v${variantKeySeq}`,
-    variantLabel: "",
+    text: "",
     unit: "",
     price: "",
     hasPrice: true,
@@ -105,7 +109,7 @@ function formFromDetail(d: WorkTypeDetail): FormState {
     composition: d.work_composition ?? "",
     variants: [
       newVariant({
-        variantLabel: d.variant_label ?? "",
+        text: d.variant_label ?? "",
         unit: d.unit,
         price: String(d.price),
         hasPrice: d.has_price,
@@ -215,8 +219,7 @@ export function WorkTypeEditorDialog({
     isCreate
       ? {
           ...emptyForm(),
-          name: target.prefill?.name ?? "",
-          variants: [newVariant({ unit: target.prefill?.unit ?? "" })],
+          variants: [newVariant({ text: target.prefill?.name ?? "", unit: target.prefill?.unit ?? "" })],
         }
       : emptyForm(),
   );
@@ -235,7 +238,6 @@ export function WorkTypeEditorDialog({
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   // «Сохранено: <название>» после «Сохранить и добавить ещё».
   const [savedName, setSavedName] = useState<string | null>(null);
-  const nameInputRef = useRef<HTMLTextAreaElement>(null);
   // Снимок состояния на момент открытия — по нему считаем "есть несохранённые
   // изменения".
   const [initialSnapshot, setInitialSnapshot] = useState<string | null>(
@@ -341,35 +343,6 @@ export function WorkTypeEditorDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, selection]);
 
-  // Подсказка о дублях (только создание): по мере ввода названия ищем
-  // похожие позиции существующим серверным поиском. Только информирует —
-  // сохранение не блокирует (точное совпадение в том же родителе сервер
-  // отклонит сам, 409 покажется в форме).
-  const [similar, setSimilar] = useState<WorkTypeSearchResult[]>([]);
-  useEffect(() => {
-    if (!isCreate) return;
-    const q = form.name.trim();
-    if (q.length < 3) {
-      setSimilar([]);
-      return;
-    }
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      api
-        .searchWorkTypes(q, 5)
-        .then((items) => {
-          if (!cancelled) setSimilar(items.slice(0, 5));
-        })
-        .catch(() => {
-          if (!cancelled) setSimilar([]);
-        });
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [isCreate, form.name]);
-
   // Единицы соседних позиций выбранного родителя (только создание): листья
   // самого глубокого выбранного узла — подсказка «как у соседей».
   const [neighborUnits, setNeighborUnits] = useState<string[]>([]);
@@ -398,6 +371,16 @@ export function WorkTypeEditorDialog({
       cancelled = true;
     };
   }, [isCreate, isAdmin, deepestSelected]);
+
+  // Группа = самый глубокий выбранный узел имеет level 4 (слот «Группа»). От
+  // этого зависят подписи полей, правило названия и предпросмотр; смена группы
+  // введённый текст не трогает. Имя берём из известных предков (они есть
+  // раньше, чем догрузятся списки слотов).
+  const groupId = selection[3];
+  const underGroup = Boolean(groupId);
+  const groupName = groupId
+    ? (knownAncestors.find((a) => a.id === groupId)?.name ?? optionName(3, groupId))
+    : null;
 
   const dirty = initialSnapshot !== null && snapshotOf(form, selection) !== initialSnapshot;
 
@@ -539,15 +522,18 @@ export function WorkTypeEditorDialog({
     setRowErrors({});
     setSavedName(null);
 
-    const name = form.name.trim();
-    if (!name) return setFormError("Укажите название позиции");
+    // Режим правки без группы: название обязательно (под группой название
+    // собирает сервер из группы и варианта).
+    if (!isCreate && !underGroup && !form.name.trim()) return setFormError("Укажите название позиции");
 
     // Проверка строк: ошибки показываем у самой строки.
     const errors: Record<number, string> = {};
     const parsed = form.variants.map((v, i) => {
       const price = parseNumber(v.price);
       const laborHours = parseNumber(v.laborHours);
-      if (!v.unit.trim()) errors[i] = "Укажите единицу измерения";
+      if (isCreate && !underGroup && !v.text.trim()) errors[i] = "Введите название позиции";
+      else if (isCreate && underGroup && form.variants.length > 1 && !v.text.trim()) errors[i] = "Укажите вариант";
+      else if (!v.unit.trim()) errors[i] = "Укажите единицу измерения";
       else if (price !== null && (Number.isNaN(price) || price < 0)) errors[i] = "Цена должна быть неотрицательным числом";
       else if (laborHours !== null && (Number.isNaN(laborHours) || laborHours < 0)) {
         errors[i] = "Трудозатраты должны быть неотрицательным числом";
@@ -567,11 +553,10 @@ export function WorkTypeEditorDialog({
     }
 
     const composition = form.composition.trim() ? form.composition : null;
-    // Строка → поля листа (в режиме правки строка одна).
-    const leafFields = (i: number) => {
+    // Строка → числовые/общие поля листа.
+    const rowFields = (i: number) => {
       const v = form.variants[i]!;
       return {
-        variant_label: v.variantLabel.trim() || null,
         unit: v.unit.trim(),
         price: parsed[i]!.price ?? 0,
         has_price: v.hasPrice,
@@ -583,56 +568,50 @@ export function WorkTypeEditorDialog({
     setSaving(true);
     try {
       if (target.kind === "create") {
-        const single = form.variants.length === 1 && !form.variants[0]!.variantLabel.trim();
-        let created: WorkTypeDetail;
-        let savedLabel: string;
-        if (single) {
-          created = await api.createWorkType({
-            name,
-            ...leafFields(0),
-            work_composition: composition,
-            parent_id: deepest!,
-          });
-          savedLabel = created.name;
-        } else {
-          const items = await api.createWorkTypeBatch({
-            parent_id: deepest!,
-            name,
-            work_composition: composition,
-            variants: form.variants.map((_, i) => leafFields(i)),
-          });
-          savedLabel = `${name} — вариантов: ${items.length}`;
-          // Хозяину нужен полный лист (цепочка предков — раскрыть каскад):
-          // берём первый созданный. Варианты к этому моменту уже сохранены.
-          try {
-            created = await api.getWorkTypeDetail(items[0]!.id);
-          } catch {
-            const fresh = emptyForm();
-            setForm(fresh);
-            setSimilar([]);
-            setInitialSnapshot(snapshotOf(fresh, selection));
-            setFormError(
-              `Варианты сохранены (${items.length}), но справочник не обновился — закройте окно и обновите страницу`,
-            );
-            setSaving(false);
-            return;
-          }
-        }
-        onSaved({ before: null, after: created }, { keepOpen: another });
-        if (another) {
-          // Расположение остаётся, название и строки очищаются, фокус — в название.
+        // Единственный путь создания — batch; имя каждой позиции считает сервер.
+        const createdNodes = await api.createWorkTypeBatch({
+          parent_id: deepest!,
+          work_composition: composition,
+          items: form.variants.map((v, i) => ({ text: v.text.trim(), ...rowFields(i) })),
+        });
+        const createdIds = createdNodes.map((n) => n.id);
+        const savedLabel = createdNodes.length === 1 ? createdNodes[0]!.name : `позиций: ${createdNodes.length}`;
+        // Хозяину нужен полный лист (цепочка предков — раскрыть каскад): берём
+        // первый созданный. Позиции к этому моменту уже сохранены.
+        let first: WorkTypeDetail;
+        try {
+          first = await api.getWorkTypeDetail(createdIds[0]!);
+        } catch {
           const fresh = emptyForm();
           setForm(fresh);
-          setSimilar([]);
+          setInitialSnapshot(snapshotOf(fresh, selection));
+          setFormError(
+            `Позиции сохранены (${createdNodes.length}), но справочник не обновился — закройте окно и обновите страницу`,
+          );
+          setSaving(false);
+          return;
+        }
+        onSaved({ before: null, after: first, createdIds }, { keepOpen: another });
+        if (another) {
+          // Расположение остаётся, строки и состав работ очищаются, фокус — в первую строку.
+          const fresh = emptyForm();
+          setForm(fresh);
           setInitialSnapshot(snapshotOf(fresh, selection));
           setSavedName(savedLabel);
           setSaving(false);
-          setTimeout(() => nameInputRef.current?.focus(), 0);
+          setTimeout(() => {
+            document.querySelector<HTMLTextAreaElement>('[data-variant-row="0"] textarea')?.focus();
+          }, 0);
         }
       } else {
+        // Под группой шлём variant_label (только если он изменился — пустой
+        // вариант у старой позиции название не трогает), name не шлём: его
+        // пересчитывает сервер. Без группы — name.
+        const variantText = form.variants[0]!.text.trim();
+        const variantChanged = variantText !== (detail?.variant_label ?? "").trim();
         const saved = await api.editWorkType(target.id, {
-          name,
-          ...leafFields(0),
+          ...(underGroup ? (variantChanged ? { variant_label: variantText || null } : {}) : { name: form.name.trim() }),
+          ...rowFields(0),
           work_composition: composition,
           ...(locationChanged && deepest ? { parent_id: deepest } : {}),
         });
@@ -883,52 +862,74 @@ export function WorkTypeEditorDialog({
                   </p>
                 </section>
 
-                {/* Позиция */}
-                <section className="space-y-3">
-                  <h3 className="text-sm font-bold">Позиция</h3>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <label className="block space-y-1.5 md:col-span-2">
-                      <span className={labelClass}>
-                        Название <span className="text-destructive">*</span>
-                      </span>
-                      <AutoTextarea
-                        ref={nameInputRef}
-                        singleLine
-                        value={form.name}
-                        onChange={(e) => setField("name", e.target.value)}
-                      />
-                      {isCreate && similar.length > 0 && (
-                        <div className="space-y-1.5 rounded-xl border border-border bg-muted/40 p-2.5">
-                          <p className="text-xs font-semibold text-muted-foreground">Уже есть в справочнике</p>
-                          <ul className="space-y-1.5">
-                            {similar.map((item) => (
-                              <li key={item.id} className="text-sm leading-snug">
-                                <span className="font-medium break-words">
-                                  {item.variant_label ? `${item.name} — ${item.variant_label}` : item.name}
-                                </span>
-                                <span className="ml-1.5 text-xs text-muted-foreground">{item.unit}</span>
-                                {item.breadcrumb.length > 0 && (
-                                  <span className="block text-xs break-words text-muted-foreground">
-                                    {item.breadcrumb.join(" › ")}
-                                  </span>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
+                {isCreate ? (
+                  /* Позиции: общий состав работ + по строке на лист справочника */
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-bold">Позиции</h3>
+                    <CompositionField
+                      label="Состав работ — общий для всех позиций"
+                      value={form.composition}
+                      onChange={(v) => setField("composition", v)}
+                    />
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      {groupName !== null ? (
+                        <p>
+                          Группа: <span className="font-semibold text-foreground">{groupName}</span>. Позиция = группа +
+                          вариант
+                        </p>
+                      ) : (
+                        <>
+                          <p>Группа не выбрана — введите полное название каждой позиции</p>
+                          {isAdmin && (
+                            <p>
+                              Чтобы создать несколько вариантов под общим названием, создайте группу через «+» рядом с
+                              полем «Группа».
+                            </p>
+                          )}
+                        </>
                       )}
-                    </label>
-                    {!isCreate && (
-                      <>
-                        <label className="block space-y-1.5 md:col-span-2">
-                          <span className={labelClass}>Вариант</span>
-                          <AutoTextarea
-                            singleLine
-                            value={form.variants[0]!.variantLabel}
-                            onChange={(e) => setVariant(0, { variantLabel: e.target.value })}
-                            placeholder="Подпись варианта на карточке (необязательно)"
-                          />
-                        </label>
+                    </div>
+                    <VariantList
+                      group={groupName}
+                      rows={form.variants}
+                      rowErrors={rowErrors}
+                      units={units}
+                      neighbors={neighborUnits}
+                      disabled={saving}
+                      onChange={setVariant}
+                      onAdd={addVariant}
+                      onRemove={removeVariant}
+                    />
+                  </section>
+                ) : (
+                  <>
+                    {/* Позиция */}
+                    <section className="space-y-3">
+                      <h3 className="text-sm font-bold">Позиция</h3>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {underGroup ? (
+                          <label className="block space-y-1.5 md:col-span-2">
+                            <span className={labelClass}>Вариант</span>
+                            <AutoTextarea
+                              singleLine
+                              value={form.variants[0]!.text}
+                              onChange={(e) => setVariant(0, { text: e.target.value })}
+                              placeholder="Необязательно"
+                            />
+                            <span className="block text-xs text-muted-foreground">Название = группа + вариант</span>
+                          </label>
+                        ) : (
+                          <label className="block space-y-1.5 md:col-span-2">
+                            <span className={labelClass}>
+                              Название <span className="text-destructive">*</span>
+                            </span>
+                            <AutoTextarea
+                              singleLine
+                              value={form.name}
+                              onChange={(e) => setField("name", e.target.value)}
+                            />
+                          </label>
+                        )}
                         <UnitField
                           value={form.variants[0]!.unit}
                           units={units}
@@ -965,34 +966,15 @@ export function WorkTypeEditorDialog({
                             {rowErrors[0]}
                           </p>
                         )}
-                      </>
-                    )}
-                  </div>
-                  {isCreate && <CompositionField withLabel value={form.composition} onChange={(v) => setField("composition", v)} />}
-                </section>
+                      </div>
+                    </section>
 
-                {isCreate ? (
-                  /* Варианты: по строке на лист справочника */
-                  <section className="space-y-3">
-                    <h3 className="text-sm font-bold">Варианты</h3>
-                    <VariantList
-                      name={form.name}
-                      rows={form.variants}
-                      rowErrors={rowErrors}
-                      units={units}
-                      neighbors={neighborUnits}
-                      disabled={saving}
-                      onChange={setVariant}
-                      onAdd={addVariant}
-                      onRemove={removeVariant}
-                    />
-                  </section>
-                ) : (
-                  /* Состав работ */
-                  <section className="space-y-3">
-                    <h3 className="text-sm font-bold">Состав работ</h3>
-                    <CompositionField value={form.composition} onChange={(v) => setField("composition", v)} />
-                  </section>
+                    {/* Состав работ */}
+                    <section className="space-y-3">
+                      <h3 className="text-sm font-bold">Состав работ</h3>
+                      <CompositionField value={form.composition} onChange={(v) => setField("composition", v)} />
+                    </section>
+                  </>
                 )}
 
                 {/* Материалы — пока только внешний вид, без запросов */}
@@ -1133,15 +1115,15 @@ function describeLoadError(err: unknown): string {
 function CompositionField({
   value,
   onChange,
-  withLabel,
+  label,
 }: {
   value: string;
   onChange: (value: string) => void;
-  withLabel?: boolean;
+  label?: string;
 }) {
   return (
     <div className="space-y-1.5">
-      {withLabel && <span className={labelClass}>Состав работ</span>}
+      {label && <span className={labelClass}>{label}</span>}
       <AutoTextarea
         value={value}
         onChange={(e) => onChange(e.target.value)}

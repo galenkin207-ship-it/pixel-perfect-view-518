@@ -78,7 +78,7 @@ export type WorkTypeAncestor = {
 };
 
 // Лист целиком для редактора (GET /work-types/:id/detail, ответ PATCH
-// /:id/edit и POST /work-types). Служебные признаки (is_step_item,
+// /:id/edit). Служебные признаки (is_step_item,
 // is_counter_step, step_*) в редакторе не показываются и не меняются, но
 // приходят с сервера — держим их в типе, чтобы не терять.
 export type WorkTypeDetail = {
@@ -105,8 +105,9 @@ export type WorkTypeDetail = {
   ancestors: WorkTypeAncestor[];
 };
 
-// Редактируемые поля листа для PATCH /:id/edit и POST /work-types.
-// parent_id в PATCH передаётся только если расположение изменилось.
+// Редактируемые поля листа для PATCH /:id/edit. parent_id передаётся только
+// если расположение изменилось. Под группой (level 4) шлётся variant_label
+// (имя сервер пересчитывает сам), иначе — name.
 export type WorkTypeLeafInput = {
   name: string;
   variant_label: string | null;
@@ -119,10 +120,11 @@ export type WorkTypeLeafInput = {
   parent_id?: string;
 };
 
-// Тело POST /work-types/batch: общая часть (название, состав работ) и варианты —
-// по одному листу на вариант под одним родителем-контейнером.
-export type WorkTypeBatchVariantInput = {
-  variant_label: string | null;
+// Тело POST /work-types/batch: общий родитель и состав работ + строки. Итоговое
+// имя листа считает сервер: под группой (level 4) text — вариант (имя = группа +
+// вариант), под другим контейнером — полное название позиции.
+export type WorkTypeBatchItemInput = {
+  text: string;
   unit: string;
   price: number;
   has_price: boolean;
@@ -132,7 +134,6 @@ export type WorkTypeBatchVariantInput = {
 
 export type WorkTypeBatchInput = {
   parent_id: string;
-  name: string;
   work_composition: string | null;
-  variants: WorkTypeBatchVariantInput[];
+  items: WorkTypeBatchItemInput[];
 };

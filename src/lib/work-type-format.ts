@@ -10,3 +10,29 @@ export function formatGesnNumberLabel(gesnCode: string | null): string | null {
   if (!match) return null;
   return gesnCode.startsWith("ГЭСНм") ? `${match[1]}м.` : `${match[1]}.`;
 }
+
+function normalizeForNameCompare(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Название позиции под группой (level 4) — то же правило, что buildLeafName на
+// сервере (work-types-shared.js), для предпросмотра «В записи будет»:
+//  - группа на «:» → «группа вариант», иначе → «группа: вариант»;
+//  - пустой вариант → название группы;
+//  - вариант, равный названию группы или начинающийся с него по границе слова
+//    (регистр, ё→е, пунктуация и лишние пробелы не важны) → сам вариант.
+export function buildLeafName(groupName: string, variant: string): string {
+  const group = groupName.replace(/\s+/g, " ").trim();
+  const v = variant.replace(/\s+/g, " ").trim();
+  if (!v) return group;
+  if (!group) return v;
+  const normGroup = normalizeForNameCompare(group);
+  const normVariant = normalizeForNameCompare(v);
+  if (normGroup && (normVariant === normGroup || normVariant.startsWith(`${normGroup} `))) return v;
+  return group.endsWith(":") ? `${group} ${v}` : `${group}: ${v}`;
+}

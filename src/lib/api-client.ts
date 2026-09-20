@@ -594,20 +594,11 @@ export const api = {
     }));
   },
 
-  // Создание листа (level=5) в дереве: POST /work-types. Плоский
-  // {name, unit, price} без parent_id бэкенд больше не принимает.
-  async createWorkType(input: WorkTypeLeafInput & { parent_id: string }): Promise<WorkTypeDetail> {
-    const raw = await request<RawWorkTypeDetail>("/work-types", {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
-    return mapWorkTypeDetail(raw);
-  },
-
-  // Несколько вариантов одной позиции под одним контейнером за один запрос
-  // (одна транзакция): POST /work-types/batch, admin/curator. Итоговое имя
-  // листа = name + " " + variant_label. Ошибки приходят с номером строки
-  // («Строка N: ...»), при любой ошибке не создаётся ничего.
+  // Создание позиций под одним контейнером за один запрос (одна транзакция):
+  // POST /work-types/batch, admin/curator — единственный путь создания листа.
+  // Имя листа считает сервер (под группой — группа + вариант). Ошибки приходят
+  // строкой «Строка N: ...», при любой ошибке не создаётся ничего. Ответ — листья
+  // в порядке создания (формат /tree, без цепочки предков).
   async createWorkTypeBatch(input: WorkTypeBatchInput): Promise<WorkTypeTreeNode[]> {
     const { items } = await request<{ items: RawWorkTypeTreeNode[] }>("/work-types/batch", {
       method: "POST",

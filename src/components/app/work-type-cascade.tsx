@@ -42,7 +42,7 @@ export function WorkTypeCascade({
   renderLeafActions,
   renderContainerActions,
   renderColumnFooter,
-  flashLeafId,
+  flashLeafIds,
   className,
 }: {
   cascade: WorkTypeCascadeState;
@@ -59,7 +59,7 @@ export function WorkTypeCascade({
   renderColumnFooter?: ((ctx: ColumnFooterContext) => ReactNode) | undefined;
   // Позиция, к которой колонка прокручивается и которая коротко подсвечивается
   // (только что созданная, browse-режим).
-  flashLeafId?: string | undefined;
+  flashLeafIds?: readonly string[] | undefined;
   // Класс корня desktop-раскладки (высоту/flex задаёт хозяин).
   className?: string | undefined;
 }) {
@@ -162,7 +162,7 @@ export function WorkTypeCascade({
               initialScrollTop={isFrontier ? frontierScrollOffset : undefined}
               renderLeafActions={browse ? renderLeafActions : undefined}
               renderContainerActions={browse ? renderContainerActions : undefined}
-              flashId={browse ? flashLeafId : undefined}
+              flashIds={browse ? flashLeafIds : undefined}
               footer={browse ? renderColumnFooter?.({ parent, level, nodes: col.nodes }) : undefined}
             />
           </div>

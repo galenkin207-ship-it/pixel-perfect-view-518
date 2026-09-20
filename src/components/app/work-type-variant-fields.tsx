@@ -2,17 +2,23 @@ import { ChevronDown, Plus, X } from "lucide-react";
 
 import { AutoTextarea } from "@/components/app/work-type-editor-fields";
 import { cn } from "@/lib/utils";
+import { buildLeafName } from "@/lib/work-type-format";
+
+// Сколько строк сервер принимает за один batch-запрос.
+export const MAX_BATCH_ROWS = 50;
 
 // Общий вид поля формы редактора (тот же, что в диалоге).
 export const fieldClass =
   "w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60";
 export const labelClass = "label-caps";
 
-// Строка «Варианты» (режим создания). key нужен только React; showMore —
-// раскрыто ли «Ещё» (трудозатраты, код ГЭСН).
+// Строка позиции (режим создания). key нужен только React; showMore — раскрыто
+// ли «Ещё» (трудозатраты, код ГЭСН). text — вариант (если самый глубокий
+// выбранный узел — группа) или полное название позиции (если группы нет); в
+// режиме правки — вариант позиции под группой.
 export type VariantForm = {
   key: string;
-  variantLabel: string;
+  text: string;
   unit: string;
   price: string;
   hasPrice: boolean;
@@ -93,11 +99,17 @@ export function PriceField({
   );
 }
 
-// Блок «Варианты»: общая часть позиции (название, состав) живёт выше, здесь —
-// по строке на каждый вариант. Из строк получаются отдельные листья справочника
-// «<Название> <Вариант>».
+// Итоговое название позиции (то же правило, что на сервере): под группой —
+// группа + вариант, без группы — введённый текст как есть.
+export function resultingName(group: string | null, text: string): string {
+  return group === null ? text.trim() : buildLeafName(group, text);
+}
+
+// Блок «Позиции»: по строке на каждый лист справочника. Подпись поля строки и
+// предпросмотр зависят от того, выбрана ли группа (group — её название, null —
+// группы нет); введённый текст при смене группы не теряется.
 export function VariantList({
-  name,
+  group,
   rows,
   rowErrors,
   units,
@@ -107,7 +119,7 @@ export function VariantList({
   onAdd,
   onRemove,
 }: {
-  name: string;
+  group: string | null;
   rows: VariantForm[];
   // Ошибки по индексу строки (клиентская проверка или «Строка N: ...» с сервера).
   rowErrors: Record<number, string>;
@@ -118,13 +130,13 @@ export function VariantList({
   onAdd: () => void;
   onRemove: (index: number) => void;
 }) {
-  const baseName = name.trim();
+  const underGroup = group !== null;
   return (
     <div className="space-y-3">
       {rows.map((row, i) => {
         const error = rowErrors[i];
-        const label = row.variantLabel.trim();
         const moreFilled = Boolean(row.laborHours.trim() || row.gesnCode.trim());
+        const total = resultingName(group, row.text);
         return (
           <div
             key={row.key}
@@ -136,13 +148,15 @@ export function VariantList({
           >
             {rows.length > 1 && (
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-muted-foreground">Вариант {i + 1}</span>
+                <span className="text-xs font-semibold text-muted-foreground">
+                  {underGroup ? "Вариант" : "Позиция"} {i + 1}
+                </span>
                 <button
                   type="button"
                   disabled={disabled}
                   onClick={() => onRemove(i)}
-                  title="Удалить вариант"
-                  aria-label={`Удалить вариант ${i + 1}`}
+                  title="Удалить строку"
+                  aria-label={`Удалить строку ${i + 1}`}
                   className="flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-destructive disabled:opacity-40"
                 >
                   <X className="size-4" />
@@ -150,15 +164,21 @@ export function VariantList({
               </div>
             )}
             <div className="space-y-1.5">
-              <span className={labelClass}>Вариант</span>
+              <span className={labelClass}>
+                {underGroup ? "Вариант" : "Название позиции"}
+                {!underGroup || rows.length > 1 ? <span className="text-destructive"> *</span> : null}
+              </span>
               <AutoTextarea
                 singleLine
-                value={row.variantLabel}
-                onChange={(e) => onChange(i, { variantLabel: e.target.value })}
+                value={row.text}
+                disabled={disabled}
+                onChange={(e) => onChange(i, { text: e.target.value })}
                 placeholder={
-                  rows.length > 1
-                    ? "Подпись варианта"
-                    : "Подпись варианта на карточке (необязательно, если вариант один)"
+                  underGroup
+                    ? rows.length > 1
+                      ? "Например: 10 кВт"
+                      : "Необязательно, если вариант один"
+                    : "Полное название позиции"
                 }
               />
             </div>
@@ -211,8 +231,7 @@ export function VariantList({
               )}
             </div>
             <p className="text-xs break-words text-muted-foreground">
-              В записи будет:{" "}
-              <span className="font-semibold text-foreground">{[baseName || "…", label].filter(Boolean).join(" ")}</span>
+              В записи будет: <span className="font-semibold text-foreground">{total || "…"}</span>
             </p>
             {error && (
               <p role="alert" className="text-sm text-destructive">
@@ -224,7 +243,7 @@ export function VariantList({
       })}
       <button
         type="button"
-        disabled={disabled}
+        disabled={disabled || rows.length >= MAX_BATCH_ROWS}
         onClick={onAdd}
         className="flex items-center gap-1.5 rounded-xl border border-dashed border-border px-3 py-2 text-sm font-semibold text-primary transition-colors hover:border-primary hover:bg-primary/10 disabled:opacity-60"
       >

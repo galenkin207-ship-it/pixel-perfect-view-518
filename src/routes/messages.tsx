@@ -718,7 +718,11 @@ function MessagesPage() {
             // Заявка остаётся как есть (статус не меняем) — решение по ней
             // принимается отдельно кнопками «Одобрить»/«Отклонить».
             if (!opts?.keepOpen) setCatalogTarget(null);
-            toast.success(`Добавлено в справочник: ${result.after.name}`);
+            toast.success(
+              (result.createdIds?.length ?? 1) > 1
+                ? `Добавлено в справочник: позиций — ${result.createdIds!.length}`
+                : `Добавлено в справочник: ${result.after.name}`,
+            );
           }}
         />
       )}
