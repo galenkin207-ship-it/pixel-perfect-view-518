@@ -160,7 +160,12 @@ export function useWorkTypeTree(
       }
       const onlyChild = children.length === 1 ? children[0] : undefined;
       if (!onlyChild) return { chainNodes };
-      if (!onlyChild.has_children) return { leaf: onlyChild, groupName: current.name };
+      if (!onlyChild.has_children) {
+        // Позиция без названия: карточка не сможет показать её полное имя —
+        // не схлопываем, группа остаётся с шевроном, позиция — в следующей колонке.
+        if (!onlyChild.name?.trim()) return { chainNodes };
+        return { leaf: onlyChild, groupName: current.name };
+      }
       chainNodes.push(onlyChild);
       current = onlyChild;
     }

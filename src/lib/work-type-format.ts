@@ -36,3 +36,22 @@ export function buildLeafName(groupName: string, variant: string): string {
   if (normGroup && (normVariant === normGroup || normVariant.startsWith(`${normGroup} `))) return v;
   return group.endsWith(":") ? `${group} ${v}` : `${group}: ${v}`;
 }
+
+const COLUMN_LEVEL_LABELS: Record<number, string> = {
+  1: "Сборник",
+  2: "Раздел",
+  3: "Таблица",
+  4: "Группа",
+  5: "Позиции",
+};
+
+// Заголовок колонки каскада по РЕАЛЬНЫМ уровням её узлов (level — тип узла, а не
+// номер колонки: группа может лежать прямо под сборником, схлопнутые уровни
+// не рисуются). Смешанная колонка — «<Уровни контейнеров> / Позиции», напр.
+// «Группа / Позиции». Пока узлов нет (загрузка, пусто) — по ожидаемому уровню:
+// уровень родителя + 1 (expectedLevel).
+export function columnLabel(nodes: { level: number }[], expectedLevel: number): string {
+  if (nodes.length === 0) return COLUMN_LEVEL_LABELS[Math.min(Math.max(expectedLevel, 1), 5)]!;
+  const levels = [...new Set(nodes.map((n) => Math.min(Math.max(n.level, 1), 5)))].sort((a, b) => a - b);
+  return levels.map((l) => COLUMN_LEVEL_LABELS[l]!).join(" / ");
+}

@@ -29,6 +29,8 @@ export function CascadeColumn({
   renderLeafActions,
   renderContainerActions,
   flashIds,
+  showFullLeafName,
+  onPreviewLeaf,
   footer,
 }: {
   nodes: WorkTypeTreeNode[];
@@ -70,6 +72,12 @@ export function CascadeColumn({
   // колонка прокручивается к первой из них. Срабатывает один раз для каждого
   // набора, в той колонке, где эти карточки есть.
   flashIds?: readonly string[] | undefined;
+  // Пикер (десктоп): карточка группы, схлопнутая до единственной позиции,
+  // показывает полное название позиции (leaf.name), а не название группы.
+  showFullLeafName?: boolean | undefined;
+  // Пикер (десктоп): позиция под курсором/фокусом (для карточек-контейнеров —
+  // null), чтобы хозяин показал, что попадёт в запись.
+  onPreviewLeaf?: ((leaf: WorkTypeTreeNode | null) => void) | undefined;
   // Хвост списка (кнопка «+ Добавить позицию»): рисуется и под карточками, и
   // в пустой колонке.
   footer?: ReactNode;
@@ -184,12 +192,15 @@ export function CascadeColumn({
         // у промежуточных узлов) считаем "своей" позицией.
         const source = resolvesToLeaf ? resolvesToLeaf.leaf.source : node.source;
         const isGesnSource = source === "gesn_catalog";
+        // Схлопнутая до позиции карточка группы — полное название позиции
+        // (например «Домино штукатурное: 77»), иначе вариант «77» нигде не виден.
+        const collapsedFullName = showFullLeafName && resolvesToLeaf ? resolvesToLeaf.leaf.name.trim() : "";
         // Первый уровень (сборники) — нумерация из gesn_code и заглавные буквы
         // визуально (CSS), без изменения самого name (используется как есть
         // в записи/отчётах).
-        const isLevel1 = node.level === 1;
+        const isLevel1 = node.level === 1 && !collapsedFullName;
         const gesnNumberLabel = isLevel1 ? formatGesnNumberLabel(node.gesn_code) : null;
-        const displayName = !isContainer && node.variant_label ? node.variant_label : node.name;
+        const displayName = collapsedFullName || (!isContainer && node.variant_label ? node.variant_label : node.name);
         const actions = displayAsLeaf
           ? renderLeafActions
             ? renderLeafActions(resolvesToLeaf ? resolvesToLeaf.leaf : node, resolvesToLeaf?.groupName)
@@ -205,6 +216,8 @@ export function CascadeColumn({
           <li
             key={node.id}
             data-node-id={node.id}
+            onMouseEnter={onPreviewLeaf ? () => onPreviewLeaf(displayAsLeaf ? (resolvesToLeaf?.leaf ?? node) : null) : undefined}
+            onFocus={onPreviewLeaf ? () => onPreviewLeaf(displayAsLeaf ? (resolvesToLeaf?.leaf ?? node) : null) : undefined}
             className={cn(
               "flex items-center rounded-xl border transition-colors",
               selected

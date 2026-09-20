@@ -1,18 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { CascadeColumn } from "@/components/app/work-type-cascade-column";
 import type { WorkTypeTreeNode } from "@/data/work-type-tree";
 import type { WorkTypeCascadeState } from "@/hooks/use-work-type-cascade";
-
-// Подписи над колонками по ВИДИМОЙ позиции слева направо, а не по DB-уровню
-// level: auto-skip схлопывает уровни с единственным дочерним элементом,
-// поэтому число реально отрендеренных колонок варьируется, и level не
-// совпадает с видимой позицией.
-const CASCADE_COLUMN_LABELS = ["Название сборника", "Раздел", "Группа", "Вариант", "Подвариант"];
-// В справочнике (browse) auto-skip выключен — колонка i всегда содержит узлы
-// уровня i + 1 (под таблицей рядом с группами могут лежать и позиции).
-const BROWSE_COLUMN_LABELS = ["Сборник", "Раздел", "Таблица", "Группа", "Позиции"];
+import { columnLabel } from "@/lib/work-type-format";
 
 export type ColumnFooterContext = {
   // Колонка, у которой это хвост списка: родитель (undefined у корневой),
@@ -67,6 +59,9 @@ export function WorkTypeCascade({
   const browse = mode === "browse";
   const rowRef = useRef<HTMLDivElement>(null);
   const visibleColumnCount = columns.filter((_, level) => isColumnVisible(level)).length;
+  // Пикер (select), десктоп: позиция под курсором/фокусом — для строки «Выбрано»
+  // под колонками (клик по позиции сразу кладёт её в запись).
+  const [previewLeaf, setPreviewLeaf] = useState<WorkTypeTreeNode | null>(null);
 
   // На странице справочника колонки не влезают в ширину окна (5 колонок по
   // 18rem) — при открытии новой колонки докручиваем ряд вправо, чтобы
@@ -120,17 +115,15 @@ export function WorkTypeCascade({
     );
   }
 
-  // Уровни (индексы в columns), реально отрендеренные как отдельная колонка —
-  // используется и для самих колонок, и для подписей над ними
-  // (CASCADE_COLUMN_LABELS), чтобы позиция подписи всегда совпадала с
-  // позицией колонки.
-  const visibleLevels = columns.map((_, level) => level).filter((level) => isColumnVisible(level));
-
   return (
-    <div ref={rowRef} className={className ?? "flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2"}>
+    <>
+    <div
+      ref={rowRef}
+      className={className ?? "flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2"}
+      onMouseLeave={browse ? undefined : () => setPreviewLeaf(null)}
+    >
       {columns.map((col, level) => {
         if (!isColumnVisible(level)) return null;
-        const position = visibleLevels.indexOf(level);
         const isFrontier = level === chain.length;
         const parent = chain[level - 1];
         return (
@@ -139,7 +132,7 @@ export function WorkTypeCascade({
           // вместе с колонкой сама собой, без ручной синхронизации scrollLeft.
           <div key={level} className="flex w-72 shrink-0 min-h-0 flex-col">
             <div className="mb-1.5 shrink-0 px-1 text-xs font-medium text-muted-foreground">
-              {(browse ? BROWSE_COLUMN_LABELS[level] : CASCADE_COLUMN_LABELS[position]) ?? ""}
+              {columnLabel(col.nodes, parent ? parent.level + 1 : 1)}
             </div>
             <CascadeColumn
               // Без h-full: высота колонки — не CSS-процент (который не
@@ -163,11 +156,19 @@ export function WorkTypeCascade({
               renderLeafActions={browse ? renderLeafActions : undefined}
               renderContainerActions={browse ? renderContainerActions : undefined}
               flashIds={browse ? flashLeafIds : undefined}
+              showFullLeafName={!browse}
+              onPreviewLeaf={browse ? undefined : setPreviewLeaf}
               footer={browse ? renderColumnFooter?.({ parent, level, nodes: col.nodes }) : undefined}
             />
           </div>
         );
       })}
     </div>
+    {!browse && (
+      <p className="shrink-0 px-1 text-sm break-words text-muted-foreground">
+        Выбрано: <span className="font-semibold text-foreground">{previewLeaf?.name.trim() || "—"}</span>
+      </p>
+    )}
+    </>
   );
 }

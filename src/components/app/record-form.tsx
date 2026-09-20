@@ -1012,27 +1012,12 @@ function WorkTypePicker({
   const [custom, setCustom] = useState("");
   const isMobile = useIsMobile();
 
-  // Для сравнения "группа vs вариант" на предмет дублирования — без учёта
-  // регистра, лишних пробелов и хвостовой пунктуации.
-  function normalizeForCompare(s: string): string {
-    return s.trim().toLowerCase().replace(/\s+/g, " ").replace(/[.,;:]+$/, "");
-  }
-
-  // Если у листа есть variant_label и он совпадает с названием родительской
-  // группы (level=4) — они дублируют друг друга, склейка не нужна. Иначе
-  // склеиваем "Группа: Вариант" сами (а не берём готовое node.name из БД).
-  // Без variant_label (legacy-позиции) — используем node.name как раньше.
-  function computeLeafName(node: WorkTypeTreeNode | WorkTypeSearchResult, groupName?: string): string {
-    if (!node.variant_label) return node.name;
-    if (groupName && normalizeForCompare(groupName) === normalizeForCompare(node.variant_label)) {
-      return node.variant_label;
-    }
-    return groupName ? `${groupName}: ${node.variant_label}` : node.name;
-  }
-
-  function handlePickLeaf(node: WorkTypeTreeNode | WorkTypeSearchResult, groupName?: string) {
+  // В запись идёт полное название позиции как в справочнике (leaf.name): его
+  // собирает сервер (группа + вариант, с защитой от дублей), склеивать заново
+  // на клиенте не нужно.
+  function handlePickLeaf(node: WorkTypeTreeNode | WorkTypeSearchResult) {
     onPick({
-      name: computeLeafName(node, groupName),
+      name: node.name,
       unit: node.unit,
       qty: 0,
       price: node.price,
@@ -1042,12 +1027,8 @@ function WorkTypePicker({
 
   // Базовая позиция со связанными шаговыми модификаторами (is_counter_step,
   // см. GET /api/work-types/:baseId/counter-steps) — вместо мгновенного
-  // коммита открываем карточку-счётчик. groupName — как и в handlePickLeaf,
-  // имя непосредственного родителя для дедупликации group/variant в имени.
-  const [counterBase, setCounterBase] = useState<{
-    base: WorkTypeTreeNode;
-    groupName: string | undefined;
-  } | null>(null);
+  // коммита открываем карточку-счётчик.
+  const [counterBase, setCounterBase] = useState<{ base: WorkTypeTreeNode } | null>(null);
   const [counterSteps, setCounterSteps] = useState<WorkTypeCounterStep[] | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const counterStepsCacheRef = useRef(new Map<string, WorkTypeCounterStep[]>());
@@ -1096,7 +1077,7 @@ function WorkTypePicker({
 
   function handleConfirmCounter() {
     if (!counterBase || !counterSteps) return;
-    const baseText = computeLeafName(counterBase.base, counterBase.groupName);
+    const baseText = counterBase.base.name;
     onPick({
       name: composeCounterName(baseText, counterSteps, counts),
       unit: counterBase.base.unit,
@@ -1111,12 +1092,12 @@ function WorkTypePicker({
   // листу в колонке, или auto-skip, разрешившийся до листа) — если у листа
   // есть свои шаговые модификаторы, вместо мгновенного коммита открываем
   // счётчик.
-  function pickOrOpenCounter(node: WorkTypeTreeNode | WorkTypeSearchResult, groupName?: string) {
+  function pickOrOpenCounter(node: WorkTypeTreeNode | WorkTypeSearchResult) {
     if (node.has_counter_steps) {
-      setCounterBase({ base: node, groupName });
+      setCounterBase({ base: node });
       return;
     }
-    handlePickLeaf(node, groupName);
+    handlePickLeaf(node);
   }
 
   function handleBack() {
@@ -1233,7 +1214,7 @@ function WorkTypePicker({
           {counterBase ? (
             <WorkTypeCounterCard
               base={counterBase.base}
-              baseText={computeLeafName(counterBase.base, counterBase.groupName)}
+              baseText={counterBase.base.name}
               steps={counterSteps}
               counts={counts}
               isAdminLike={isAdminLike}
@@ -1260,7 +1241,7 @@ function WorkTypePicker({
               <WorkTypeSearchResults
                 results={searchResults!}
                 isAdminLike={isAdminLike}
-                onPick={(t) => pickOrOpenCounter(t, t.breadcrumb[t.breadcrumb.length - 1])}
+                onPick={(t) => pickOrOpenCounter(t)}
               />
             )
           ) : catalogType === null ? (
@@ -1302,7 +1283,7 @@ function WorkTypePicker({
                 mode="select"
                 isMobile={isMobile}
                 isAdminLike={isAdminLike}
-                onLeaf={(leaf, groupName) => pickOrOpenCounter(leaf, groupName)}
+                onLeaf={(leaf) => pickOrOpenCounter(leaf)}
               />
             </div>
           )}
