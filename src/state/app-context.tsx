@@ -565,9 +565,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     id: string,
     input: {
       status: "approved" | "rejected";
-      resolved_name?: string;
-      resolved_unit?: string;
-      resolved_price?: number;
+      message?: string;
       reject_reason?: string;
     },
   ): Promise<WorkRequest> => {
@@ -576,15 +574,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setRequests((prev) =>
         prev.map((r) => (r.id === saved.id ? { ...saved, comments: r.comments } : r)),
       );
-      // Одобренная заявка бэкенд сам добавляет в справочник видов работ —
-      // перечитываем список, чтобы он сразу появился в приложении.
-      if (input.status === "approved") {
-        try {
-          setWorkTypes(await api.listWorkTypes());
-        } catch {
-          // не критично — подтянется следующим фоновым обновлением
-        }
-      }
       return saved;
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to decide request");

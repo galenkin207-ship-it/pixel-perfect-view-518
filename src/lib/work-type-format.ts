@@ -1,3 +1,5 @@
+import type { CatalogType, WorkTypePath } from "@/data/work-type-tree";
+
 // Номер сборника (уровень 1) зашит в конце gesn_code, напр. "ГЭСН01" -> "1.",
 // "ГЭСНр51" -> "51.". У синтетического узла "Существующие виды работ (до
 // обновления)" gesn_code пустой — для него номер не показываем.
@@ -9,6 +11,25 @@ export function formatGesnNumberLabel(gesnCode: string | null): string | null {
   const match = /(\d+)$/.exec(gesnCode);
   if (!match) return null;
   return gesnCode.startsWith("ГЭСНм") ? `${match[1]}м.` : `${match[1]}.`;
+}
+
+const CATALOG_TYPE_LABELS: Record<CatalogType, string> = {
+  "новое строительство": "Строительство",
+  ремонт: "Ремонт",
+};
+
+// Текст для «Скопировать путь»: строка 1 — тип каталога → уровни (сборник с
+// номером, как в каскаде: «N. Название»; пропущенные уровни отсутствуют),
+// строка 2 — «Позиция: <название>». Цена не входит.
+export function buildWorkTypePathText(path: WorkTypePath): string {
+  const chain = [
+    ...(path.catalog_type ? [CATALOG_TYPE_LABELS[path.catalog_type]] : []),
+    ...path.levels.map((l) => {
+      const number = l.level === 1 ? formatGesnNumberLabel(l.gesn_code) : null;
+      return number ? `${number} ${l.name}` : l.name;
+    }),
+  ];
+  return [...(chain.length > 0 ? [chain.join(" → ")] : []), `Позиция: ${path.leaf.name}`].join("\n");
 }
 
 function normalizeForNameCompare(text: string): string {

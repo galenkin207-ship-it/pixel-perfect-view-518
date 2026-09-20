@@ -61,9 +61,7 @@ export type AppState = {
     id: string,
     input: {
       status: "approved" | "rejected";
-      resolved_name?: string;
-      resolved_unit?: string;
-      resolved_price?: number;
+      message?: string;
       reject_reason?: string;
     },
   ) => Promise<WorkRequest>;

@@ -20,7 +20,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,7 +85,6 @@ function MessagesPage() {
     addRequestComment,
     editRequestComment,
     deleteRequestComment,
-    units,
     markNotificationsRead,
   } = useApp();
   const { request: focusId, from } = Route.useSearch();
@@ -115,9 +121,6 @@ function MessagesPage() {
     setExpandedChats((s) => ({ ...s, [r.id]: willExpand }));
     if (willExpand) markNotificationsRead(notificationIdsForRequest(r));
   };
-  const [resolve, setResolve] = useState<
-    Record<string, { name: string; unit: string; price: string }>
-  >({});
 
   // Реальные DOM-ссылки на textarea сообщений — нужны, чтобы схлопнуть поле
   // обратно после отправки (когда текст очищается программно, а не вводом).
@@ -309,25 +312,40 @@ function MessagesPage() {
 
   const [deciding, setDeciding] = useState<string | null>(null);
 
-  const decide = async (id: string, status: "approved" | "rejected") => {
-    const data = resolve[id];
-    if (status === "approved" && (!data?.name || !data.unit || !data.price)) {
-      toast.error("Заполните название, единицу и цену перед одобрением");
-      return;
+  // Одобрение — через окно с необязательным сообщением мастеру (справочник при
+  // одобрении не меняется: позицию, если нужно, админ добавляет отдельно).
+  const [approveTarget, setApproveTarget] = useState<WorkRequest | null>(null);
+  const [approveMessage, setApproveMessage] = useState("");
+  const approveMessageRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const openApprove = (r: WorkRequest) => {
+    setApproveMessage("");
+    setApproveTarget(r);
+  };
+
+  const approve = async () => {
+    if (!approveTarget) return;
+    const message = approveMessage.trim();
+    setDeciding(approveTarget.id);
+    try {
+      await decideRequest(approveTarget.id, {
+        status: "approved",
+        ...(message ? { message } : {}),
+      });
+      setApproveTarget(null);
+      toast.success("Заявка одобрена");
+    } catch {
+      toast.error("Не удалось сохранить решение, попробуйте ещё раз");
+    } finally {
+      setDeciding(null);
     }
+  };
+
+  const reject = async (id: string) => {
     setDeciding(id);
     try {
-      await decideRequest(id, {
-        status,
-        ...(status === "approved" && data
-          ? {
-              resolved_name: data.name,
-              resolved_unit: data.unit,
-              resolved_price: Number(data.price) || 0,
-            }
-          : {}),
-      });
-      toast.success(status === "approved" ? "Заявка одобрена" : "Заявка отклонена");
+      await decideRequest(id, { status: "rejected" });
+      toast.success("Заявка отклонена");
     } catch {
       toast.error("Не удалось сохранить решение, попробуйте ещё раз");
     } finally {
@@ -408,17 +426,12 @@ function MessagesPage() {
               type="button"
               onClick={() =>
                 // В заявке — только свободный текст (единицы в ней нет): название
-                // берём из «Итогового названия», если админ уже его вписал, иначе
-                // из текста заявки; единица — только если уже выбрана в карточке.
-                // Статус заявки не меняется.
+                // берём из текста заявки. Статус заявки не меняется.
                 setCatalogTarget({
                   kind: "create",
                   catalogType: "новое строительство",
                   ancestors: [],
-                  prefill: {
-                    name: (resolve[r.id]?.name.trim() || r.requested_text).trim(),
-                    unit: resolve[r.id]?.unit ?? "",
-                  },
+                  prefill: { name: r.requested_text.trim(), unit: "" },
                 })
               }
               className="flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-1.5 text-sm font-semibold text-primary transition-colors hover:border-primary hover:bg-primary/10"
@@ -437,7 +450,8 @@ function MessagesPage() {
           </div>
         )}
 
-        {r.status === "approved" && (
+        {r.status === "approved" && r.resolved_name && (
+          // Заявки, одобренные до перехода на «сообщение мастеру».
           <div className="mt-2 rounded-xl bg-status-done-soft px-3 py-2 md:px-4 md:py-3">
             <p className="text-[10px] font-semibold tracking-[0.08em] text-status-done uppercase">
               Одобрено как
@@ -448,6 +462,17 @@ function MessagesPage() {
               {isAdmin && r.resolved_price != null
                 ? ` · ${r.resolved_price.toLocaleString("ru-RU")} ₽`
                 : ""}
+            </p>
+          </div>
+        )}
+
+        {r.status === "approved" && r.response_message?.trim() && (
+          <div className="mt-2 rounded-xl bg-status-done-soft px-3 py-2 md:px-4 md:py-3">
+            <p className="text-[10px] font-semibold tracking-[0.08em] text-status-done uppercase">
+              Ответ
+            </p>
+            <p className="mt-0.5 text-sm break-words whitespace-pre-wrap select-text md:text-base">
+              {r.response_message}
             </p>
           </div>
         )}
@@ -624,83 +649,21 @@ function MessagesPage() {
         })()}
 
         {isAdmin && r.status === "pending" && (
-          <div className="mt-3 space-y-2 rounded-xl bg-surface p-3">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[2fr_1fr_1fr]">
-              <label className="block">
-                <span className="flex min-h-8 items-end">
-                  <FieldLabel>Итоговое название</FieldLabel>
-                </span>
-                <textarea
-                  ref={autoResizeTextarea}
-                  value={resolve[r.id]?.name ?? ""}
-                  onChange={(e) => {
-                    setResolve((s) => ({
-                      ...s,
-                      [r.id]: { unit: "", price: "", ...s[r.id], name: e.target.value },
-                    }));
-                    autoResizeTextarea(e.target);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") e.preventDefault();
-                  }}
-                  rows={2}
-                  className="mt-1 max-h-32 min-h-16 w-full resize-none overflow-y-auto rounded-lg border border-border bg-background px-3 py-2 text-sm leading-normal"
-                />
-              </label>
-              <label className="block">
-                <span className="flex min-h-8 items-end">
-                  <FieldLabel>Единица</FieldLabel>
-                </span>
-                <select
-                  value={resolve[r.id]?.unit ?? ""}
-                  onChange={(e) =>
-                    setResolve((s) => ({
-                      ...s,
-                      [r.id]: { name: "", price: "", ...s[r.id], unit: e.target.value },
-                    }))
-                  }
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Выбрать...</option>
-                  {units.map((u) => (
-                    <option key={u} value={u}>
-                      {u}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="flex min-h-8 items-end">
-                  <FieldLabel>Цена</FieldLabel>
-                </span>
-                <input
-                  value={resolve[r.id]?.price ?? ""}
-                  onChange={(e) =>
-                    setResolve((s) => ({
-                      ...s,
-                      [r.id]: { name: "", unit: "", ...s[r.id], price: e.target.value },
-                    }))
-                  }
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                />
-              </label>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => void decide(r.id, "approved")}
-                disabled={deciding === r.id}
-                className="flex-1 rounded-lg bg-status-done py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                {deciding === r.id ? "Сохранение..." : "Одобрить"}
-              </button>
-              <button
-                onClick={() => void decide(r.id, "rejected")}
-                disabled={deciding === r.id}
-                className="flex-1 rounded-lg bg-status-rejected py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                Отклонить
-              </button>
-            </div>
+          <div className="mt-3 flex gap-2 rounded-xl bg-surface p-3">
+            <button
+              onClick={() => openApprove(r)}
+              disabled={deciding === r.id}
+              className="flex-1 rounded-lg bg-status-done py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              Одобрить
+            </button>
+            <button
+              onClick={() => void reject(r.id)}
+              disabled={deciding === r.id}
+              className="flex-1 rounded-lg bg-status-rejected py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {deciding === r.id ? "Сохранение..." : "Отклонить"}
+            </button>
           </div>
         )}
       </div>
@@ -800,6 +763,74 @@ function MessagesPage() {
               dialogRequest.status === "pending" ? "pending" : "history",
               true,
             )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!approveTarget}
+        onOpenChange={(open) => !open && deciding == null && setApproveTarget(null)}
+      >
+        <DialogContent
+          className="w-[calc(100%-2rem)] sm:max-w-lg"
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            approveMessageRef.current?.focus();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Одобрить заявку</DialogTitle>
+            <DialogDescription className="sr-only">
+              Необязательное сообщение мастеру, которое придёт вместе с одобрением.
+            </DialogDescription>
+          </DialogHeader>
+          {approveTarget && (
+            <div className="rounded-xl bg-surface px-3 py-2">
+              <p className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+                Запрошено автором
+              </p>
+              <p className="mt-0.5 text-sm font-semibold break-words whitespace-pre-wrap">
+                {approveTarget.requested_text}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{approveTarget.author}</p>
+            </div>
+          )}
+          <label className="block">
+            <FieldLabel>Сообщение мастеру</FieldLabel>
+            <textarea
+              ref={approveMessageRef}
+              autoFocus
+              value={approveMessage}
+              onChange={(e) => setApproveMessage(e.target.value)}
+              maxLength={2000}
+              rows={5}
+              className="mt-1 max-h-60 min-h-28 w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm leading-normal"
+            />
+            <span className="mt-1 flex items-start justify-between gap-3 text-xs text-muted-foreground">
+              <span>
+                Например: путь и название добавленной позиции в справочнике. Можно вставить
+                скопированный путь
+              </span>
+              <span className="shrink-0 tabular-nums">{approveMessage.length}/2000</span>
+            </span>
+          </label>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setApproveTarget(null)}
+              disabled={deciding != null}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-semibold disabled:opacity-60"
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              onClick={() => void approve()}
+              disabled={deciding != null}
+              className="rounded-lg bg-status-done px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {deciding != null ? "Сохранение..." : "Одобрить"}
+            </button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
