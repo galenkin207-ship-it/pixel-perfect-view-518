@@ -35,6 +35,7 @@ export function WorkTypeCascade({
   renderContainerActions,
   renderColumnFooter,
   flashLeafIds,
+  collapseSingles = false,
   className,
 }: {
   cascade: WorkTypeCascadeState;
@@ -52,6 +53,10 @@ export function WorkTypeCascade({
   // Позиция, к которой колонка прокручивается и которая коротко подсвечивается
   // (только что созданная, browse-режим).
   flashLeafIds?: readonly string[] | undefined;
+  // browse для мастера (только чтение): схлопывание одиночных узлов, полное
+  // название позиции на схлопнутой карточке и предзагрузка при наведении — как
+  // в пикере, но клик по позиции лишь подсвечивает её.
+  collapseSingles?: boolean;
   // Класс корня desktop-раскладки (высоту/flex задаёт хозяин).
   className?: string | undefined;
 }) {
@@ -66,6 +71,9 @@ export function WorkTypeCascade({
     stepBoundaries,
   } = cascade;
   const browse = mode === "browse";
+  // Схлопывание одиночных узлов и то, что с ним связано, включено в пикере и
+  // в справочнике мастера; в справочнике admin/curator выключено.
+  const collapse = !browse || collapseSingles;
   const rowRef = useRef<HTMLDivElement>(null);
   const visibleColumnCount = columns.filter((_, level) => isColumnVisible(level)).length;
   // Пикер (select): позиция под курсором/фокусом — для строки «Выбрано»
@@ -86,7 +94,7 @@ export function WorkTypeCascade({
   const skippedColumnRef = useRef<unknown>(null);
   const frontier = columns[chain.length];
   useEffect(() => {
-    if (browse || chain.length === 0 || !frontier || frontier.loading) return;
+    if (!collapse || chain.length === 0 || !frontier || frontier.loading) return;
     if (skippedColumnRef.current === frontier) return;
     const parent = chain[chain.length - 1]!;
     if (frontier.key !== `parent:${parent.id}`) return;
@@ -108,7 +116,7 @@ export function WorkTypeCascade({
     } else {
       c.extendChain(resolved.chainNodes);
     }
-  }, [browse, chain, frontier]);
+  }, [collapse, chain, frontier]);
 
   // На странице справочника колонки не влезают в ширину окна (5 колонок по
   // 18rem) — при открытии новой колонки докручиваем ряд вправо, чтобы
@@ -157,7 +165,7 @@ export function WorkTypeCascade({
           onLeaf={(node) => onLeaf(node, chain[chain.length - 1]?.name)}
           onAutoSkipLeaf={(leaf, groupName) => onLeaf(leaf, groupName)}
           peekAutoSkip={peekAutoSkip}
-          showFullLeafName={!browse}
+          showFullLeafName={collapse}
           onPreviewLeaf={browse ? undefined : setPreviewLeaf}
         />
         {/* Компактно у нижнего края области списка (sticky), только когда есть
@@ -209,14 +217,14 @@ export function WorkTypeCascade({
               onLeaf={(node) => onLeaf(node, parent?.name)}
               onAutoSkipLeaf={(leaf, groupName) => onLeaf(leaf, groupName)}
               peekAutoSkip={peekAutoSkip}
-              // Предзагрузка при наведении — только десктоп-пикер; справочник и
-              // мобильная версия без неё.
-              onPrefetch={browse ? undefined : prefetchChildren}
+              // Предзагрузка при наведении — только десктоп: пикер и справочник
+              // мастера; справочник admin/curator и мобильная версия без неё.
+              onPrefetch={collapse ? prefetchChildren : undefined}
               initialScrollTop={isFrontier ? frontierScrollOffset : undefined}
               renderLeafActions={browse ? renderLeafActions : undefined}
               renderContainerActions={browse ? renderContainerActions : undefined}
               flashIds={browse ? flashLeafIds : undefined}
-              showFullLeafName={!browse}
+              showFullLeafName={collapse}
               onPreviewLeaf={browse ? undefined : setPreviewLeaf}
               footer={browse ? renderColumnFooter?.({ parent, level, nodes: col.nodes }) : undefined}
             />

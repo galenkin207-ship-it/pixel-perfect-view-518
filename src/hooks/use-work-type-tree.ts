@@ -54,6 +54,10 @@ export type WorkTypeTreeOptions = {
   // (GET /tree?include_empty=1, is_empty=true). Пикер записи и мобильная
   // версия этот флаг не передают.
   includeEmpty?: boolean;
+  // Справочник мастера (только чтение): как в пикере записи схлопываем
+  // одиночные узлы (only_leaf, кэш детей) и предзагружаем детей при наведении,
+  // но служебные строки legacy_root по-прежнему скрыты. Только вместе с browse.
+  collapseSingles?: boolean;
 };
 
 // Один столбец на каждый уровень цепочки выбора + столбец с детьми
@@ -65,10 +69,10 @@ export type WorkTypeTreeOptions = {
 export function useWorkTypeTree(
   catalogType: CatalogType | null,
   chain: WorkTypeTreeNode[],
-  { browse = false, includeEmpty = false }: WorkTypeTreeOptions = {},
+  { browse = false, includeEmpty = false, collapseSingles = false }: WorkTypeTreeOptions = {},
 ): UseWorkTypeTreeResult {
-  const optsRef = useRef({ browse, includeEmpty });
-  optsRef.current = { browse, includeEmpty };
+  const optsRef = useRef({ browse, includeEmpty, collapseSingles });
+  optsRef.current = { browse, includeEmpty, collapseSingles };
   const catalogTypeRef = useRef(catalogType);
   catalogTypeRef.current = catalogType;
   // Растёт при каждом изменении кэша/ошибок: перерисовывает колонки и меняет
@@ -84,20 +88,20 @@ export function useWorkTypeTree(
     // Единая точка загрузки списков детей: режим (include_empty, скрытие
     // legacy_root) применяется одинаково для колонок, предзагрузки и refresh.
     loaderRef.current = new TreeLoader(async (params, signal) => {
-      const { browse: isBrowse, includeEmpty: withEmpty } = optsRef.current;
+      const { browse: isBrowse, includeEmpty: withEmpty, collapseSingles: collapse } = optsRef.current;
       const nodes = await api.getWorkTypeTree(params, { includeEmpty: withEmpty, signal });
-      // Справочник ничего не схлопывает: only_leaf (его отдаёт /tree и куратору)
-      // там не используется.
-      return isBrowse
-        ? nodes.filter((node) => node.source !== "legacy_root").map((n) => (n.only_leaf ? { ...n, only_leaf: null } : n))
-        : nodes;
+      if (!isBrowse) return nodes;
+      const visible = nodes.filter((node) => node.source !== "legacy_root");
+      // Справочник admin/curator ничего не схлопывает: only_leaf (его отдаёт
+      // /tree и куратору) там не используется. Справочник мастера — использует.
+      return collapse ? visible : visible.map((n) => (n.only_leaf ? { ...n, only_leaf: null } : n));
     }, bump);
   }
   const loader = loaderRef.current;
 
   // Режим загрузки влияет на содержимое списков — при его смене (например,
   // переключился тип указателя) кэш и запросы в прежнем режиме недействительны.
-  const modeKey = `${browse}:${includeEmpty}`;
+  const modeKey = `${browse}:${includeEmpty}:${collapseSingles}`;
   const modeRef = useRef(modeKey);
   if (modeRef.current !== modeKey) {
     modeRef.current = modeKey;
@@ -148,8 +152,9 @@ export function useWorkTypeTree(
   const peekAutoSkip = useCallback(
     (startNode: WorkTypeTreeNode): AutoSkipResult => {
       const chainNodes: WorkTypeTreeNode[] = [startNode];
-      // Справочник: каждый уровень виден и кликабелен, ничего не схлопываем.
-      if (optsRef.current.browse) return { chainNodes };
+      // Справочник admin/curator: каждый уровень виден и кликабелен, ничего не
+      // схлопываем.
+      if (optsRef.current.browse && !optsRef.current.collapseSingles) return { chainNodes };
       let current = startNode;
       for (;;) {
         // Группа с единственной позицией: позиция уже пришла в only_leaf.
@@ -174,7 +179,7 @@ export function useWorkTypeTree(
 
   const prefetchChildren = useCallback(
     (node: WorkTypeTreeNode): (() => void) => {
-      if (optsRef.current.browse) return () => {};
+      if (optsRef.current.browse && !optsRef.current.collapseSingles) return () => {};
       if (node.level >= 4 || !node.has_children) return () => {};
       if (loader.cache.has(`parent:${node.id}`)) return () => {};
       const handle = loader.load({ parentId: node.id }, { priority: "low" });
