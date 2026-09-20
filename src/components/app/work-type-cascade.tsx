@@ -59,9 +59,11 @@ export function WorkTypeCascade({
   const browse = mode === "browse";
   const rowRef = useRef<HTMLDivElement>(null);
   const visibleColumnCount = columns.filter((_, level) => isColumnVisible(level)).length;
-  // Пикер (select), десктоп: позиция под курсором/фокусом — для строки «Выбрано»
+  // Пикер (select): позиция под курсором/фокусом — для строки «Выбрано»
   // под колонками (клик по позиции сразу кладёт её в запись).
   const [previewLeaf, setPreviewLeaf] = useState<WorkTypeTreeNode | null>(null);
+  // Перешли на другой уровень — прежняя позиция под курсором уже не на экране.
+  useEffect(() => setPreviewLeaf(null), [chain.length]);
 
   // На странице справочника колонки не влезают в ширину окна (5 колонок по
   // 18rem) — при открытии новой колонки докручиваем ряд вправо, чтобы
@@ -110,7 +112,17 @@ export function WorkTypeCascade({
           onLeaf={(node) => onLeaf(node, chain[chain.length - 1]?.name)}
           onAutoSkipLeaf={(leaf, groupName) => onLeaf(leaf, groupName)}
           resolveAutoSkip={resolveAutoSkip}
+          showFullLeafName={!browse}
+          onPreviewLeaf={browse ? undefined : setPreviewLeaf}
         />
+        {/* Компактно у нижнего края области списка (sticky), только когда есть
+            что показать: строка привязана к наведению/фокусу, а тап по позиции
+            на телефоне сразу выбирает её. */}
+        {!browse && previewLeaf && (
+          <p className="sticky bottom-0 -mx-1 bg-card px-1 py-1.5 text-xs break-words text-muted-foreground">
+            Выбрано: <span className="font-semibold text-foreground">{previewLeaf.name.trim()}</span>
+          </p>
+        )}
       </>
     );
   }

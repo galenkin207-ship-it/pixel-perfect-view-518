@@ -218,6 +218,7 @@ type RawWorkTypeTreeNode = {
   can_edit?: boolean;
   can_edit_node?: boolean;
   is_empty?: boolean;
+  only_leaf?: RawWorkTypeTreeNode | null;
 };
 
 function mapWorkTypeTreeNode(raw: RawWorkTypeTreeNode): WorkTypeTreeNode {
@@ -243,6 +244,7 @@ function mapWorkTypeTreeNode(raw: RawWorkTypeTreeNode): WorkTypeTreeNode {
     can_edit: raw.can_edit ?? false,
     can_edit_node: raw.can_edit_node ?? false,
     is_empty: raw.is_empty ?? false,
+    only_leaf: raw.only_leaf ? mapWorkTypeTreeNode(raw.only_leaf) : null,
   };
 }
 

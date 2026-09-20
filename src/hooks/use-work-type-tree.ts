@@ -79,7 +79,11 @@ export function useWorkTypeTree(
     async (params: { type: CatalogType } | { parentId: string }): Promise<WorkTypeTreeNode[]> => {
       const { browse: isBrowse, includeEmpty: withEmpty } = optsRef.current;
       const nodes = await api.getWorkTypeTree(params, { includeEmpty: withEmpty });
-      return isBrowse ? nodes.filter((node) => node.source !== "legacy_root") : nodes;
+      // Справочник ничего не схлопывает: only_leaf (его отдаёт /tree и куратору)
+      // там не используется.
+      return isBrowse
+        ? nodes.filter((node) => node.source !== "legacy_root").map((n) => (n.only_leaf ? { ...n, only_leaf: null } : n))
+        : nodes;
     },
     [],
   );
@@ -148,6 +152,9 @@ export function useWorkTypeTree(
     if (optsRef.current.browse) return { chainNodes };
     let current = startNode;
     for (;;) {
+      // Группа с единственной позицией: позиция уже пришла в only_leaf — детей
+      // не грузим.
+      if (current.only_leaf?.name?.trim()) return { leaf: current.only_leaf, groupName: current.name };
       const key = `parent:${current.id}`;
       let children = cacheRef.current.get(key);
       if (!children) {

@@ -10,6 +10,12 @@ import { cn } from "@/lib/utils";
 
 type AutoSkipPreview = { kind: "leaf"; leaf: WorkTypeTreeNode; groupName: string } | { kind: "branch" };
 
+// Единственная позиция группы из only_leaf (позиция без названия не годится:
+// карточка показывает её полное имя — такую не схлопываем).
+function onlyLeafOf(node: WorkTypeTreeNode): WorkTypeTreeNode | null {
+  return node.only_leaf?.name?.trim() ? node.only_leaf : null;
+}
+
 // Один уровень каскада: список узлов дерева видов работ. Используется и как
 // колонка в desktop-раскладке (Finder column view), и как единственный
 // экран в mobile-раскладке.
@@ -95,7 +101,7 @@ export function CascadeColumn({
   useEffect(() => {
     let cancelled = false;
     nodes
-      .filter((node) => node.has_children)
+      .filter((node) => node.has_children && !onlyLeafOf(node))
       .forEach((node) => {
         resolveAutoSkip(node).then((result) => {
           if (cancelled) return;
@@ -174,7 +180,14 @@ export function CascadeColumn({
         // по клику открывает свою (пустую) колонку.
         const isContainer = node.level < 5;
         const isEmpty = isContainer && node.is_empty;
-        const preview = node.has_children ? previews[node.id] : undefined;
+        // only_leaf есть сразу с первым рендером — карточка схлопывается без
+        // промежуточного состояния «группа со стрелкой».
+        const onlyLeaf = onlyLeafOf(node);
+        const preview: AutoSkipPreview | undefined = onlyLeaf
+          ? { kind: "leaf", leaf: onlyLeaf, groupName: node.name }
+          : node.has_children
+            ? previews[node.id]
+            : undefined;
         const resolvesToLeaf = preview?.kind === "leaf" ? preview : undefined;
         // Карточка ведёт себя и выглядит как лист, если сам узел уже лист,
         // либо если auto-skip от него без промежуточных реальных выборов

@@ -38,6 +38,11 @@ export type WorkTypeTreeNode = {
   // отдаёт true только при GET /tree?include_empty=1 (только admin); во всех
   // остальных ответах поля нет (здесь false).
   is_empty: boolean;
+  // Только у групп (level 4) в обычном /tree (пикер): единственная позиция
+  // группы, если она там одна. По ней карточка группы схлопывается сразу, без
+  // загрузки детей. Иначе (несколько позиций, нет позиций, другой уровень,
+  // справочник) — null.
+  only_leaf: WorkTypeTreeNode | null;
 };
 
 export type WorkTypeSearchResult = WorkTypeTreeNode & { breadcrumb: string[] };
