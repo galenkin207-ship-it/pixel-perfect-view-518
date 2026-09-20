@@ -3,18 +3,15 @@ import type { ReactNode } from "react";
 
 import { ChevronRight } from "lucide-react";
 
+import { Skeleton } from "@/components/ui/skeleton";
+
 import type { AutoSkipResult } from "@/hooks/use-work-type-tree";
 import type { WorkTypeTreeNode } from "@/data/work-type-tree";
 import { formatGesnNumberLabel } from "@/lib/work-type-format";
 import { cn } from "@/lib/utils";
 
-type AutoSkipPreview = { kind: "leaf"; leaf: WorkTypeTreeNode; groupName: string } | { kind: "branch" };
-
-// Единственная позиция группы из only_leaf (позиция без названия не годится:
-// карточка показывает её полное имя — такую не схлопываем).
-function onlyLeafOf(node: WorkTypeTreeNode): WorkTypeTreeNode | null {
-  return node.only_leaf?.name?.trim() ? node.only_leaf : null;
-}
+// Сколько держать курсор на карточке, прежде чем предзагружать её детей.
+const PREFETCH_HOVER_MS = 150;
 
 // Один уровень каскада: список узлов дерева видов работ. Используется и как
 // колонка в desktop-раскладке (Finder column view), и как единственный
@@ -27,7 +24,8 @@ export function CascadeColumn({
   onSelect,
   onLeaf,
   onAutoSkipLeaf,
-  resolveAutoSkip,
+  peekAutoSkip,
+  onPrefetch,
   className,
   initialScrollTop,
   scrollKey,
@@ -46,7 +44,10 @@ export function CascadeColumn({
   onSelect: (node: WorkTypeTreeNode, originOffsetPx: number) => void;
   onLeaf: (node: WorkTypeTreeNode) => void;
   onAutoSkipLeaf: (leaf: WorkTypeTreeNode, groupName: string) => void;
-  resolveAutoSkip: (node: WorkTypeTreeNode) => Promise<AutoSkipResult>;
+  // Схлопывание по уже загруженным данным (only_leaf, кэш) — ничего не запрашивает.
+  peekAutoSkip: (node: WorkTypeTreeNode) => AutoSkipResult;
+  // Предзагрузка детей при наведении (десктоп, пикер): возвращает отмену.
+  onPrefetch?: ((node: WorkTypeTreeNode) => () => void) | undefined;
   className?: string;
   // Desktop Finder-style каскад: каждая колонка скроллится независимо
   // (собственный <ul> с overflow-y-auto и ограниченной высотой — см.
@@ -89,36 +90,24 @@ export function CascadeColumn({
   footer?: ReactNode;
 }) {
   const scrollRef = useRef<HTMLUListElement>(null);
-  // Заранее (на этапе построения колонки, а не по клику) прогоняем
-  // auto-skip для каждого узла с детьми — чтобы решить, рисовать ли
-  // карточку как промежуточную (стрелка) или как финальную (карточка
-  // ведёт прямиком к листу и клик по ней мгновенно коммитит запись).
-  // Пока резолвинг не завершён, карточка временно выглядит как обычный
-  // intermediate-узел — это безопасный дефолт: onSelect в этом случае
-  // сам прогонит тот же resolveAutoSkip и корректно обработает клик.
-  const [previews, setPreviews] = useState<Record<string, AutoSkipPreview>>({});
 
-  useEffect(() => {
-    let cancelled = false;
-    nodes
-      .filter((node) => node.has_children && !onlyLeafOf(node))
-      .forEach((node) => {
-        resolveAutoSkip(node).then((result) => {
-          if (cancelled) return;
-          setPreviews((prev) => ({
-            ...prev,
-            [node.id]:
-              "leaf" in result
-                ? { kind: "leaf", leaf: result.leaf, groupName: result.groupName }
-                : { kind: "branch" },
-          }));
-        });
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, resolveAutoSkip]);
+  // Предзагрузка детей карточки при наведении (≥ PREFETCH_HOVER_MS); убрали
+  // курсор — запрос отменяется, если больше никто его не ждёт.
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const cancelPrefetchRef = useRef<(() => void) | null>(null);
+  function stopHover() {
+    clearTimeout(hoverTimerRef.current);
+    cancelPrefetchRef.current?.();
+    cancelPrefetchRef.current = null;
+  }
+  function startHover(node: WorkTypeTreeNode) {
+    stopHover();
+    if (!onPrefetch) return;
+    hoverTimerRef.current = setTimeout(() => {
+      cancelPrefetchRef.current = onPrefetch(node);
+    }, PREFETCH_HOVER_MS);
+  }
+  useEffect(() => stopHover, []);
 
   const [flashing, setFlashing] = useState<readonly string[]>([]);
   const flashHandledRef = useRef<string | null>(null);
@@ -156,9 +145,12 @@ export function CascadeColumn({
   }, [scrollKey, loading]);
 
   if (loading) {
+    // Скелетоны на месте карточек — колонка появляется сразу после клика.
     return (
-      <div className={cn("flex items-center justify-center p-8 text-sm text-muted-foreground", className)}>
-        Загрузка...
+      <div role="status" aria-label="Загрузка" className={cn("flex flex-col gap-1.5", className)}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-16 w-full shrink-0 rounded-xl" />
+        ))}
       </div>
     );
   }
@@ -180,15 +172,11 @@ export function CascadeColumn({
         // по клику открывает свою (пустую) колонку.
         const isContainer = node.level < 5;
         const isEmpty = isContainer && node.is_empty;
-        // only_leaf есть сразу с первым рендером — карточка схлопывается без
-        // промежуточного состояния «группа со стрелкой».
-        const onlyLeaf = onlyLeafOf(node);
-        const preview: AutoSkipPreview | undefined = onlyLeaf
-          ? { kind: "leaf", leaf: onlyLeaf, groupName: node.name }
-          : node.has_children
-            ? previews[node.id]
-            : undefined;
-        const resolvesToLeaf = preview?.kind === "leaf" ? preview : undefined;
+        // Схлопывание только по уже имеющимся данным: only_leaf группы приходит
+        // с первым рендером (без промежуточного состояния «группа со стрелкой»),
+        // остальное — если списки детей уже в кэше. Ничего не запрашиваем.
+        const peeked = node.has_children ? peekAutoSkip(node) : undefined;
+        const resolvesToLeaf = peeked && "leaf" in peeked ? peeked : undefined;
         // Карточка ведёт себя и выглядит как лист, если сам узел уже лист,
         // либо если auto-skip от него без промежуточных реальных выборов
         // доходит до листа.
@@ -229,7 +217,11 @@ export function CascadeColumn({
           <li
             key={node.id}
             data-node-id={node.id}
-            onMouseEnter={onPreviewLeaf ? () => onPreviewLeaf(displayAsLeaf ? (resolvesToLeaf?.leaf ?? node) : null) : undefined}
+            onMouseEnter={() => {
+              onPreviewLeaf?.(displayAsLeaf ? (resolvesToLeaf?.leaf ?? node) : null);
+              if (!displayAsLeaf) startHover(node);
+            }}
+            onMouseLeave={onPrefetch ? stopHover : undefined}
             onFocus={onPreviewLeaf ? () => onPreviewLeaf(displayAsLeaf ? (resolvesToLeaf?.leaf ?? node) : null) : undefined}
             className={cn(
               "flex items-center rounded-xl border transition-colors",

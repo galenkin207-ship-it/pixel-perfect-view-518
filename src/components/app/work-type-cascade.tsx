@@ -55,7 +55,16 @@ export function WorkTypeCascade({
   // Класс корня desktop-раскладки (высоту/flex задаёт хозяин).
   className?: string | undefined;
 }) {
-  const { chain, columns, resolveAutoSkip, frontierScrollOffset, isColumnVisible, stepBoundaries } = cascade;
+  const {
+    chain,
+    columns,
+    peekAutoSkip,
+    prefetchChildren,
+    extendChain,
+    frontierScrollOffset,
+    isColumnVisible,
+    stepBoundaries,
+  } = cascade;
   const browse = mode === "browse";
   const rowRef = useRef<HTMLDivElement>(null);
   const visibleColumnCount = columns.filter((_, level) => isColumnVisible(level)).length;
@@ -64,6 +73,42 @@ export function WorkTypeCascade({
   const [previewLeaf, setPreviewLeaf] = useState<WorkTypeTreeNode | null>(null);
   // Перешли на другой уровень — прежняя позиция под курсором уже не на экране.
   useEffect(() => setPreviewLeaf(null), [chain.length]);
+
+  // Ленивый auto-skip (пикер): колонка, открытая кликом, загрузилась и в ней
+  // ровно один узел — решаем по уже имеющимся данным, ничего не запрашивая «на
+  // всякий случай». Позиция — выбираем её (цепочку возвращаем на шаг назад, как
+  // будто клик по контейнеру сразу выбрал позицию); контейнер — присоединяем к
+  // цепочке, его колонка догрузится сама.
+  const latestRef = useRef({ onLeaf, cascade });
+  latestRef.current = { onLeaf, cascade };
+  // Колонка, по которой решение уже принято: повторный запуск эффекта на том же
+  // состоянии не должен выбрать позицию дважды.
+  const skippedColumnRef = useRef<unknown>(null);
+  const frontier = columns[chain.length];
+  useEffect(() => {
+    if (browse || chain.length === 0 || !frontier || frontier.loading) return;
+    if (skippedColumnRef.current === frontier) return;
+    const parent = chain[chain.length - 1]!;
+    if (frontier.key !== `parent:${parent.id}`) return;
+    const only = frontier.nodes.length === 1 ? frontier.nodes[0] : undefined;
+    if (!only) return;
+    const { onLeaf: pick, cascade: c } = latestRef.current;
+    if (!only.has_children) {
+      if (!only.name?.trim()) return;
+      skippedColumnRef.current = frontier;
+      c.back();
+      pick(only, parent.name);
+      return;
+    }
+    const resolved = c.peekAutoSkip(only);
+    skippedColumnRef.current = frontier;
+    if ("leaf" in resolved) {
+      c.back();
+      pick(resolved.leaf, resolved.groupName);
+    } else {
+      c.extendChain(resolved.chainNodes);
+    }
+  }, [browse, chain, frontier]);
 
   // На странице справочника колонки не влезают в ширину окна (5 колонок по
   // 18rem) — при открытии новой колонки докручиваем ряд вправо, чтобы
@@ -76,8 +121,8 @@ export function WorkTypeCascade({
     if (el) el.scrollTo({ left: el.scrollWidth, behavior: "smooth" });
   }, [browse, isMobile, visibleColumnCount]);
 
-  async function handleSelectAtLevel(level: number, node: WorkTypeTreeNode, originOffsetPx: number) {
-    const leaf = await cascade.selectAtLevel(level, node, originOffsetPx);
+  function handleSelectAtLevel(level: number, node: WorkTypeTreeNode, originOffsetPx: number) {
+    const leaf = cascade.selectAtLevel(level, node, originOffsetPx);
     if (leaf) onLeaf(leaf.leaf, leaf.groupName);
   }
 
@@ -111,7 +156,7 @@ export function WorkTypeCascade({
           onSelect={(node, offset) => handleSelectAtLevel(chain.length, node, offset)}
           onLeaf={(node) => onLeaf(node, chain[chain.length - 1]?.name)}
           onAutoSkipLeaf={(leaf, groupName) => onLeaf(leaf, groupName)}
-          resolveAutoSkip={resolveAutoSkip}
+          peekAutoSkip={peekAutoSkip}
           showFullLeafName={!browse}
           onPreviewLeaf={browse ? undefined : setPreviewLeaf}
         />
@@ -163,7 +208,10 @@ export function WorkTypeCascade({
               onSelect={(node, offset) => handleSelectAtLevel(level, node, offset)}
               onLeaf={(node) => onLeaf(node, parent?.name)}
               onAutoSkipLeaf={(leaf, groupName) => onLeaf(leaf, groupName)}
-              resolveAutoSkip={resolveAutoSkip}
+              peekAutoSkip={peekAutoSkip}
+              // Предзагрузка при наведении — только десктоп-пикер; справочник и
+              // мобильная версия без неё.
+              onPrefetch={browse ? undefined : prefetchChildren}
               initialScrollTop={isFrontier ? frontierScrollOffset : undefined}
               renderLeafActions={browse ? renderLeafActions : undefined}
               renderContainerActions={browse ? renderContainerActions : undefined}

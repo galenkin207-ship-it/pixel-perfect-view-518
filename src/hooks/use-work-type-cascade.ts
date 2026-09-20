@@ -25,22 +25,26 @@ export function useWorkTypeCascade(catalogType: CatalogType | null, treeOptions?
   // "передовая" колонка — выровнена по кликнутой карточке в проскроленной
   // соседней колонке (см. CascadeColumn.initialScrollTop), а не всегда с нуля.
   const [frontierScrollOffset, setFrontierScrollOffset] = useState(0);
-  const { columns, resolveAutoSkip, refresh, removeNode, loadPath } = useWorkTypeTree(
+  const { columns, peekAutoSkip, prefetchChildren, debugClick, refresh, removeNode, loadPath } = useWorkTypeTree(
     catalogType,
     chain,
     treeOptions,
   );
 
-  // Клик по карточке узла с детьми. Если auto-skip доходит до листа —
-  // возвращает его (хозяин решает, что с ним делать: выбрать в запись,
-  // подсветить), иначе раскрывает цепочку и возвращает null.
+  // Клик по карточке узла с детьми — синхронно, без ожидания сети: колонка с
+  // детьми появляется сразу (пока грузится — скелетоны). Если по уже имеющимся
+  // данным auto-skip доходит до листа — возвращает его (хозяин решает, что с ним
+  // делать: выбрать в запись, подсветить), иначе раскрывает цепочку и возвращает
+  // null. Дальнейший auto-skip — лениво, когда колонка загрузится (см.
+  // extendChain и эффект в work-type-cascade.tsx).
   const selectAtLevel = useCallback(
-    async (
+    (
       level: number,
       node: WorkTypeTreeNode,
       originOffsetPx: number,
-    ): Promise<Extract<AutoSkipResult, { leaf: WorkTypeTreeNode }> | null> => {
-      const resolved = await resolveAutoSkip(node);
+    ): Extract<AutoSkipResult, { leaf: WorkTypeTreeNode }> | null => {
+      debugClick(node.name);
+      const resolved = peekAutoSkip(node);
       if ("leaf" in resolved) return resolved;
       setFrontierScrollOffset(originOffsetPx);
       setChain((prev) => [...prev.slice(0, level), ...resolved.chainNodes]);
@@ -50,7 +54,19 @@ export function useWorkTypeCascade(catalogType: CatalogType | null, treeOptions?
       ]);
       return null;
     },
-    [resolveAutoSkip],
+    [peekAutoSkip, debugClick],
+  );
+
+  // Ленивый auto-skip: загруженная колонка состоит из одного контейнера —
+  // присоединяем его к цепочке тем же шагом (граница шага переезжает в конец
+  // блока, промежуточная колонка прячется), как при клике по схлопнутой карточке.
+  const extendChain = useCallback(
+    (nodes: WorkTypeTreeNode[]) => {
+      const newLength = chain.length + nodes.length;
+      setChain((prev) => [...prev, ...nodes]);
+      setStepBoundaries((prev) => [...prev.slice(0, -1), newLength]);
+    },
+    [chain.length],
   );
 
   // Колонка видна, если это корневой список (не участвует в авто-пропуске),
@@ -146,7 +162,9 @@ export function useWorkTypeCascade(catalogType: CatalogType | null, treeOptions?
     stepBoundaries,
     columns,
     frontierScrollOffset,
-    resolveAutoSkip,
+    peekAutoSkip,
+    prefetchChildren,
+    extendChain,
     refresh,
     removeNode,
     renameInChain,

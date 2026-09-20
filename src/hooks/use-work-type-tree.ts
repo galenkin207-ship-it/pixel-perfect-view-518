@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "@/lib/api-client";
+import { isAbortError, paramsFromKey, TreeLoader, type TreeHandle } from "@/lib/tree-loader";
 import type { CatalogType, WorkTypeTreeNode } from "@/data/work-type-tree";
 
 export type WorkTypeTreeColumn = {
@@ -18,12 +19,15 @@ export type AutoSkipResult =
 
 export type UseWorkTypeTreeResult = {
   columns: WorkTypeTreeColumn[];
-  // Рекурсивно "доворачивает" цепочку через узлы, у которых ровно один
-  // дочерний узел — используется и по клику (реальный переход), и
-  // заранее, при построении колонки, чтобы решить, как отрисовать
-  // карточку узла (см. work-type-cascade-column.tsx). Использует тот же
-  // кэш по parentId, что и построение колонок, чтобы не дублировать запросы.
-  resolveAutoSkip: (startNode: WorkTypeTreeNode) => Promise<AutoSkipResult>;
+  // Автоскип (схлопывание одиночных узлов) ТОЛЬКО по уже загруженным данным:
+  // only_leaf у группы и кэш списков детей. Ничего не запрашивает.
+  peekAutoSkip: (startNode: WorkTypeTreeNode) => AutoSkipResult;
+  // Предзагрузка детей узла (наведение курсора на десктопе): низкий приоритет,
+  // не больше 2 запросов одновременно, не мешает загрузке по клику. Возвращает
+  // отмену. Для групп (level 4), листьев, справочника и уже загруженного — пусто.
+  prefetchChildren: (node: WorkTypeTreeNode) => () => void;
+  // Dev-замер: клик по узлу — в консоль число запросов tree, ушедших после него.
+  debugClick: (label: string) => void;
   // Точечная инвалидация кэша: перечитывает списки детей только для
   // перечисленных родителей (null — корневой список текущего каталога) и,
   // если задан containingNodeId, ещё и для любого кэшированного списка, в
@@ -53,212 +57,199 @@ export type WorkTypeTreeOptions = {
 };
 
 // Один столбец на каждый уровень цепочки выбора + столбец с детьми
-// последнего выбранного узла. Кэш по parentId живёт на весь срок жизни
-// хука (пока открыта модалка), чтобы повторные переходы вперёд/назад
-// не дёргали API заново.
+// последнего выбранного узла. Списки живут в TreeLoader (кэш по родителю на весь
+// срок жизни хука, дедупликация запросов в полёте, приоритеты, отмена) — повторные
+// переходы вперёд/назад API не дёргают. Колонки вычисляются прямо при рендере из
+// цепочки и кэша: клик сразу даёт новую колонку (со скелетонами), без лишнего
+// рендера через эффект.
 export function useWorkTypeTree(
   catalogType: CatalogType | null,
   chain: WorkTypeTreeNode[],
   { browse = false, includeEmpty = false }: WorkTypeTreeOptions = {},
 ): UseWorkTypeTreeResult {
-  const cacheRef = useRef(new Map<string, WorkTypeTreeNode[]>());
-  // Режим загрузки влияет на содержимое списков — при его смене (например,
-  // переключился тип указателя) кэш в прежнем режиме недействителен.
-  const cacheModeRef = useRef(`${browse}:${includeEmpty}`);
-  const modeKey = `${browse}:${includeEmpty}`;
-  if (cacheModeRef.current !== modeKey) {
-    cacheModeRef.current = modeKey;
-    cacheRef.current.clear();
-  }
   const optsRef = useRef({ browse, includeEmpty });
   optsRef.current = { browse, includeEmpty };
+  const catalogTypeRef = useRef(catalogType);
+  catalogTypeRef.current = catalogType;
+  // Растёт при каждом изменении кэша/ошибок: перерисовывает колонки и меняет
+  // идентичность peekAutoSkip.
+  const [revision, setRevision] = useState(0);
+  const bump = useCallback(() => setRevision((r) => r + 1), []);
+  // Ключи, которые не удалось загрузить: колонка показывает пустой список, а не
+  // вечную загрузку (повтор — при следующей смене цепочки).
+  const failedRef = useRef(new Set<string>());
 
-  // Единая точка загрузки списков детей: режим (include_empty, скрытие
-  // legacy_root) применяется одинаково для колонок, auto-skip и refresh.
-  const fetchList = useCallback(
-    async (params: { type: CatalogType } | { parentId: string }): Promise<WorkTypeTreeNode[]> => {
+  const loaderRef = useRef<TreeLoader | null>(null);
+  if (!loaderRef.current) {
+    // Единая точка загрузки списков детей: режим (include_empty, скрытие
+    // legacy_root) применяется одинаково для колонок, предзагрузки и refresh.
+    loaderRef.current = new TreeLoader(async (params, signal) => {
       const { browse: isBrowse, includeEmpty: withEmpty } = optsRef.current;
-      const nodes = await api.getWorkTypeTree(params, { includeEmpty: withEmpty });
+      const nodes = await api.getWorkTypeTree(params, { includeEmpty: withEmpty, signal });
       // Справочник ничего не схлопывает: only_leaf (его отдаёт /tree и куратору)
       // там не используется.
       return isBrowse
         ? nodes.filter((node) => node.source !== "legacy_root").map((n) => (n.only_leaf ? { ...n, only_leaf: null } : n))
         : nodes;
-    },
-    [],
-  );
-  const [columns, setColumns] = useState<WorkTypeTreeColumn[]>([]);
-  const catalogTypeRef = useRef(catalogType);
-  catalogTypeRef.current = catalogType;
-  // Растёт после каждой инвалидации кэша: меняет идентичность resolveAutoSkip,
-  // из-за чего колонки заново прогоняют auto-skip для своих карточек (иначе
-  // карточка группы продолжала бы показывать цену/единицу уже изменённого
-  // листа из старого превью).
-  const [revision, setRevision] = useState(0);
+    }, bump);
+  }
+  const loader = loaderRef.current;
 
-  useEffect(() => {
-    if (!catalogType) {
-      setColumns([]);
-      return;
-    }
+  // Режим загрузки влияет на содержимое списков — при его смене (например,
+  // переключился тип указателя) кэш и запросы в прежнем режиме недействительны.
+  const modeKey = `${browse}:${includeEmpty}`;
+  const modeRef = useRef(modeKey);
+  if (modeRef.current !== modeKey) {
+    modeRef.current = modeKey;
+    failedRef.current.clear();
+    loader.reset();
+  }
 
-    let cancelled = false;
+  const columns = useMemo<WorkTypeTreeColumn[]>(() => {
+    if (!catalogType) return [];
     const keys = [`type:${catalogType}`, ...chain.map((node) => `parent:${node.id}`)];
-
-    setColumns(
-      keys.map((key) => {
-        const cached = cacheRef.current.get(key);
-        return cached
-          ? { key, nodes: cached, loading: false }
-          : { key, nodes: [], loading: true };
-      }),
-    );
-
-    keys.forEach((key, index) => {
-      if (cacheRef.current.has(key)) return;
-      const parent = chain[index - 1];
-      const fetchNodes =
-        index === 0 || !parent
-          ? fetchList({ type: catalogType })
-          : fetchList({ parentId: parent.id });
-      fetchNodes
-        .then((nodes) => {
-          // Режим успел смениться (тип указателя определился уже после
-          // запроса) — ответ в прежнем режиме в кэш не кладём.
-          if (cacheModeRef.current !== modeKey) return;
-          cacheRef.current.set(key, nodes);
-          if (cancelled) return;
-          setColumns((prev) =>
-            prev.map((col, i) => (i === index ? { key, nodes, loading: false } : col)),
-          );
-        })
-        .catch(() => {
-          if (cancelled) return;
-          setColumns((prev) =>
-            prev.map((col, i) => (i === index ? { key, nodes: [], loading: false } : col)),
-          );
-        });
+    return keys.map((key) => {
+      const cached = loader.cache.get(key);
+      if (cached) return { key, nodes: cached, loading: false };
+      return { key, nodes: [], loading: !failedRef.current.has(key) };
     });
+    // revision — изменился кэш или набор ошибок.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogType, chain, revision, loader]);
 
+  // Загрузка колонок цепочки, которых ещё нет в кэше (высокий приоритет). При
+  // смене цепочки запросы колонок, которые больше не нужны (ушли в другую ветку),
+  // отменяются; нужные подхватываются заново тем же запросом.
+  useEffect(() => {
+    if (!catalogType) return;
+    let cancelled = false;
+    const handles: TreeHandle[] = [];
+    const keys = [`type:${catalogType}`, ...chain.map((node) => `parent:${node.id}`)];
+    keys.forEach((key, index) => {
+      if (failedRef.current.delete(key)) bump();
+      if (loader.cache.has(key)) return;
+      const parent = chain[index - 1];
+      const handle = loader.load(index === 0 || !parent ? { type: catalogType } : { parentId: parent.id }, {
+        priority: "high",
+      });
+      handles.push(handle);
+      handle.promise.catch((err) => {
+        if (cancelled || isAbortError(err)) return;
+        failedRef.current.add(key);
+        bump();
+      });
+    });
     return () => {
       cancelled = true;
+      handles.forEach((h) => h.release());
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalogType, chain, modeKey]);
+  }, [catalogType, chain, modeKey, loader, bump]);
 
-  const resolveAutoSkip = useCallback(async (startNode: WorkTypeTreeNode): Promise<AutoSkipResult> => {
-    const chainNodes: WorkTypeTreeNode[] = [startNode];
-    // Справочник: каждый уровень виден и кликабелен, ничего не схлопываем.
-    if (optsRef.current.browse) return { chainNodes };
-    let current = startNode;
-    for (;;) {
-      // Группа с единственной позицией: позиция уже пришла в only_leaf — детей
-      // не грузим.
-      if (current.only_leaf?.name?.trim()) return { leaf: current.only_leaf, groupName: current.name };
-      const key = `parent:${current.id}`;
-      let children = cacheRef.current.get(key);
-      if (!children) {
-        try {
-          children = await fetchList({ parentId: current.id });
-        } catch {
-          return { chainNodes };
+  const peekAutoSkip = useCallback(
+    (startNode: WorkTypeTreeNode): AutoSkipResult => {
+      const chainNodes: WorkTypeTreeNode[] = [startNode];
+      // Справочник: каждый уровень виден и кликабелен, ничего не схлопываем.
+      if (optsRef.current.browse) return { chainNodes };
+      let current = startNode;
+      for (;;) {
+        // Группа с единственной позицией: позиция уже пришла в only_leaf.
+        // Позиция без названия не годится — карточка показывает её полное имя.
+        if (current.only_leaf?.name?.trim()) return { leaf: current.only_leaf, groupName: current.name };
+        const children = loader.cache.get(`parent:${current.id}`);
+        if (!children) return { chainNodes };
+        const onlyChild = children.length === 1 ? children[0] : undefined;
+        if (!onlyChild) return { chainNodes };
+        if (!onlyChild.has_children) {
+          if (!onlyChild.name?.trim()) return { chainNodes };
+          return { leaf: onlyChild, groupName: current.name };
         }
-        cacheRef.current.set(key, children);
+        chainNodes.push(onlyChild);
+        current = onlyChild;
       }
-      const onlyChild = children.length === 1 ? children[0] : undefined;
-      if (!onlyChild) return { chainNodes };
-      if (!onlyChild.has_children) {
-        // Позиция без названия: карточка не сможет показать её полное имя —
-        // не схлопываем, группа остаётся с шевроном, позиция — в следующей колонке.
-        if (!onlyChild.name?.trim()) return { chainNodes };
-        return { leaf: onlyChild, groupName: current.name };
-      }
-      chainNodes.push(onlyChild);
-      current = onlyChild;
-    }
+    },
     // revision намеренно в зависимостях: см. комментарий у useState выше.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [revision, fetchList]);
+    [revision, loader],
+  );
 
-  const refresh = useCallback(async (parentIds: (string | null)[], containingNodeId?: string) => {
-    const type = catalogTypeRef.current;
-    const refreshMode = cacheModeRef.current;
-    const keys = new Set<string>();
-    for (const id of parentIds) {
-      if (id !== null) keys.add(`parent:${id}`);
-      else if (type) keys.add(`type:${type}`);
-    }
-    if (containingNodeId) {
-      cacheRef.current.forEach((nodes, key) => {
-        if (nodes.some((node) => node.id === containingNodeId)) keys.add(key);
-      });
-    }
-    // Перечитываем только то, что уже есть в кэше: непосещённые списки всё
-    // равно будут загружены свежими при первом заходе.
-    await Promise.all(
-      [...keys]
-        .filter((key) => cacheRef.current.has(key))
-        .map(async (key) => {
-          try {
-            const nodes = key.startsWith("type:")
-              ? await fetchList({ type: key.slice("type:".length) as CatalogType })
-              : await fetchList({ parentId: key.slice("parent:".length) });
-            if (cacheModeRef.current !== refreshMode) return;
-            cacheRef.current.set(key, nodes);
-            setColumns((prev) =>
-              prev.map((col) => (col.key === key ? { key, nodes, loading: false } : col)),
-            );
-          } catch {
-            // Не удалось перечитать — оставляем на экране прежний список, но
-            // выкидываем его из кэша, чтобы следующий заход перечитал заново.
-            cacheRef.current.delete(key);
-          }
-        }),
-    );
-    setRevision((r) => r + 1);
-  }, []);
+  const prefetchChildren = useCallback(
+    (node: WorkTypeTreeNode): (() => void) => {
+      if (optsRef.current.browse) return () => {};
+      if (node.level >= 4 || !node.has_children) return () => {};
+      if (loader.cache.has(`parent:${node.id}`)) return () => {};
+      const handle = loader.load({ parentId: node.id }, { priority: "low" });
+      handle.promise.catch(() => {});
+      return handle.release;
+    },
+    [loader],
+  );
 
-  const removeNode = useCallback((nodeId: string) => {
-    cacheRef.current.forEach((nodes, key) => {
-      if (nodes.some((node) => node.id === nodeId)) {
-        cacheRef.current.set(
-          key,
-          nodes.filter((node) => node.id !== nodeId),
-        );
+  const debugClick = useCallback((label: string) => loader.debugClick(label), [loader]);
+
+  const refresh = useCallback(
+    async (parentIds: (string | null)[], containingNodeId?: string) => {
+      const type = catalogTypeRef.current;
+      const keys = new Set<string>();
+      for (const id of parentIds) {
+        if (id !== null) keys.add(`parent:${id}`);
+        else if (type) keys.add(`type:${type}`);
       }
-    });
-    setColumns((prev) =>
-      prev.map((col) =>
-        col.nodes.some((node) => node.id === nodeId)
-          ? { ...col, nodes: col.nodes.filter((node) => node.id !== nodeId) }
-          : col,
-      ),
-    );
-    setRevision((r) => r + 1);
-  }, []);
+      if (containingNodeId) {
+        loader.cache.forEach((nodes, key) => {
+          if (nodes.some((node) => node.id === containingNodeId)) keys.add(key);
+        });
+      }
+      // Перечитываем только то, что уже есть в кэше: непосещённые списки всё
+      // равно будут загружены свежими при первом заходе. fresh — мимо запросов в
+      // полёте (они могли начаться до записи). Не удалось перечитать — на экране
+      // остаётся прежний список.
+      await Promise.all(
+        [...keys]
+          .filter((key) => loader.cache.has(key))
+          .map(async (key) => {
+            try {
+              await loader.load(paramsFromKey(key), { priority: "high", fresh: true }).promise;
+            } catch {
+              /* оставляем прежний список */
+            }
+          }),
+      );
+      bump();
+    },
+    [loader, bump],
+  );
+
+  const removeNode = useCallback(
+    (nodeId: string) => {
+      loader.cache.forEach((nodes, key) => {
+        if (nodes.some((node) => node.id === nodeId)) {
+          loader.cache.set(
+            key,
+            nodes.filter((node) => node.id !== nodeId),
+          );
+        }
+      });
+      bump();
+    },
+    [loader, bump],
+  );
 
   const loadPath = useCallback(
     async (ancestors: { id: string }[]): Promise<WorkTypeTreeNode[]> => {
       const type = catalogTypeRef.current;
       if (!type) return [];
-      const mode = cacheModeRef.current;
-      const remember = (key: string, nodes: WorkTypeTreeNode[]) => {
-        if (cacheModeRef.current === mode) cacheRef.current.set(key, nodes);
-      };
       const path: WorkTypeTreeNode[] = [];
-      let list = await fetchList({ type });
-      remember(`type:${type}`, list);
+      let list = await loader.load({ type }, { priority: "high", fresh: true }).promise;
       for (const ancestor of ancestors) {
         const node = list.find((n) => n.id === ancestor.id);
         if (!node) continue;
         path.push(node);
-        list = await fetchList({ parentId: node.id });
-        remember(`parent:${node.id}`, list);
+        list = await loader.load({ parentId: node.id }, { priority: "high", fresh: true }).promise;
       }
       return path;
     },
-    [fetchList],
+    [loader],
   );
 
-  return { columns, resolveAutoSkip, refresh, removeNode, loadPath };
+  return { columns, peekAutoSkip, prefetchChildren, debugClick, refresh, removeNode, loadPath };
 }

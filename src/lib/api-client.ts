@@ -682,7 +682,7 @@ export const api = {
   // Пикер записи и мобильная версия эти флаги не передают.
   async getWorkTypeTree(
     params: { type: CatalogType } | { parentId: string },
-    opts: { includeEmpty?: boolean; containersOnly?: boolean; level?: number } = {},
+    opts: { includeEmpty?: boolean; containersOnly?: boolean; level?: number; signal?: AbortSignal } = {},
   ): Promise<WorkTypeTreeNode[]> {
     let qs =
       "type" in params
@@ -692,7 +692,10 @@ export const api = {
     if (opts.containersOnly) qs += "&containers_only=1";
     // Только прямые дети с этим level (тип узла, не глубина) — слоты «Расположения».
     if (opts.level != null) qs += `&level=${opts.level}`;
-    const { items } = await request<{ items: RawWorkTypeTreeNode[] }>(`/work-types/tree?${qs}`);
+    const { items } = await request<{ items: RawWorkTypeTreeNode[] }>(
+      `/work-types/tree?${qs}`,
+      opts.signal ? { signal: opts.signal } : undefined,
+    );
     return items.map(mapWorkTypeTreeNode);
   },
 
