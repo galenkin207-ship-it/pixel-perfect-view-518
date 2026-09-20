@@ -17,6 +17,7 @@ import type {
   WorkTypeDetail,
   WorkTypeLeafInput,
   WorkTypeNodeUsage,
+  WorkTypePath,
   WorkTypeSearchResult,
   WorkTypeTreeNode,
 } from "@/data/work-type-tree";
@@ -609,6 +610,27 @@ export const api = {
     return items.map(mapWorkTypeTreeNode);
   },
 
+  // GET /work-types/:id/path, admin/curator — путь позиции для «Скопировать путь»
+  // (без цены). levels — только реально существующие уровни, пропущенные
+  // отсутствуют.
+  async getWorkTypePath(id: string): Promise<WorkTypePath> {
+    const raw = await request<{
+      catalog_type: CatalogType | null;
+      levels: { id: number | string; level: number; name: string; gesn_code: string | null }[];
+      leaf: { id: number | string; name: string };
+    }>(`/work-types/${id}/path`);
+    return {
+      catalog_type: raw.catalog_type,
+      levels: raw.levels.map((l) => ({
+        id: String(l.id),
+        level: l.level,
+        name: l.name,
+        gesn_code: l.gesn_code,
+      })),
+      leaf: { id: String(raw.leaf.id), name: raw.leaf.name },
+    };
+  },
+
   async getWorkTypeDetail(id: string): Promise<WorkTypeDetail> {
     return mapWorkTypeDetail(await request<RawWorkTypeDetail>(`/work-types/${id}/detail`));
   },
@@ -879,6 +901,7 @@ export const api = {
         resolved_unit: string | null;
         resolved_price: number | string | null;
         reject_reason: string | null;
+        response_message: string | null;
         resolved_by: string | null;
         resolved_at: string | null;
         rejected_by: string | null;
@@ -904,6 +927,7 @@ export const api = {
       ...(r.resolved_unit != null ? { resolved_unit: r.resolved_unit } : {}),
       ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
       ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
+      response_message: r.response_message ?? null,
       ...(r.resolved_by != null ? { resolved_by: r.resolved_by } : {}),
       ...(r.resolved_at != null
         ? { resolved_date: isoToRu(r.resolved_at), resolved_time: formatTime(r.resolved_at) }
@@ -998,6 +1022,7 @@ export const api = {
       ...(r.submitted_by_user_id != null ? { author_user_id: String(r.submitted_by_user_id) } : {}),
       requested_text: r.text,
       status: r.status as WorkRequest["status"],
+      response_message: null,
       created_at: isoToRu(r.created_at),
       created_time: formatTime(r.created_at),
       comments: [],
@@ -1016,6 +1041,7 @@ export const api = {
       resolved_unit?: string | null;
       resolved_price?: number | string | null;
       reject_reason?: string | null;
+      response_message?: string | null;
       created_at?: string;
     }>(`/requests/${id}`, { method: "DELETE" });
 
@@ -1033,6 +1059,7 @@ export const api = {
       ...(r.resolved_unit != null ? { resolved_unit: r.resolved_unit } : {}),
       ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
       ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
+      response_message: r.response_message ?? null,
       created_at: r.created_at ? isoToRu(r.created_at) : "",
       created_time: r.created_at ? formatTime(r.created_at) : "",
       comments: [],
@@ -1043,9 +1070,8 @@ export const api = {
     id: string,
     input: {
       status: "approved" | "rejected";
-      resolved_name?: string;
-      resolved_unit?: string;
-      resolved_price?: number;
+      // Сообщение мастеру при одобрении (необязательное, до 2000 символов).
+      message?: string;
       reject_reason?: string;
     },
   ): Promise<WorkRequest> {
@@ -1059,6 +1085,7 @@ export const api = {
       resolved_unit: string | null;
       resolved_price: number | string | null;
       reject_reason: string | null;
+      response_message: string | null;
       resolved_by: string | null;
       resolved_at: string | null;
       rejected_by: string | null;
@@ -1075,6 +1102,7 @@ export const api = {
       ...(r.resolved_unit != null ? { resolved_unit: r.resolved_unit } : {}),
       ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
       ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
+      response_message: r.response_message ?? null,
       ...(r.resolved_by != null ? { resolved_by: r.resolved_by } : {}),
       ...(r.resolved_at != null
         ? { resolved_date: isoToRu(r.resolved_at), resolved_time: formatTime(r.resolved_at) }

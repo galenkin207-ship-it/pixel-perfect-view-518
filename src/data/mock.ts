@@ -97,6 +97,9 @@ export type WorkRequest = {
   resolved_unit?: string;
   resolved_price?: number;
   reject_reason?: string;
+  // Сообщение админа/куратора мастеру при одобрении (requests.response_message);
+  // null — сообщения нет. Справочник при одобрении не меняется.
+  response_message: string | null;
   // Кто и когда одобрил/отклонил заявку — нужно для уведомления автора
   // заявки ("Одобрено"/"Отклонено" в разделе "Уведомления") и чтобы не
   // показывать это уведомление как непрочитанное самому куратору/админу,
@@ -388,6 +391,7 @@ export const requests: WorkRequest[] = [
     author: "Иванов К.",
     requested_text: "Устройство примыкания кровли к парапету, погонные метры",
     status: "pending",
+    response_message: null,
     created_at: "18.08.2026",
     comments: [
       {
@@ -411,6 +415,7 @@ export const requests: WorkRequest[] = [
     author: "Смирнов М.",
     requested_text: "Монтаж закладных деталей под ограждение",
     status: "approved",
+    response_message: null,
     resolved_name: "Монтаж закладных деталей",
     resolved_unit: "шт",
     resolved_price: 340,
@@ -430,6 +435,7 @@ export const requests: WorkRequest[] = [
     author: "Иванов К.",
     requested_text: "Уборка территории после демонтажа",
     status: "rejected",
+    response_message: null,
     created_at: "15.08.2026",
     comments: [
       {

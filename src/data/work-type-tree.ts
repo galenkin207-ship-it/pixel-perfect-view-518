@@ -45,6 +45,13 @@ export type WorkTypeTreeNode = {
   only_leaf: WorkTypeTreeNode | null;
 };
 
+// GET /work-types/:id/path — путь позиции от сборника до листа (без цены).
+export type WorkTypePath = {
+  catalog_type: CatalogType | null;
+  levels: { id: string; level: number; name: string; gesn_code: string | null }[];
+  leaf: { id: string; name: string };
+};
+
 export type WorkTypeSearchResult = WorkTypeTreeNode & { breadcrumb: string[] };
 
 // Сколько всего внутри контейнера (GET /work-types/nodes/:id/usage, только

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, MoreVertical, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, Copy, MoreVertical, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -32,7 +32,9 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useWorkTypeCascade } from "@/hooks/use-work-type-cascade";
 import { useWorkTypeSearch } from "@/hooks/use-work-type-search";
 import { api, ApiError } from "@/lib/api-client";
+import { copyText } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
+import { buildWorkTypePathText } from "@/lib/work-type-format";
 import { useApp } from "@/state/use-app";
 
 const CATALOG_TYPES: { value: CatalogType; label: string }[] = [
@@ -63,12 +65,15 @@ function leafLabel(leaf: { name: string; variant_label: string | null }, groupNa
 function LeafActionsMenu({
   label,
   canDelete,
+  onCopyPath,
   onEdit,
   onDelete,
   subject = "позицией",
 }: {
   label: string;
   canDelete: boolean;
+  // Только у позиций (не у разделов): первым пунктом меню.
+  onCopyPath?: () => void;
   onEdit: () => void;
   onDelete: () => void;
   // «Действия с <subject> «…»» — позиция или раздел (контейнер).
@@ -88,7 +93,20 @@ function LeafActionsMenu({
           <MoreVertical className="size-4" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-44 p-1">
+      <PopoverContent align="end" className="w-48 p-1">
+        {onCopyPath && (
+          <button
+            type="button"
+            className={itemClass}
+            onClick={() => {
+              setOpen(false);
+              onCopyPath();
+            }}
+          >
+            <Copy className="size-4 text-muted-foreground" />
+            Скопировать путь
+          </button>
+        )}
         <button
           type="button"
           className={itemClass}
@@ -236,6 +254,21 @@ export function WorkTypeCatalog({
       await cascade.refresh(parents, after.id);
     }
     void search.reload();
+  }
+
+  // «Скопировать путь»: только запрос и буфер обмена — состояние каскада
+  // (прокрутка, выбранные колонки, выбранная позиция) не трогаем.
+  async function copyPath(id: string) {
+    try {
+      const path = await api.getWorkTypePath(id);
+      if (await copyText(buildWorkTypePathText(path))) {
+        toast.success("Путь скопирован");
+      } else {
+        toast.error("Не удалось скопировать путь, попробуйте ещё раз");
+      }
+    } catch {
+      toast.error("Не удалось получить путь, попробуйте ещё раз");
+    }
   }
 
   async function confirmDelete() {
@@ -397,6 +430,7 @@ export function WorkTypeCatalog({
                       <LeafActionsMenu
                         label={item.name}
                         canDelete={canDelete}
+                        onCopyPath={() => void copyPath(item.id)}
                         onEdit={() => setEditor({ kind: "edit", id: item.id })}
                         onDelete={() =>
                           setDeleteTarget({ id: item.id, label: item.name, parentId: item.parent_id })
@@ -435,6 +469,7 @@ export function WorkTypeCatalog({
                         <LeafActionsMenu
                           label={leafLabel(leaf, groupName)}
                           canDelete={canDelete}
+                          onCopyPath={() => void copyPath(leaf.id)}
                           onEdit={() => setEditor({ kind: "edit", id: leaf.id })}
                           onDelete={() =>
                             setDeleteTarget({
