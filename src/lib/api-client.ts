@@ -15,6 +15,7 @@ import type {
   WorkTypeBatchInput,
   WorkTypeCounterStep,
   WorkTypeDetail,
+  WorkTypeInfo,
   WorkTypeLeafInput,
   WorkTypeNodeUsage,
   WorkTypePath,
@@ -633,6 +634,45 @@ export const api = {
 
   async getWorkTypeDetail(id: string): Promise<WorkTypeDetail> {
     return mapWorkTypeDetail(await request<RawWorkTypeDetail>(`/work-types/${id}/detail`));
+  },
+
+  // GET /work-types/:id/details, admin/curator — сведения для модалки «Сведения».
+  // NUMERIC (price, labor_hours) и id приходят строками — нормализуем как в
+  // mapWorkTypeTreeNode.
+  async getWorkTypeDetails(id: string): Promise<WorkTypeInfo> {
+    const raw = await request<{
+      id: number | string;
+      name: string;
+      variant_label: string | null;
+      gesn_code: string | null;
+      source: string | null;
+      catalog_type: CatalogType | null;
+      unit: string | null;
+      price: number | string | null;
+      has_price: boolean;
+      labor_hours: number | string | null;
+      work_composition: string | null;
+      path: { id: number | string; level: number; name: string; gesn_code: string | null }[] | null;
+    }>(`/work-types/${id}/details`);
+    return {
+      id: String(raw.id),
+      name: raw.name,
+      variant_label: raw.variant_label,
+      gesn_code: raw.gesn_code,
+      source: raw.source,
+      catalog_type: raw.catalog_type,
+      unit: raw.unit,
+      price: raw.price == null ? 0 : Number(raw.price),
+      has_price: raw.has_price,
+      labor_hours: raw.labor_hours == null ? null : Number(raw.labor_hours),
+      work_composition: raw.work_composition,
+      path: (raw.path ?? []).map((p) => ({
+        id: String(p.id),
+        level: p.level,
+        name: p.name,
+        gesn_code: p.gesn_code,
+      })),
+    };
   },
 
   async editWorkType(id: string, input: Partial<WorkTypeLeafInput>): Promise<WorkTypeDetail> {

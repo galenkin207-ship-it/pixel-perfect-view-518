@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, Copy, MoreVertical, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, Copy, Info, MoreVertical, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -19,6 +19,7 @@ import {
   type WorkTypeEditorResult,
   type WorkTypeEditorTarget,
 } from "@/components/app/work-type-editor-dialog";
+import { clearWorkTypeInfoCache, WorkTypeDetailsDialog } from "@/components/app/work-type-details-dialog";
 import { DeleteNodeDialog, NodeNameDialog } from "@/components/app/work-type-node-dialogs";
 import { WorkTypeLeafCard } from "@/components/app/work-type-leaf-card";
 import { WorkTypeSearchResults } from "@/components/app/work-type-search-results";
@@ -65,6 +66,7 @@ function leafLabel(leaf: { name: string; variant_label: string | null }, groupNa
 function LeafActionsMenu({
   label,
   canDelete,
+  onDetails,
   onCopyPath,
   onEdit,
   onDelete,
@@ -72,7 +74,9 @@ function LeafActionsMenu({
 }: {
   label: string;
   canDelete: boolean;
-  // Только у позиций (не у разделов): первым пунктом меню.
+  // Только у позиций (не у разделов): «Сведения» — самый первый пункт меню,
+  // за ним «Скопировать путь».
+  onDetails?: () => void;
   onCopyPath?: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -94,6 +98,19 @@ function LeafActionsMenu({
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-48 p-1">
+        {onDetails && (
+          <button
+            type="button"
+            className={itemClass}
+            onClick={() => {
+              setOpen(false);
+              onDetails();
+            }}
+          >
+            <Info className="size-4 text-muted-foreground" />
+            Сведения
+          </button>
+        )}
         {onCopyPath && (
           <button
             type="button"
@@ -185,6 +202,8 @@ export function WorkTypeCatalog({
   const [selectedLeaf, setSelectedLeaf] = useState<WorkTypeTreeNode | WorkTypeSearchResult | null>(null);
   const [flashLeafIds, setFlashLeafIds] = useState<string[]>([]);
   const [editor, setEditor] = useState<WorkTypeEditorTarget | null>(null);
+  // Модалка «Сведения» (только чтение): id позиции и название с карточки.
+  const [detailsTarget, setDetailsTarget] = useState<{ id: string; label: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [preparingCreateFor, setPreparingCreateFor] = useState<string | null>(null);
@@ -216,6 +235,8 @@ export function WorkTypeCatalog({
   // необходимости откатывается на ближайшую валидную (см. use-work-type-cascade).
   async function handleSaved({ before, after, createdIds }: WorkTypeEditorResult, opts?: { keepOpen?: boolean }) {
     const keepOpen = opts?.keepOpen ?? false;
+    // Правка/перенос меняют сведения (и путь) — кэш модалки «Сведения» устарел.
+    clearWorkTypeInfoCache();
     if (!keepOpen) setEditor(null);
     const created = before === null;
     const moved = before !== null && before.parent_id !== after.parent_id;
@@ -308,6 +329,7 @@ export function WorkTypeCatalog({
   }
 
   async function handleNodeRenamed(id: string, name: string, parentId: string | null) {
+    clearWorkTypeInfoCache(); // имя раздела входит в «Расположение» позиций
     await cascade.refresh([parentId], id);
     // Имя в выбранной цепочке (подписи над колонками, хлебные крошки).
     cascade.renameInChain(id, name);
@@ -430,6 +452,7 @@ export function WorkTypeCatalog({
                       <LeafActionsMenu
                         label={item.name}
                         canDelete={canDelete}
+                        onDetails={() => setDetailsTarget({ id: item.id, label: item.name })}
                         onCopyPath={() => void copyPath(item.id)}
                         onEdit={() => setEditor({ kind: "edit", id: item.id })}
                         onDelete={() =>
@@ -469,6 +492,9 @@ export function WorkTypeCatalog({
                         <LeafActionsMenu
                           label={leafLabel(leaf, groupName)}
                           canDelete={canDelete}
+                          onDetails={() =>
+                            setDetailsTarget({ id: leaf.id, label: leafLabel(leaf, groupName) })
+                          }
                           onCopyPath={() => void copyPath(leaf.id)}
                           onEdit={() => setEditor({ kind: "edit", id: leaf.id })}
                           onDelete={() =>
@@ -563,6 +589,15 @@ export function WorkTypeCatalog({
           onNodeCreated={(parentId) => handleNodeCreated(parentId)}
           onNodeRenamed={(id, name, parentId) => handleNodeRenamed(id, name, parentId)}
           onNodeDeleted={(id, parentId) => handleNodeDeleted(id, parentId)}
+        />
+      )}
+
+      {showEditTools && detailsTarget && (
+        <WorkTypeDetailsDialog
+          key={detailsTarget.id}
+          id={detailsTarget.id}
+          title={detailsTarget.label}
+          onClose={() => setDetailsTarget(null)}
         />
       )}
 

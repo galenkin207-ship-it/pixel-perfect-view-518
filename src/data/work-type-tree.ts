@@ -54,6 +54,25 @@ export type WorkTypePath = {
 
 export type WorkTypeSearchResult = WorkTypeTreeNode & { breadcrumb: string[] };
 
+// GET /work-types/:id/details — полные сведения о позиции для модалки «Сведения»
+// (admin/curator, только чтение). path — от сборника до группы, без самой
+// позиции. У «своих» позиций (user_added/legacy) catalog_type, gesn_code,
+// work_composition и labor_hours могут быть null, а path короче.
+export type WorkTypeInfo = {
+  id: string;
+  name: string;
+  variant_label: string | null;
+  gesn_code: string | null;
+  source: string | null;
+  catalog_type: CatalogType | null;
+  unit: string | null;
+  price: number;
+  has_price: boolean;
+  labor_hours: number | null;
+  work_composition: string | null;
+  path: { id: string; level: number; name: string; gesn_code: string | null }[];
+};
+
 // Сколько всего внутри контейнера (GET /work-types/nodes/:id/usage, только
 // admin): листья и подконтейнеры на любой глубине поддерева.
 export type WorkTypeNodeUsage = {
