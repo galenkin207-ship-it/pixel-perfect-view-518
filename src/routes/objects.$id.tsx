@@ -11,6 +11,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -32,6 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useModalClose } from "@/hooks/use-modal-close";
 import { api, photoThumbUrl } from "@/lib/api-client";
 import { isMyRecord } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
@@ -337,6 +339,19 @@ function ObjectRecordsPage() {
   const [photosData, setPhotosData] = useState<ObjectPhoto[] | null>(null);
   const [photoViewerIndex, setPhotoViewerIndex] = useState<number | null>(null);
   const [photoViewerDateKey, setPhotoViewerDateKey] = useState<string | null>(null);
+  const closePhotos = () => {
+    setPhotosOpen(false);
+    setMobilePhotosOpen(false);
+    setPhotoViewerIndex(null);
+    setPhotoViewerDateKey(null);
+  };
+  // Анимация закрытия только у десктопной модалки (photosOpen, ниже по файлу)
+  // — на мобильном "Фото объекта" это не оверлей, а обычная подмена экрана
+  // (mobilePhotosOpen), для которой отдельный close-переход не нужен. Хук
+  // вызывается здесь, а не рядом с рендером модалки: ниже по компоненту есть
+  // ранний `return` (объект не найден), и хук после него нарушал бы правила
+  // хуков (вызывался бы не на каждом рендере).
+  const { closing: photosClosing, requestClose: requestClosePhotos } = useModalClose(closePhotos);
 
   const hasActiveFilters = dateFrom !== "" || dateTo !== "";
 
@@ -490,13 +505,6 @@ function ObjectRecordsPage() {
     } finally {
       setPhotosLoading(false);
     }
-  };
-
-  const closePhotos = () => {
-    setPhotosOpen(false);
-    setMobilePhotosOpen(false);
-    setPhotoViewerIndex(null);
-    setPhotoViewerDateKey(null);
   };
 
   const closePhotoViewer = () => {
@@ -754,17 +762,23 @@ function ObjectRecordsPage() {
 
       {photosOpen &&
         createPortal(
-          <div
+          <motion.div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
-            onClick={closePhotos}
+            onClick={requestClosePhotos}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: photosClosing ? 0 : 1 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
           >
-            <div
+            <motion.div
               className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-card p-5"
               onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: photosClosing ? 0 : 1, y: photosClosing ? 16 : 0 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
             >
               <div className="flex items-start justify-between gap-3">
                 <h2 className="text-lg font-bold">Фото объекта</h2>
-                <button onClick={closePhotos} aria-label="Закрыть">
+                <button onClick={requestClosePhotos} aria-label="Закрыть">
                   <X className="size-5 text-muted-foreground" />
                 </button>
               </div>
@@ -781,8 +795,8 @@ function ObjectRecordsPage() {
                   headerClassName="bg-card/95"
                 />
               </div>
-            </div>
-          </div>,
+            </motion.div>
+          </motion.div>,
           document.body,
         )}
 
