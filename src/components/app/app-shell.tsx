@@ -189,7 +189,7 @@ export function AppShell({
                     to="/profile"
                     aria-label="Профиль"
                     className={cn(
-                      "flex size-8 items-center justify-center rounded-full border border-border bg-surface",
+                      "flex size-8 items-center justify-center rounded-full border border-border bg-surface transition-colors duration-150 ease-out",
                       isActive("/profile") && "border-primary text-primary",
                     )}
                   >
@@ -200,7 +200,7 @@ export function AppShell({
                   to="/notifications"
                   aria-label="Уведомления"
                   className={cn(
-                    "relative flex size-8 items-center justify-center rounded-full border border-border bg-surface",
+                    "relative flex size-8 items-center justify-center rounded-full border border-border bg-surface transition-colors duration-150 ease-out",
                     isActive("/notifications") && "border-primary text-primary",
                   )}
                 >
@@ -270,7 +270,7 @@ export function AppShell({
               key={t.to}
               to={t.to}
               className={cn(
-                "flex flex-col items-center gap-1.5 text-center text-[9px] leading-tight font-semibold tracking-[0.04em] uppercase",
+                "flex flex-col items-center gap-1.5 text-center text-[9px] leading-tight font-semibold tracking-[0.04em] uppercase transition-colors duration-150 ease-out",
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >

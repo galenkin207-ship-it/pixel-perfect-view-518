@@ -1148,7 +1148,7 @@ function WorkTypePicker({
           <button
             onClick={onClose}
             aria-label="Закрыть"
-            className="shrink-0 rounded-full p-2.5 hover:bg-muted"
+            className="shrink-0 rounded-full p-2.5 transition-colors duration-150 ease-out hover:bg-muted"
           >
             <X className="size-6 text-muted-foreground" />
           </button>
@@ -1271,7 +1271,7 @@ function WorkTypePicker({
                 </button>
                 <button
                   onClick={handleBack}
-                  className="flex items-center gap-1 py-1 text-sm font-semibold text-muted-foreground hover:text-foreground"
+                  className="flex items-center gap-1 py-1 text-sm font-semibold text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground"
                 >
                   <ChevronLeft className="size-4" />
                   Назад

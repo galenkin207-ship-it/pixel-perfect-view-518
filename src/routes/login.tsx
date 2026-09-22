@@ -79,7 +79,7 @@ function LoginPage() {
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground"
               >
                 {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>
@@ -95,7 +95,7 @@ function LoginPage() {
           <button
             type="button"
             onClick={() => setForgotOpen((v) => !v)}
-            className="mt-3 w-full text-center text-xs text-muted-foreground underline-offset-2 hover:underline hover:text-foreground"
+            className="mt-3 w-full text-center text-xs text-muted-foreground underline-offset-2 transition-colors duration-150 ease-out hover:underline hover:text-foreground"
           >
             Забыли логин или пароль?
           </button>
@@ -142,7 +142,7 @@ function ForgotPasswordCard({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={onClose}
-            className="mt-3 text-xs text-muted-foreground underline-offset-2 hover:underline hover:text-foreground"
+            className="mt-3 text-xs text-muted-foreground underline-offset-2 transition-colors duration-150 ease-out hover:underline hover:text-foreground"
           >
             Закрыть
           </button>

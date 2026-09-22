@@ -75,7 +75,7 @@ function ObjectsArchivePage() {
               to="/objects/$id"
               params={{ id: o.id }}
               className={cn(
-                "block rounded-2xl border border-border bg-card p-4 opacity-90 transition-shadow hover:shadow-md hover:opacity-100",
+                "block rounded-2xl border border-border bg-card p-4 opacity-90 transition-all duration-150 ease-out hover:shadow-md hover:opacity-100",
                 canManage && "pr-24",
               )}
             >
@@ -114,7 +114,7 @@ function ObjectsArchivePage() {
                     setBusyId(null);
                   }
                 }}
-                className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-card px-2 py-1 text-[10px] font-semibold text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-primary disabled:opacity-100"
+                className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-card px-2 py-1 text-[10px] font-semibold text-muted-foreground opacity-0 shadow-sm transition-all duration-150 ease-out group-hover:opacity-100 hover:text-primary disabled:opacity-100"
                 title="Вернуть объект в активную работу"
               >
                 <ArchiveRestore className="size-3.5" />

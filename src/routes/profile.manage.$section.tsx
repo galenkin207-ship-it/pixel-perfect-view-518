@@ -181,7 +181,7 @@ function ManagePage() {
                   navigate({ to: "/profile/manage/$section", params: { section: s.key } })
                 }
                 className={cn(
-                  "flex shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2.5 text-left text-sm font-semibold whitespace-nowrap lg:w-full lg:whitespace-normal",
+                  "flex shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2.5 text-left text-sm font-semibold whitespace-nowrap transition-colors duration-150 ease-out lg:w-full lg:whitespace-normal",
                   on
                     ? "border-primary/30 bg-primary/10 text-primary"
                     : "border-border bg-card text-foreground hover:bg-muted",

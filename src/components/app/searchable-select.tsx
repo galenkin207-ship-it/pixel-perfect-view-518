@@ -126,7 +126,7 @@ export function SearchableSelect({
                   inputRef.current?.focus();
                 }
               }}
-              className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 ease-out hover:bg-muted hover:text-foreground"
             >
               <X className="size-3.5" />
             </span>
@@ -155,7 +155,7 @@ export function SearchableSelect({
                 }
               }
             }}
-            className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 ease-out hover:bg-muted hover:text-foreground"
           >
             <ChevronDown
               className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")}
@@ -174,7 +174,7 @@ export function SearchableSelect({
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => pick("")}
-              className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted"
+              className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors duration-150 ease-out hover:bg-muted"
             >
               <span className="text-muted-foreground">{allLabel}</span>
               {!value && <Check className="size-4 shrink-0 text-primary" />}
@@ -189,7 +189,7 @@ export function SearchableSelect({
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => pick(active ? "" : i.id)}
                   className={cn(
-                    "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted",
+                    "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors duration-150 ease-out hover:bg-muted",
                     active && "bg-primary/10 font-semibold text-primary hover:bg-primary/15",
                   )}
                 >
