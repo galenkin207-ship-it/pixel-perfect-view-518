@@ -78,7 +78,10 @@ function LeafActionsMenu({
   // за ним «Скопировать путь».
   onDetails?: () => void;
   onCopyPath?: () => void;
-  onEdit: () => void;
+  // Нет у куратора для позиций (level 5) — правка позиции только admin.
+  // У контейнеров (разделы) остаётся всегда: туда попадают только через
+  // showStructureTools, уже admin-only.
+  onEdit?: (() => void) | undefined;
   onDelete: () => void;
   // «Действия с <subject> «…»» — позиция или раздел (контейнер).
   subject?: string;
@@ -124,17 +127,19 @@ function LeafActionsMenu({
             Скопировать путь
           </button>
         )}
-        <button
-          type="button"
-          className={itemClass}
-          onClick={() => {
-            setOpen(false);
-            onEdit();
-          }}
-        >
-          <Pencil className="size-4 text-muted-foreground" />
-          Изменить
-        </button>
+        {onEdit && (
+          <button
+            type="button"
+            className={itemClass}
+            onClick={() => {
+              setOpen(false);
+              onEdit();
+            }}
+          >
+            <Pencil className="size-4 text-muted-foreground" />
+            Изменить
+          </button>
+        )}
         {canDelete && (
           <button
             type="button"
@@ -179,6 +184,10 @@ export function WorkTypeCatalog({
   // Архивация на сервере разрешена только admin (PATCH /:id/archive), правка
   // и создание — admin и curator.
   const canDelete = role === "admin";
+  // Правка уже существующей позиции («Изменить» в меню «⋯») — только admin.
+  // Куратор создаёт новые позиции и добавляет их в записи, но не переписывает
+  // существующие (раздел/группа/состав работ).
+  const canEditPosition = role === "admin";
   const isMobile = useIsMobile();
   const showEditTools = isAdminLike && !isMobile;
   // Правка структуры (разделы, таблицы, группы) — только role === "admin"
@@ -454,7 +463,9 @@ export function WorkTypeCatalog({
                         canDelete={canDelete}
                         onDetails={() => setDetailsTarget({ id: item.id, label: item.name })}
                         onCopyPath={() => void copyPath(item.id)}
-                        onEdit={() => setEditor({ kind: "edit", id: item.id })}
+                        onEdit={
+                          canEditPosition ? () => setEditor({ kind: "edit", id: item.id }) : undefined
+                        }
                         onDelete={() =>
                           setDeleteTarget({ id: item.id, label: item.name, parentId: item.parent_id })
                         }
@@ -496,7 +507,9 @@ export function WorkTypeCatalog({
                             setDetailsTarget({ id: leaf.id, label: leafLabel(leaf, groupName) })
                           }
                           onCopyPath={() => void copyPath(leaf.id)}
-                          onEdit={() => setEditor({ kind: "edit", id: leaf.id })}
+                          onEdit={
+                            canEditPosition ? () => setEditor({ kind: "edit", id: leaf.id }) : undefined
+                          }
                           onDelete={() =>
                             setDeleteTarget({
                               id: leaf.id,
