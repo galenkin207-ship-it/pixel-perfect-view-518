@@ -14,6 +14,7 @@ import {
   User,
   Users,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { useMemo, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
@@ -214,7 +215,19 @@ export function AppShell({
               </div>
             </div>
 
-            <div className="w-full px-2 py-5 desktop:px-6 desktop:py-6 xl:px-10 xl:py-8">{children}</div>
+            {/* Лёгкий fade только у контента страницы — сайдбар, мобильная шапка,
+                нижняя навигация и FAB (снаружи) в анимации не участвуют и не
+                мигают при переходах. AppShell и так пересоздаётся заново на каждый
+                роут (persistent layout в проекте нет), поэтому motion.div ниже сам
+                монтируется свежим на каждый переход — explicit key не нужен. */}
+            <motion.div
+              className="w-full px-2 py-5 desktop:px-6 desktop:py-6 xl:px-10 xl:py-8"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            >
+              {children}
+            </motion.div>
           </PullToRefresh>
 
           {fab && (

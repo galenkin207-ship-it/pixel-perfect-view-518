@@ -4,11 +4,9 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
-  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { motion } from "framer-motion";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
@@ -157,7 +155,6 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -171,22 +168,10 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AppProvider>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes.
-            Лёгкий fade при смене маршрута — только на появление новой страницы. У приложения
-            нет persistent-layout (каждый роут сам оборачивает контент в AppShell — сайдбар/
-            нижняя навигация/FAB монтируются заново на каждый переход уже сегодня, безотносительно
-            этой анимации), поэтому честный AnimatePresence-кроссфейд на секунду показал бы два
-            AppShell разом (задвоенную нижнюю навигацию/сайдбар/FAB). Вместо этого — просто fade-in
-            новой страницы по смене key={pathname}, без exit-фазы: старая страница пропадает
-            мгновенно, как и раньше, никаких пересечений с fixed-оверлеями (RecordDetail и т.п.)
-            или с global touch-listener'ами PullToRefresh. */}
-        <motion.div
-          key={pathname}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.18, ease: "easeOut" }}
-        >
-          <Outlet />
-        </motion.div>
+            Fade при смене страницы — внутри AppShell (см. app-shell.tsx), а не здесь: тут
+            Outlet оборачивает КАЖДЫЙ роут целиком, вместе с сайдбаром/нижней навигацией/FAB —
+            их обёртка в fade заставляла бы весь layout на десктопе мигать на каждый переход. */}
+        <Outlet />
         <Toaster position="top-center" />
       </AppProvider>
     </QueryClientProvider>
