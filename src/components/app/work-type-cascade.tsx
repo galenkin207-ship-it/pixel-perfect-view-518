@@ -148,7 +148,7 @@ export function WorkTypeCascade({
               return (
                 <span key={node.id} className="flex items-center gap-1">
                   {stepIdx > 0 && <span>→</span>}
-                  <button onClick={() => cascade.goToStep(stepIdx)} className="hover:text-primary hover:underline">
+                  <button onClick={() => cascade.goToStep(stepIdx)} className="transition-colors duration-150 ease-out hover:text-primary hover:underline">
                     {node.name}
                   </button>
                 </span>

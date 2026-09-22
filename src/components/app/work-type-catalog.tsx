@@ -481,7 +481,7 @@ export function WorkTypeCatalog({
               <button
                 type="button"
                 onClick={() => cascade.back()}
-                className="flex items-center gap-1 py-1 text-sm font-semibold text-muted-foreground hover:text-foreground"
+                className="flex items-center gap-1 py-1 text-sm font-semibold text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground"
               >
                 <ChevronLeft className="size-4" />
                 Назад

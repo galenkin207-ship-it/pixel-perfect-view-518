@@ -40,7 +40,7 @@ export function WorkTypeSearchResults({
                     {t.breadcrumb.join(" → ")}
                   </span>
                 )}
-                <span className="block text-base font-semibold leading-snug break-words whitespace-normal group-hover:text-primary">
+                <span className="block text-base font-semibold leading-snug break-words whitespace-normal transition-colors duration-150 ease-out group-hover:text-primary">
                   {t.name}
                 </span>
               </span>

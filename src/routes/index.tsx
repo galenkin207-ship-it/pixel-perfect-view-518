@@ -245,7 +245,7 @@ function ObjectsPage() {
                     toast.error(err instanceof Error ? err.message : "Не удалось открепить объект");
                   }
                 }}
-                className="absolute top-3 right-3 flex size-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-status-rejected"
+                className="absolute top-3 right-3 flex size-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-all duration-150 ease-out group-hover:opacity-100 hover:text-status-rejected"
               >
                 <PinOff className="size-3.5" />
               </button>

@@ -44,7 +44,7 @@ export function EmployeeSelect({
               type="button"
               onClick={() => toggle(e)}
               aria-label={`Убрать ${e}`}
-              className="opacity-80 hover:opacity-100"
+              className="opacity-80 transition-opacity duration-150 ease-out hover:opacity-100"
             >
               <X className="size-3.5" />
             </button>
@@ -81,7 +81,7 @@ export function EmployeeSelect({
                     type="button"
                     onClick={() => toggle(e)}
                     className={cn(
-                      "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted",
+                      "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors duration-150 ease-out hover:bg-muted",
                       active && "bg-primary/10 font-semibold text-primary hover:bg-primary/15",
                     )}
                   >

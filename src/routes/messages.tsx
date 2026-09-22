@@ -583,7 +583,7 @@ function MessagesPage() {
                                 <button
                                   type="button"
                                   aria-label="Действия с сообщением"
-                                  className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-surface"
+                                  className="shrink-0 rounded-full p-1 text-muted-foreground transition-colors duration-150 ease-out hover:bg-surface"
                                 >
                                   <MoreVertical className="size-4" />
                                 </button>

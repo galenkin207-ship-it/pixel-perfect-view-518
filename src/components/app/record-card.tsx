@@ -19,7 +19,7 @@ export function RecordCard({ record, onClick }: { record: WorkRecord; onClick: (
     <div className="border-b border-border last:border-0">
       <button
         onClick={onClick}
-        className="grid h-auto w-full auto-rows-min grid-cols-1 gap-2 px-4 py-3 text-left hover:bg-muted/40 lg:grid-cols-[2.5fr_1.2fr_1.2fr_1fr_1fr_1.2fr] lg:items-start lg:gap-3"
+        className="grid h-auto w-full auto-rows-min grid-cols-1 gap-2 px-4 py-3 text-left transition-colors duration-150 ease-out hover:bg-muted/40 lg:grid-cols-[2.5fr_1.2fr_1.2fr_1fr_1fr_1.2fr] lg:items-start lg:gap-3"
       >
         <span className="block">
           <span className="block break-words whitespace-normal">
