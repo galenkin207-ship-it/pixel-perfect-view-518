@@ -30,6 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { api, photoThumbUrl } from "@/lib/api-client";
 import { isMyRecord } from "@/lib/record-utils";
@@ -115,7 +116,32 @@ function PositionDetailContent({
   onOpenRecords: () => void;
 }) {
   if (loading) {
-    return <p className="px-1 py-2 text-sm text-muted-foreground">Загрузка...</p>;
+    return (
+      <div className="space-y-3" role="status" aria-label="Загрузка сведений">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+        <div className="overflow-hidden rounded-xl border border-border bg-surface">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className={cn(
+                "flex items-center justify-between gap-3 px-3 py-2.5",
+                i > 0 && "border-t border-border",
+              )}
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <Skeleton className="size-7 shrink-0 rounded-full" />
+                <Skeleton className="h-4 w-24" />
+              </span>
+              <Skeleton className="h-4 w-14 shrink-0" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
   if (!detail) return null;
   return (
@@ -214,7 +240,18 @@ function PhotoGrid({
   headerClassName?: string;
 }) {
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Загрузка...</p>;
+    return (
+      <div className="space-y-4" role="status" aria-label="Загрузка фото">
+        <div>
+          <Skeleton className="mb-2 h-3 w-24" />
+          <div className={gridClassName}>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className={cn(itemClassName, "rounded-xl")} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
   if (!photos || photos.length === 0) {
     return <p className="text-sm text-muted-foreground">Фото по этому объекту пока нет</p>;
@@ -631,7 +668,17 @@ function ObjectRecordsPage() {
 
         <div className="overflow-hidden rounded-2xl border border-border divide-y divide-border">
           {positionsLoading ? (
-            <p className="px-4 py-6 text-sm text-muted-foreground">Загрузка...</p>
+            ["w-2/3", "w-1/2", "w-3/4", "w-1/3", "w-3/5"].map((w, i) => (
+              <div
+                key={i}
+                role={i === 0 ? "status" : undefined}
+                aria-label={i === 0 ? "Загрузка" : undefined}
+                className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3"
+              >
+                <Skeleton className={cn("h-5", w)} />
+                <Skeleton className="h-7 w-16 shrink-0 rounded-full" />
+              </div>
+            ))
           ) : positions.length === 0 ? (
             <p className="px-4 py-6 text-sm text-muted-foreground">
               {hasActiveFilters
