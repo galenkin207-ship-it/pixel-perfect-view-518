@@ -11,7 +11,7 @@ import { NumberField } from "@/components/app/number-field";
 import { ObjectSelect } from "@/components/app/object-select";
 import { WorkTypeCascade } from "@/components/app/work-type-cascade";
 import { composeCounterName, computeCounterTotal, WorkTypeCounterCard } from "@/components/app/work-type-counter-card";
-import { WorkTypeSearchResults } from "@/components/app/work-type-search-results";
+import { WorkTypeSearchResults, WorkTypeSearchResultsSkeleton } from "@/components/app/work-type-search-results";
 import { useBlurOnScroll } from "@/hooks/use-blur-on-scroll";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWorkTypeCascade } from "@/hooks/use-work-type-cascade";
@@ -1224,9 +1224,7 @@ function WorkTypePicker({
             />
           ) : isSearching ? (
             searchLoading ? (
-              <div className="rounded-2xl border border-dashed border-border bg-surface p-8 text-center text-base text-muted-foreground">
-                Поиск...
-              </div>
+              <WorkTypeSearchResultsSkeleton />
             ) : (searchResults?.length ?? 0) === 0 ? (
               <div className="rounded-2xl border border-dashed border-border bg-surface p-8 text-center">
                 <p className="text-base text-muted-foreground">Ничего не найдено</p>

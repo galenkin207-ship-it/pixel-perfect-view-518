@@ -1,7 +1,33 @@
 import type { ReactNode } from "react";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import type { WorkTypeSearchResult } from "@/data/work-type-tree";
 import { cn } from "@/lib/utils";
+
+// Скелетон результатов поиска — повторяет форму карточки выше (те же
+// отступы/рамка/расположение строк), чтобы подмена на реальные данные не
+// "прыгала". Показывается, пока идёт серверный поиск (search.loading).
+export function WorkTypeSearchResultsSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" role="status" aria-label="Поиск">
+      {Array.from({ length: count }).map((_, i) => (
+        <li key={i} className="min-w-0">
+          <div className="flex h-full w-full flex-col items-start justify-between gap-4 rounded-2xl border border-border bg-surface p-5">
+            <span className="block w-full">
+              <Skeleton className="mb-2 h-3 w-2/5" />
+              <Skeleton className="h-4 w-4/5" />
+              <Skeleton className="mt-1.5 h-4 w-3/5" />
+            </span>
+            <div className="flex w-full items-center justify-between gap-3">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-7 w-14 shrink-0 rounded-lg" />
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 // Результаты серверного поиска по видам работ — сетка карточек с хлебными
 // крошками. Общая для модалки выбора вида работ (клик выбирает позицию) и

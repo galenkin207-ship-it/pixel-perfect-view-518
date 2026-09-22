@@ -22,7 +22,7 @@ import {
 import { clearWorkTypeInfoCache, WorkTypeDetailsDialog } from "@/components/app/work-type-details-dialog";
 import { DeleteNodeDialog, NodeNameDialog } from "@/components/app/work-type-node-dialogs";
 import { WorkTypeLeafCard } from "@/components/app/work-type-leaf-card";
-import { WorkTypeSearchResults } from "@/components/app/work-type-search-results";
+import { WorkTypeSearchResults, WorkTypeSearchResultsSkeleton } from "@/components/app/work-type-search-results";
 import type {
   CatalogType,
   WorkTypeDetail,
@@ -442,9 +442,7 @@ export function WorkTypeCatalog({
       >
         {isSearching ? (
           search.loading ? (
-            <div className="rounded-2xl border border-dashed border-border bg-surface p-8 text-center text-base text-muted-foreground">
-              Поиск...
-            </div>
+            <WorkTypeSearchResultsSkeleton />
           ) : resultsCount === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-surface p-8 text-center text-base text-muted-foreground">
               Ничего не найдено
