@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, Pencil, Trash2, X } from "lucide-react";
+import { motion } from "framer-motion";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -7,6 +8,7 @@ import { toast } from "sonner";
 import { FieldLabel, InitialsAvatar } from "@/components/app/bits";
 import { PhotoViewer } from "@/components/app/photo-viewer";
 import { StatusBadge } from "@/components/app/status-badge";
+import { useModalClose } from "@/hooks/use-modal-close";
 import { allocationsFor, canEditRecord, itemQty, recordTotal } from "@/lib/record-utils";
 import { photoThumbUrl } from "@/lib/api-client";
 import { clearQuickDraftId } from "@/lib/quick-draft";
@@ -39,6 +41,7 @@ export function RecordDetail({
   const [photoIndex, setPhotoIndex] = useState<number | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const { closing, requestClose } = useModalClose(onClose);
   const object = objects.find((o) => o.id === record.object_id);
   const isAdminLike = role === "admin" || role === "curator";
   const canEdit = canEditRecord(role, currentUser, record);
@@ -49,7 +52,7 @@ export function RecordDetail({
       await deleteRecord(record.id);
       clearQuickDraftId(record.id);
       toast.success("Запись удалена");
-      onClose();
+      requestClose();
     } catch {
       toast.error("Не удалось удалить запись");
       setDeleting(false);
@@ -65,17 +68,23 @@ export function RecordDetail({
   // могло оставаться поверх этого окна. На Android такой проблемы нет, но
   // портал безопасен в любом случае.
   return createPortal(
-    <div
+    <motion.div
       data-pull-refresh-ignore
       className="fixed inset-0 z-50 flex bg-black/50 md:items-center md:justify-center md:p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: closing ? 0 : 1 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
     >
-      <div
+      <motion.div
         className="h-full w-full overflow-y-auto bg-card p-5 md:max-h-[90vh] md:max-w-3xl md:rounded-3xl lg:max-w-4xl xl:max-w-5xl"
         style={{ overscrollBehaviorY: "contain" }}
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: closing ? 0 : 1, y: closing ? 16 : 0 }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
       >
         {backIcon && (
           <button
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Назад"
             className="mb-2 flex shrink-0 items-center gap-1 rounded-lg border border-border px-3 py-2 text-sm font-semibold"
           >
@@ -106,7 +115,7 @@ export function RecordDetail({
           <div className="flex items-center gap-2">
             <StatusBadge status={record.status} />
             {!backIcon && (
-              <button onClick={onClose} aria-label="Закрыть">
+              <button onClick={requestClose} aria-label="Закрыть">
                 <X className="size-5 text-muted-foreground" />
               </button>
             )}
@@ -262,8 +271,8 @@ export function RecordDetail({
             onClose={() => setPhotoIndex(null)}
           />
         )}
-      </div>
-    </div>,
+      </motion.div>
+    </motion.div>,
     document.body,
   );
 }

@@ -9,6 +9,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import ExcelJS from "exceljs";
@@ -19,6 +20,7 @@ import { DateInput } from "@/components/app/date-input";
 import { PhotoViewer } from "@/components/app/photo-viewer";
 import { SearchableSelect } from "@/components/app/searchable-select";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useModalClose } from "@/hooks/use-modal-close";
 import { photoThumbUrl, ruToIso } from "@/lib/api-client";
 import { allocationsFor, itemQty, recordTotal } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
@@ -151,6 +153,10 @@ function ReportDetailPage() {
   const [mobileDay, setMobileDay] = useState<string | null>(null);
   const [mobileRecord, setMobileRecord] = useState<string | null>(null);
   const [mobileItem, setMobileItem] = useState<string | null>(null);
+  const { closing: itemModalClosing, requestClose: closeItemModal } = useModalClose(() => {
+    setMobileRecord(null);
+    setMobileItem(null);
+  });
   const [photoPreviewRecordId, setPhotoPreviewRecordId] = useState<string | null>(null);
   const [dayPhotoViewer, setDayPhotoViewer] = useState<{
     record: WorkRecord;
@@ -623,16 +629,22 @@ function ReportDetailPage() {
       ? (applied?.employee ? employeeItemQty(itemDef, applied.employee, crew) : itemQty(itemDef)) *
         itemDef.price
       : 0;
-    const close = () => {
-      setMobileRecord(null);
-      setMobileItem(null);
-    };
     return createPortal(
-      <div className="fixed inset-0 z-50 flex items-end bg-black/50 md:items-center md:justify-center md:p-6">
-        <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-card p-5 md:max-h-[90vh] md:max-w-lg md:rounded-3xl">
+      <motion.div
+        className="fixed inset-0 z-50 flex items-end bg-black/50 md:items-center md:justify-center md:p-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: itemModalClosing ? 0 : 1 }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
+      >
+        <motion.div
+          className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-card p-5 md:max-h-[90vh] md:max-w-lg md:rounded-3xl"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: itemModalClosing ? 0 : 1, y: itemModalClosing ? 16 : 0 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+        >
           <div className="flex items-start justify-between gap-3">
             <h2 className="text-lg font-bold">{mobileItem}</h2>
-            <button onClick={close} aria-label="Закрыть">
+            <button onClick={closeItemModal} aria-label="Закрыть">
               <X className="size-5 text-muted-foreground" />
             </button>
           </div>
@@ -661,8 +673,8 @@ function ReportDetailPage() {
               </div>
             )}
           </div>
-        </div>
-      </div>,
+        </motion.div>
+      </motion.div>,
       document.body,
     );
   })();

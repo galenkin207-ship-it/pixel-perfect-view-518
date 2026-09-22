@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { Camera, ChevronLeft, Image as ImageIcon, Plus, Search, Trash2, X } from "lucide-react";
+import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import { createPortal } from "react-dom";
@@ -14,6 +15,7 @@ import { composeCounterName, computeCounterTotal, WorkTypeCounterCard } from "@/
 import { WorkTypeSearchResults, WorkTypeSearchResultsSkeleton } from "@/components/app/work-type-search-results";
 import { useBlurOnScroll } from "@/hooks/use-blur-on-scroll";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useModalClose } from "@/hooks/use-modal-close";
 import { useWorkTypeCascade } from "@/hooks/use-work-type-cascade";
 import { useWorkTypeSearch } from "@/hooks/use-work-type-search";
 import { cn, objectLabel } from "@/lib/utils";
@@ -1011,6 +1013,7 @@ function WorkTypePicker({
   const [customOpen, setCustomOpen] = useState(false);
   const [custom, setCustom] = useState("");
   const isMobile = useIsMobile();
+  const { closing, requestClose } = useModalClose(onClose);
 
   // В запись идёт полное название позиции как в справочнике (leaf.name): его
   // собирает сервер (группа + вариант, с защитой от дублей), склеивать заново
@@ -1126,11 +1129,19 @@ function WorkTypePicker({
   // внутри прокручиваемого #app-scroll-container и нижнее мобильное меню
   // может остаться поверх него (баг WebKit, на Android не проявляется).
   return createPortal(
-    <div
+    <motion.div
       data-pull-refresh-ignore
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 md:items-center md:p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: closing ? 0 : 1 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
     >
-      <div className="flex max-h-[95vh] w-full max-w-7xl 2xl:max-w-[1800px] flex-col rounded-t-3xl bg-card shadow-2xl md:rounded-3xl">
+      <motion.div
+        className="flex max-h-[95vh] w-full max-w-7xl 2xl:max-w-[1800px] flex-col rounded-t-3xl bg-card shadow-2xl md:rounded-3xl"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: closing ? 0 : 1, y: closing ? 16 : 0 }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
+      >
         {/* Компактная шапка: заголовок и подзаголовок в одну строку (по
             baseline), подзаголовок скрыт на узких экранах — здесь и в
             поисковой строке ниже вертикальные отступы сознательно урезаны,
@@ -1146,7 +1157,7 @@ function WorkTypePicker({
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Закрыть"
             className="shrink-0 rounded-full p-2.5 transition-colors duration-150 ease-out hover:bg-muted"
           >
@@ -1333,8 +1344,8 @@ function WorkTypePicker({
             )}
           </div>
         )}
-      </div>
-    </div>,
+      </motion.div>
+    </motion.div>,
     document.body,
   );
 }
