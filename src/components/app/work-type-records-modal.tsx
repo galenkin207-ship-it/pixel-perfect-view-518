@@ -34,6 +34,10 @@ export function WorkTypeRecordsModal({
 }) {
   const { records } = useApp();
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
+  // Вернулись к списку из RecordDetail — фон уже затемнён (его держал
+  // RecordDetail с seamlessBackdrop), поэтому при возврате не проявляем его
+  // заново с нуля, иначе страница на мгновение просвечивает.
+  const [backFromDetail, setBackFromDetail] = useState(false);
   const { closing, requestClose } = useModalClose(onClose);
 
   // work_type_id из /work-summary приходит сырым из JSON (реально число,
@@ -59,7 +63,15 @@ export function WorkTypeRecordsModal({
 
   if (selectedRecord) {
     return (
-      <RecordDetail record={selectedRecord} onClose={() => setSelectedRecordId(null)} backIcon />
+      <RecordDetail
+        record={selectedRecord}
+        onClose={() => {
+          setSelectedRecordId(null);
+          setBackFromDetail(true);
+        }}
+        backIcon
+        seamlessBackdrop
+      />
     );
   }
 
@@ -67,7 +79,7 @@ export function WorkTypeRecordsModal({
     <motion.div
       data-pull-refresh-ignore
       className="fixed inset-0 z-50 flex bg-black/50 md:items-center md:justify-center md:p-6"
-      initial={{ opacity: 0 }}
+      initial={backFromDetail ? false : { opacity: 0 }}
       animate={{ opacity: closing ? 0 : 1 }}
       transition={{ duration: 0.18, ease: "easeOut" }}
     >

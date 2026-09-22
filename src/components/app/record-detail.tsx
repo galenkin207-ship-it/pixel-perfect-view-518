@@ -22,6 +22,7 @@ export function RecordDetail({
   editReturnTo,
   editReturnSearch,
   backIcon,
+  seamlessBackdrop,
 }: {
   record: WorkRecord;
   onClose: () => void;
@@ -36,6 +37,12 @@ export function RecordDetail({
   // модалки (см. WorkTypeRecordsModal), и onClose на самом деле возвращает
   // к этому списку, а не закрывает всё окно.
   backIcon?: boolean;
+  // Если true — затемнение фона появляется и исчезает без анимации, плавно
+  // двигается только сама карточка. Нужно, когда RecordDetail подменяет
+  // другую модалку со своим таким же фоном (WorkTypeRecordsModal): иначе
+  // фон одной гаснет/пропадает, а фон другой проявляется с нуля, и между
+  // ними на мгновение просвечивает страница — заметное "моргание".
+  seamlessBackdrop?: boolean;
 }) {
   const { objects, role, currentUser, deleteRecord } = useApp();
   const [photoIndex, setPhotoIndex] = useState<number | null>(null);
@@ -71,8 +78,8 @@ export function RecordDetail({
     <motion.div
       data-pull-refresh-ignore
       className="fixed inset-0 z-50 flex bg-black/50 md:items-center md:justify-center md:p-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: closing ? 0 : 1 }}
+      initial={seamlessBackdrop ? false : { opacity: 0 }}
+      animate={{ opacity: closing && !seamlessBackdrop ? 0 : 1 }}
       transition={{ duration: 0.18, ease: "easeOut" }}
     >
       <motion.div

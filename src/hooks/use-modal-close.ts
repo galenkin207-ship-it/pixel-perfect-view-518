@@ -11,11 +11,20 @@ import { useCallback, useState } from "react";
 // framer-motion анимация исчезновения) и только через `durationMs`
 // действительно вызывает переданный `onClose` — тогда родитель убирает
 // компонент уже после того, как анимация отыграла.
+//
+// После onClose флаг сбрасывается обратно: там, где хук живёт на уровне
+// страницы, а не внутри самой модалки (Фото объекта, окно позиции в отчёте),
+// компонент с хуком не размонтируется, и без сброса следующее открытие
+// сразу получало бы closing = true — окно появлялось невидимым (opacity 0),
+// но перехватывало клики.
 export function useModalClose(onClose: () => void, durationMs = 180) {
   const [closing, setClosing] = useState(false);
   const requestClose = useCallback(() => {
     setClosing(true);
-    setTimeout(onClose, durationMs);
+    setTimeout(() => {
+      onClose();
+      setClosing(false);
+    }, durationMs);
   }, [onClose, durationMs]);
   return { closing, requestClose } as const;
 }
