@@ -233,7 +233,14 @@ export function WorkTypeCatalog({
 
   function pickLeaf(leaf: WorkTypeTreeNode | WorkTypeSearchResult) {
     setSelectedLeafId(leaf.id);
-    if (readOnly) setSelectedLeaf(leaf);
+    if (readOnly) {
+      setSelectedLeaf(leaf);
+    } else {
+      // Тап по самой карточке открывает «Сведения» так же, как пункт меню
+      // «⋯» — и на десктопе, и на мобильном (там меню «⋯» скрыто, это
+      // единственный способ посмотреть состав работ и реквизиты позиции).
+      setDetailsTarget({ id: leaf.id, label: leaf.name });
+    }
   }
 
   // Сохранение позиции. Каскад под модалкой не размонтировался — здесь
@@ -603,7 +610,7 @@ export function WorkTypeCatalog({
         />
       )}
 
-      {showEditTools && detailsTarget && (
+      {isAdminLike && detailsTarget && (
         <WorkTypeDetailsDialog
           key={detailsTarget.id}
           id={detailsTarget.id}

@@ -78,7 +78,14 @@ export function PullToRefresh({
       }
       // сопротивление при вытягивании, как в нативных списках
       setPullValue(Math.min(MAX_PULL, dy * 0.5));
-      if (dy > 10 && e.cancelable) e.preventDefault();
+      // Порог перед preventDefault — заметно больше обычного дрожания пальца
+      // при обычном тапе (5-10px на реальном устройстве), не только визуальный
+      // "старт вытягивания". На iOS Safari (в отличие от Android/Chrome) любой
+      // preventDefault внутри touchmove полностью отменяет последующий click
+      // для всего жеста — из-за этого низкий порог гасил обычные тапы по
+      // карточкам списка, когда страница проскроллена в самый верх (iPhone:
+      // тап по карточке не давал вообще никакой реакции).
+      if (dy > 24 && e.cancelable) e.preventDefault();
     };
 
     const onTouchEnd = () => {

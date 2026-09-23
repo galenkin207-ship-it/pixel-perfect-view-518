@@ -192,7 +192,7 @@ export function WorkTypeDetailsDialog({ id, title, onClose }: { id: string; titl
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex max-h-[85dvh] w-full max-w-xl flex-col gap-0 overflow-hidden p-0">
+      <DialogContent className="flex max-h-[85dvh] w-[calc(100%-2rem)] max-w-xl flex-col gap-0 overflow-hidden rounded-2xl p-0">
         <div className="flex shrink-0 items-start gap-3 border-b border-border px-6 py-4 pr-12">
           <DialogTitle className="min-w-0 flex-1 text-base leading-snug break-words">
             {info?.name ?? title}
