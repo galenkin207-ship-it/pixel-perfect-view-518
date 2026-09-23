@@ -100,6 +100,7 @@ export function buildNotificationItems(
     }
     if (includeMessages) {
       for (const c of r.comments) {
+        if (c.pending) continue; // своё неподтверждённое сообщение — не уведомление
         items.push({
           id: c.id,
           requestId: r.id,
@@ -143,7 +144,9 @@ export function sortNotificationItems(items: NotificationItem[]): NotificationIt
  * которые он увидел, а не всё, что связано с заявкой.
  */
 export function commentIdsForRequest(r: WorkRequest): string[] {
-  return r.comments.map((c) => c.id);
+  // Неподтверждённые (оптимистичные) сообщения — с временным id, которого нет
+  // на сервере; к тому же это всегда свои сообщения.
+  return r.comments.filter((c) => !c.pending).map((c) => c.id);
 }
 
 /**
