@@ -12,7 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 
@@ -312,7 +312,8 @@ function ObjectRecordsPage() {
   const isMobile = useIsMobile();
   const object = objects.find((o) => o.id === id);
   const [busy, setBusy] = useState(false);
-  const [pinBusy, setPinBusy] = useState(false);
+  // Запрос закрепления ещё идёт — повторный тап игнорируем (см. toggleHome).
+  const pinInFlight = useRef(false);
   const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false);
   const canManage = role === "curator" || role === "admin";
   const isForeman = role === "user";
@@ -410,20 +411,24 @@ function ObjectRecordsPage() {
   // самой главной странице и в шторке "Добавить объект".
   const shownOnHome = !isHidden && (hasRecords || isPinned);
 
+  // Кнопка переключается сразу (оптимистичное обновление в контексте), тост
+  // тоже показываем сразу — при ошибке состояние откатится, а тост заменится
+  // на сообщение об ошибке. Повторный тап, пока запрос идёт, игнорируем, чтобы
+  // встречные запросы не пришли на сервер в обратном порядке.
   const toggleHome = async () => {
-    setPinBusy(true);
+    if (pinInFlight.current) return;
+    pinInFlight.current = true;
+    const toastId = toast.success(
+      shownOnHome ? "Объект откреплён от главного экрана" : "Объект возвращён на главный экран",
+    );
     try {
-      if (shownOnHome) {
-        await hideObjectFromHome(object.id);
-        toast.success("Объект откреплён от главного экрана");
-      } else {
-        await showObjectOnHome(object.id);
-        toast.success("Объект возвращён на главный экран");
-      }
+      await (shownOnHome ? hideObjectFromHome(object.id) : showObjectOnHome(object.id));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось изменить видимость объекта");
+      toast.error(err instanceof Error ? err.message : "Не удалось изменить видимость объекта", {
+        id: toastId,
+      });
     } finally {
-      setPinBusy(false);
+      pinInFlight.current = false;
     }
   };
 
@@ -595,19 +600,18 @@ function ObjectRecordsPage() {
               {!isArchived && (
                 <button
                   type="button"
-                  disabled={pinBusy}
                   onClick={() => void toggleHome()}
                   className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
                 >
                   {shownOnHome ? (
                     <>
                       <PinOff className="size-3.5" />
-                      {pinBusy ? "..." : "Открепить"}
+                      Открепить
                     </>
                   ) : (
                     <>
                       <Pin className="size-3.5" />
-                      {pinBusy ? "..." : "Показать на главном"}
+                      Показать на главном
                     </>
                   )}
                 </button>

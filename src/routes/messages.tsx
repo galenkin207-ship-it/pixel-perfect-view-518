@@ -238,22 +238,25 @@ function MessagesPage() {
     setDialogChatExpanded(true);
   }, [dialogRequest, markNotificationsRead]);
 
-  const [sendingComment, setSendingComment] = useState<string | null>(null);
-
+  // Сообщение появляется в переписке сразу (оптимистично, см. addRequestComment),
+  // поле ввода не блокируется — можно сразу писать следующее, клавиатура на
+  // телефоне не прячется.
   const sendComment = async (id: string) => {
     const text = (draft[id] ?? "").trim();
     if (!text) return;
     setDraft((d) => ({ ...d, [id]: "" }));
     requestAnimationFrame(() => autoResizeTextarea(commentRefs.current[id] ?? null));
-    setSendingComment(id);
     try {
       await addRequestComment(id, text);
     } catch {
-      setDraft((d) => ({ ...d, [id]: text })); // возвращаем текст в поле, если отправка не удалась
+      // Возвращаем текст в поле, не затирая то, что пользователь успел
+      // набрать после отправки.
+      setDraft((d) => {
+        const current = (d[id] ?? "").trim();
+        return { ...d, [id]: current ? `${text}\n${current}` : text };
+      });
       requestAnimationFrame(() => autoResizeTextarea(commentRefs.current[id] ?? null));
       toast.error("Не удалось отправить сообщение, попробуйте ещё раз");
-    } finally {
-      setSendingComment(null);
     }
   };
 
@@ -512,9 +515,10 @@ function MessagesPage() {
                         >
                           <span
                             className={cn(
-                              "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
+                              "max-w-[80%] rounded-2xl px-3 py-2 text-sm transition-opacity duration-150",
                               own ? "bg-primary text-primary-foreground" : "bg-surface",
                               isEditing && "w-full max-w-[80%]",
+                              c.pending && "opacity-70",
                             )}
                           >
                             {isEditing ? (
@@ -570,14 +574,14 @@ function MessagesPage() {
                                     own ? "text-primary-foreground/70" : "text-muted-foreground",
                                   )}
                                 >
-                                  {c.author} · {c.time}
+                                  {c.author} · {c.pending ? "отправляется…" : c.time}
                                   {c.edited ? " · изменено" : ""}
                                 </span>
                               </>
                             )}
                           </span>
 
-                          {own && !isEditing && (
+                          {own && !isEditing && !c.pending && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <button
@@ -628,14 +632,13 @@ function MessagesPage() {
                             void sendComment(r.id);
                           }
                         }}
-                        disabled={sendingComment === r.id}
                         placeholder="Сообщение..."
                         rows={1}
                         className="max-h-40 min-h-10 flex-1 resize-none overflow-y-auto rounded-xl border border-border bg-surface px-3 py-2 text-sm leading-normal disabled:opacity-60"
                       />
                       <button
                         onClick={() => void sendComment(r.id)}
-                        disabled={sendingComment === r.id || !(draft[r.id] ?? "").trim()}
+                        disabled={!(draft[r.id] ?? "").trim()}
                         className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                       >
                         Отправить

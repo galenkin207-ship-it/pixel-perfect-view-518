@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Archive, MapPin, Pin, PinOff, Plus, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
@@ -237,13 +237,15 @@ function ObjectsPage() {
                 type="button"
                 aria-label="Открепить объект с главного экрана"
                 title="Открепить с главного экрана"
-                onClick={async () => {
-                  try {
-                    await hideObjectFromHome(o.id);
-                    toast.success("Объект откреплён от главного экрана");
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message : "Не удалось открепить объект");
-                  }
+                onClick={() => {
+                  // Карточка исчезает сразу (оптимистичное обновление в контексте) —
+                  // при ошибке она вернётся, а тост заменится на сообщение об ошибке.
+                  const toastId = toast.success("Объект откреплён от главного экрана");
+                  hideObjectFromHome(o.id).catch((err) => {
+                    toast.error(err instanceof Error ? err.message : "Не удалось открепить объект", {
+                      id: toastId,
+                    });
+                  });
                 }}
                 className="absolute top-3 right-3 flex size-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-all duration-150 ease-out group-hover:opacity-100 hover:text-status-rejected"
               >
@@ -280,7 +282,10 @@ function ObjectPickerDialog({
 }) {
   const { objects, showObjectOnHome, hideObjectFromHome } = useApp();
   const [q, setQ] = useState("");
-  const [busyId, setBusyId] = useState<string | null>(null);
+  // Объекты, по которым запрос ещё идёт — повторный тап по ним игнорируем,
+  // чтобы два встречных запроса не пришли на сервер в обратном порядке.
+  // Кнопку при этом не блокируем визуально: её вид уже переключился сразу.
+  const inFlightIds = useRef(new Set<string>());
 
   const filtered = objects
     .filter((o) => o.status !== "archived")
@@ -293,8 +298,9 @@ function ObjectPickerDialog({
     !hiddenSet.has(o.id) && (objectIdsWithRecords.has(o.id) || pinnedSet.has(o.id));
 
   const toggle = async (o: { id: string }) => {
+    if (inFlightIds.current.has(o.id)) return;
     const shown = isShown(o);
-    setBusyId(o.id);
+    inFlightIds.current.add(o.id);
     try {
       if (shown) {
         await hideObjectFromHome(o.id);
@@ -304,7 +310,7 @@ function ObjectPickerDialog({
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Не удалось изменить видимость объекта");
     } finally {
-      setBusyId(null);
+      inFlightIds.current.delete(o.id);
     }
   };
 
@@ -335,8 +341,7 @@ function ObjectPickerDialog({
                 </div>
                 <button
                   type="button"
-                  disabled={busyId === o.id}
-                  onClick={() => toggle(o)}
+                  onClick={() => void toggle(o)}
                   className={
                     shown
                       ? "flex shrink-0 items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary disabled:opacity-60"

@@ -112,10 +112,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const currentUser = sessionUser ?? EMPTY_USER;
   const role = currentUser.role;
 
+  // Защита от гонки фонового опроса с мутациями. loadAppData целиком
+  // перезаписывает стейт, поэтому ответ опроса, запрошенный ДО того, как
+  // мутация дошла до сервера, мог откатить только что внесённое изменение
+  // (особенно заметно на оптимистичных обновлениях — значение "моргало"
+  // назад и через мгновение возвращалось). Каждая мутация увеличивает
+  // счётчик поколений при старте и при завершении; результат загрузки,
+  // во время которой поколение сменилось или ещё идёт мутация, просто
+  // отбрасываем — свежие данные придут следующим опросом.
+  const mutationGenRef = useRef(0);
+  const mutationsInFlightRef = useRef(0);
+  const trackMutation = useCallback(<T,>(promise: Promise<T>): Promise<T> => {
+    mutationGenRef.current += 1;
+    mutationsInFlightRef.current += 1;
+    return promise.finally(() => {
+      mutationsInFlightRef.current -= 1;
+      mutationGenRef.current += 1;
+    });
+  }, []);
+
   // Переиспользуемая загрузка всех данных приложения — используется и при первом
   // входе, и фоновым автообновлением, и pull-to-refresh на телефоне.
-  const loadAppData = useCallback(async () => {
+  // force — для первой загрузки после входа: её результат нужен всегда.
+  const loadAppData = useCallback(async (opts?: { force?: boolean }) => {
     if (!sessionUser) return;
+    const genAtStart = mutationGenRef.current;
     const [
       objs,
       emps,
@@ -147,6 +168,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       api.listHiddenNotificationIds().catch(() => [] as string[]),
       api.listBrigades(),
     ]);
+    if (
+      !opts?.force &&
+      (mutationGenRef.current !== genAtStart || mutationsInFlightRef.current > 0)
+    )
+      return;
     setObjects(objs);
     setEmployees(emps);
     setUnits(uns);
@@ -166,7 +192,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!authChecked || !sessionUser) return;
     let cancelled = false;
-    loadAppData()
+    loadAppData({ force: true })
       .then(() => {
         if (!cancelled) setDataLoaded(true);
       })
@@ -468,11 +494,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         for (const id of fresh) next.add(id);
         return next;
       });
-      void api.markNotificationsRead(fresh).catch(() => {
+      void trackMutation(api.markNotificationsRead(fresh)).catch(() => {
         // не критично — при следующей загрузке просто ещё раз попробуем считать непрочитанным
       });
     },
-    [readNotificationIds],
+    [readNotificationIds, trackMutation],
   );
 
   const hideNotifications = useCallback(
@@ -484,11 +510,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         for (const id of fresh) next.add(id);
         return next;
       });
-      void api.hideNotifications(fresh).catch(() => {
+      void trackMutation(api.hideNotifications(fresh)).catch(() => {
         // не критично — при следующей загрузке уведомление просто снова появится в списке
       });
     },
-    [hiddenNotificationIds],
+    [hiddenNotificationIds, trackMutation],
   );
 
   const login = async (loginValue: string, password: string) => {
@@ -519,7 +545,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addRecord = async (r: WorkRecord): Promise<WorkRecord> => {
     const objectName = objectNameById.get(r.object_id) ?? r.object_id;
     try {
-      const saved = await api.createRecord(r, objectName);
+      const saved = await trackMutation(api.createRecord(r, objectName));
       setRecords((prev) => [saved, ...prev]);
       return saved;
     } catch (err) {
@@ -530,7 +556,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateRecord = async (r: WorkRecord): Promise<WorkRecord> => {
     const objectName = objectNameById.get(r.object_id) ?? r.object_id;
     try {
-      const saved = await api.updateRecord(r, objectName);
+      const saved = await trackMutation(api.updateRecord(r, objectName));
       setRecords((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
       return saved;
     } catch (err) {
@@ -540,7 +566,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const deleteRecord = async (id: string): Promise<void> => {
     try {
-      await api.deleteRecord(id);
+      await trackMutation(api.deleteRecord(id));
       setRecords((prev) => prev.filter((r) => r.id !== id));
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to delete record");
@@ -553,7 +579,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const createRequest = async (text: string): Promise<WorkRequest> => {
     try {
-      const created = await api.createRequest(text);
+      const created = await trackMutation(api.createRequest(text));
       setRequests((prev) => [created, ...prev]);
       return created;
     } catch (err) {
@@ -570,7 +596,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
   ): Promise<WorkRequest> => {
     try {
-      const saved = await api.decideRequest(id, input);
+      const saved = await trackMutation(api.decideRequest(id, input));
       setRequests((prev) =>
         prev.map((r) => (r.id === saved.id ? { ...saved, comments: r.comments } : r)),
       );
@@ -580,14 +606,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Оптимистично: сообщение сразу появляется в переписке с временным id и
+  // пометкой pending, после ответа сервера подменяется настоящим, при ошибке —
+  // убирается (текст в поле ввода возвращает вызывающий экран).
   const addRequestComment = async (requestId: string, text: string): Promise<RequestComment> => {
-    try {
-      const comment = await api.addRequestComment(requestId, text);
+    const now = new Date();
+    const tempId = `pending-${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`;
+    const temp: RequestComment = {
+      id: tempId,
+      author: currentUser.full_name,
+      author_user_id: currentUser.id,
+      own: true,
+      text,
+      time: new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(now),
+      date: new Intl.DateTimeFormat("ru-RU").format(now),
+      pending: true,
+    };
+    const replaceTemp = (next: RequestComment[]) =>
       setRequests((prev) =>
-        prev.map((r) => (r.id === requestId ? { ...r, comments: [...r.comments, comment] } : r)),
+        prev.map((r) =>
+          r.id === requestId
+            ? { ...r, comments: r.comments.flatMap((c) => (c.id === tempId ? next : [c])) }
+            : r,
+        ),
       );
+    setRequests((prev) =>
+      prev.map((r) => (r.id === requestId ? { ...r, comments: [...r.comments, temp] } : r)),
+    );
+    try {
+      const comment = await trackMutation(api.addRequestComment(requestId, text));
+      replaceTemp([comment]);
       return comment;
     } catch (err) {
+      replaceTemp([]);
       throw err instanceof ApiError ? err : new Error("failed to add comment");
     }
   };
@@ -598,7 +649,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     text: string,
   ): Promise<RequestComment> => {
     try {
-      const comment = await api.editRequestComment(requestId, commentId, text);
+      const comment = await trackMutation(api.editRequestComment(requestId, commentId, text));
       setRequests((prev) =>
         prev.map((r) =>
           r.id === requestId
@@ -614,7 +665,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const deleteRequestComment = async (requestId: string, commentId: string): Promise<void> => {
     try {
-      await api.deleteRequestComment(requestId, commentId);
+      await trackMutation(api.deleteRequestComment(requestId, commentId));
       setRequests((prev) =>
         prev.map((r) =>
           r.id === requestId ? { ...r, comments: r.comments.filter((c) => c.id !== commentId) } : r,
@@ -627,7 +678,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const deleteRequest = async (id: string): Promise<void> => {
     try {
-      const result = await api.deleteRequest(id);
+      const result = await trackMutation(api.deleteRequest(id));
       if ("hardDeleted" in result) {
         // Admin удалил чужую заявку из истории — убираем её из списка совсем
         setRequests((prev) => prev.filter((r) => r.id !== result.id));
@@ -651,7 +702,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     email?: string;
   }): Promise<AppUser> => {
     try {
-      const created = await api.createUser(input);
+      const created = await trackMutation(api.createUser(input));
       setUsers((prev) => [...prev, created]);
       // Обновляем локальный список "Кто подал" сразу, не дожидаясь полного
       // рефреша — иначе новый флаг будет виден только после reload/pull-to-refresh.
@@ -677,7 +728,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
   ): Promise<AppUser> => {
     try {
-      const saved = await api.updateUser(id, input);
+      const saved = await trackMutation(api.updateUser(id, input));
       setUsers((prev) => prev.map((u) => (u.id === saved.id ? { ...u, ...saved } : u)));
       if ("is_submitter" in input || "full_name" in input || "active" in input) {
         api
@@ -697,7 +748,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     progress_percent: number;
   }): Promise<WorkObject> => {
     try {
-      const created = await api.createObject(input);
+      const created = await trackMutation(api.createObject(input));
       setObjects((prev) => [...prev, created]);
       return created;
     } catch (err) {
@@ -710,7 +761,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     input: { name: string; address: string; progress_percent: number },
   ): Promise<WorkObject> => {
     try {
-      const saved = await api.updateObject(id, input);
+      const saved = await trackMutation(api.updateObject(id, input));
       // PUT /objects не возвращает статус архивации — сохраняем его как был
       // на клиенте, а не то, что подставил api-client по умолчанию.
       let merged: WorkObject = saved;
@@ -729,7 +780,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const deleteObject = async (id: string): Promise<void> => {
     try {
-      await api.deleteObject(id);
+      await trackMutation(api.deleteObject(id));
       setObjects((prev) => prev.filter((o) => o.id !== id));
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to delete object");
@@ -738,7 +789,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const archiveObject = async (id: string): Promise<WorkObject> => {
     try {
-      const saved = await api.archiveObject(id);
+      const saved = await trackMutation(api.archiveObject(id));
       setObjects((prev) => prev.map((o) => (o.id === saved.id ? { ...o, ...saved } : o)));
       return saved;
     } catch (err) {
@@ -748,7 +799,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const restoreObject = async (id: string): Promise<WorkObject> => {
     try {
-      const saved = await api.restoreObject(id);
+      const saved = await trackMutation(api.restoreObject(id));
       setObjects((prev) => prev.map((o) => (o.id === saved.id ? { ...o, ...saved } : o)));
       return saved;
     } catch (err) {
@@ -756,12 +807,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Откат — только если флага не было до клика: showObjectOnHome ставит pin
+  // "на всякий случай" и уже закреплённому объекту, и безусловный откат снимал
+  // бы на клиенте pin, который на сервере так и остался стоять.
   const pinObject = async (id: string): Promise<void> => {
+    const had = pinnedObjectIds.includes(id);
     setPinnedObjectIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
     try {
-      await api.pinObject(id);
+      await trackMutation(api.pinObject(id));
     } catch (err) {
-      setPinnedObjectIds((prev) => prev.filter((x) => x !== id)); // откатываем оптимистичное обновление
+      if (!had) setPinnedObjectIds((prev) => prev.filter((x) => x !== id)); // откатываем оптимистичное обновление
       throw err instanceof ApiError ? err : new Error("failed to pin object");
     }
   };
@@ -770,7 +825,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const had = pinnedObjectIds.includes(id);
     setPinnedObjectIds((prev) => prev.filter((x) => x !== id));
     try {
-      await api.unpinObject(id);
+      await trackMutation(api.unpinObject(id));
     } catch (err) {
       if (had) setPinnedObjectIds((prev) => (prev.includes(id) ? prev : [...prev, id])); // откат
       throw err instanceof ApiError ? err : new Error("failed to unpin object");
@@ -778,11 +833,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const hideObject = async (id: string): Promise<void> => {
+    const had = hiddenObjectIds.includes(id);
     setHiddenObjectIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
     try {
-      await api.hideObject(id);
+      await trackMutation(api.hideObject(id));
     } catch (err) {
-      setHiddenObjectIds((prev) => prev.filter((x) => x !== id)); // откатываем оптимистичное обновление
+      if (!had) setHiddenObjectIds((prev) => prev.filter((x) => x !== id)); // откатываем оптимистичное обновление
       throw err instanceof ApiError ? err : new Error("failed to hide object");
     }
   };
@@ -791,7 +847,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const had = hiddenObjectIds.includes(id);
     setHiddenObjectIds((prev) => prev.filter((x) => x !== id));
     try {
-      await api.unhideObject(id);
+      await trackMutation(api.unhideObject(id));
     } catch (err) {
       if (had) setHiddenObjectIds((prev) => (prev.includes(id) ? prev : [...prev, id])); // откат
       throw err instanceof ApiError ? err : new Error("failed to unhide object");
@@ -832,7 +888,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const archiveWorkType = async (id: string): Promise<void> => {
     try {
-      await api.archiveWorkType(id);
+      await trackMutation(api.archiveWorkType(id));
       setWorkTypes((prev) => prev.filter((w) => w.id !== id));
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to archive work type");
@@ -845,7 +901,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // мутации просто перечитываем его с backend, чтобы не рассинхронизироваться.
   const addEmployee = async (name: string): Promise<void> => {
     try {
-      await api.createEmployee(name);
+      await trackMutation(api.createEmployee(name));
       setEmployees(await api.listEmployees());
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to create employee");
@@ -854,7 +910,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const renameEmployee = async (id: string, name: string): Promise<void> => {
     try {
-      await api.renameEmployee(id, name);
+      await trackMutation(api.renameEmployee(id, name));
       setEmployees(await api.listEmployees());
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to rename employee");
@@ -863,7 +919,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const deleteEmployee = async (id: string): Promise<void> => {
     try {
-      await api.deleteEmployee(id);
+      await trackMutation(api.deleteEmployee(id));
       setEmployees(await api.listEmployees());
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to delete employee");
@@ -872,7 +928,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addUnit = async (name: string): Promise<void> => {
     try {
-      await api.createUnit(name);
+      await trackMutation(api.createUnit(name));
       setUnits(await api.listUnits());
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to create unit");
@@ -881,7 +937,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const renameUnit = async (id: string, name: string): Promise<void> => {
     try {
-      await api.renameUnit(id, name);
+      await trackMutation(api.renameUnit(id, name));
       setUnits(await api.listUnits());
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to rename unit");
@@ -890,7 +946,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const deleteUnit = async (id: string): Promise<void> => {
     try {
-      await api.deleteUnit(id);
+      await trackMutation(api.deleteUnit(id));
       setUnits(await api.listUnits());
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to delete unit");
@@ -902,7 +958,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // заполнения формы записи.
   const addBrigade = async (input: { name: string; members: string[] }): Promise<Brigade> => {
     try {
-      const created = await api.createBrigade(input);
+      const created = await trackMutation(api.createBrigade(input));
       setBrigades((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name, "ru")));
       return created;
     } catch (err) {
@@ -915,7 +971,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     input: { name: string; members: string[] },
   ): Promise<Brigade> => {
     try {
-      const saved = await api.updateBrigade(id, input);
+      const saved = await trackMutation(api.updateBrigade(id, input));
       setBrigades((prev) =>
         prev
           .map((b) => (b.id === saved.id ? saved : b))
@@ -929,7 +985,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const deleteBrigade = async (id: string): Promise<void> => {
     try {
-      await api.deleteBrigade(id);
+      await trackMutation(api.deleteBrigade(id));
       setBrigades((prev) => prev.filter((b) => b.id !== id));
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to delete brigade");
@@ -1004,7 +1060,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     isAuthenticated: !!sessionUser,
-    refreshData: loadAppData,
+    refreshData: () => loadAppData(),
   };
 
   // Пока не выяснили статус сессии — показываем заставку вместо мигания
