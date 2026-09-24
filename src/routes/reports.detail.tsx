@@ -12,7 +12,6 @@ import {
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import ExcelJS from "exceljs";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
@@ -289,6 +288,8 @@ function ReportDetailPage() {
     // из-за формата "#,##0.###", применённого к значению без дробной части.
     const qtyNumFmt = (v: number) => (Math.abs(v - Math.round(v)) < 1e-9 ? "#,##0" : "#,##0.##");
 
+    // ExcelJS тяжёлый (~250 kB gzip) — грузим только в момент экспорта.
+    const { default: ExcelJS } = await import("exceljs");
     const wb = new ExcelJS.Workbook();
     wb.creator = "Учёт работ";
     wb.created = new Date();

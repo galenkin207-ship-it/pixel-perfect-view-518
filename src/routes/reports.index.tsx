@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import ExcelJS from "exceljs";
 import { toast } from "sonner";
 import { ChevronRight } from "lucide-react";
 
@@ -308,6 +307,8 @@ function ReportsPage() {
         0,
       );
 
+      // ExcelJS тяжёлый (~250 kB gzip) — грузим только в момент экспорта.
+      const { default: ExcelJS } = await import("exceljs");
       const wb = new ExcelJS.Workbook();
       wb.creator = "Учёт работ";
       wb.created = new Date();

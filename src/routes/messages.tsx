@@ -1,5 +1,4 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import ExcelJS from "exceljs";
 import { ChevronDown, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -165,6 +164,8 @@ function MessagesPage() {
         right: { style: "thin" as const, color: { argb: BORDER_CLR } },
       };
 
+      // ExcelJS тяжёлый (~250 kB gzip) — грузим только в момент экспорта.
+      const { default: ExcelJS } = await import("exceljs");
       const wb = new ExcelJS.Workbook();
       wb.creator = "Учёт работ";
       wb.created = new Date();
