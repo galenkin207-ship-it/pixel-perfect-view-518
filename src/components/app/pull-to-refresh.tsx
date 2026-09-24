@@ -124,7 +124,7 @@ export function PullToRefresh({
         className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center md:hidden"
         style={{ height: pull, opacity: pull > 4 ? 1 : 0 }}
       >
-        <span className="mt-3 flex size-8 items-center justify-center rounded-full border border-border bg-card shadow-sm">
+        <span className="mt-[calc(0.75rem+env(safe-area-inset-top))] flex size-8 items-center justify-center rounded-full border border-border bg-card shadow-sm">
           <RefreshCw
             className={cn("size-4 text-primary", refreshing && "animate-spin")}
             style={refreshing ? undefined : { transform: `rotate(${progress * 220}deg)` }}

@@ -28,7 +28,7 @@ export function useViewportHeight() {
     // Из-за этого контейнер приложения на миг "проседал" до уменьшенной
     // клавиатурой высоты visualViewport, ещё до того как layout viewport
     // успевал синхронизироваться — в этом кратком зазоре снизу на секунду
-    // проступал тёмный фон body (--shell). Клавиатуру отдельно обрабатывает
+    // проступал фон body (раньше тёмный --shell). Клавиатуру отдельно обрабатывает
     // use-keyboard-open.ts, это не задача этого хука.
     const setVh = () => {
       root.style.setProperty("--app-vh", `${window.innerHeight}px`);

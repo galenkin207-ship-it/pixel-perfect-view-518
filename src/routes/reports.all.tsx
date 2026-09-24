@@ -205,7 +205,7 @@ function AllRecordsPage() {
 
   return (
     <AppShell>
-      <div className="bg-background pt-5 pb-3 desktop:sticky desktop:top-0 desktop:z-20 desktop:border-b desktop:border-border desktop:pt-6 desktop:shadow-[0_8px_12px_-10px_rgba(15,23,42,0.35)] xl:pt-8">
+      <div className="bg-background pt-5 pb-3 desktop:sticky desktop:top-[env(safe-area-inset-top)] desktop:z-20 desktop:border-b desktop:border-border desktop:pt-6 desktop:shadow-[0_8px_12px_-10px_rgba(15,23,42,0.35)] xl:pt-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Все записи</h1>

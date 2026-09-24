@@ -83,7 +83,7 @@ export function RecordDetail({
       transition={{ duration: 0.18, ease: "easeOut" }}
     >
       <motion.div
-        className="h-full w-full overflow-y-auto bg-card p-5 md:max-h-[90vh] md:max-w-3xl md:rounded-3xl lg:max-w-4xl xl:max-w-5xl"
+        className="h-full w-full overflow-y-auto bg-card p-5 pt-[calc(1.25rem+env(safe-area-inset-top))] md:pt-5 md:max-h-[90vh] md:max-w-3xl md:rounded-3xl lg:max-w-4xl xl:max-w-5xl"
         style={{ overscrollBehaviorY: "contain" }}
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: closing ? 0 : 1, y: closing ? 16 : 0 }}

@@ -108,8 +108,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "theme-color", content: "#0a37a5" },
+      // Цвет фона приложения (--background): на iPhone статус-бар в режиме
+      // "default" красится в theme-color и сливается со страницей, а часы
+      // iOS сама делает тёмными/светлыми по контрасту. Для тёмной темы
+      // значение подменяется на лету в app-context.tsx.
+      { name: "theme-color", content: "#ffffff" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
+      // default, а не black-translucent: при black-translucent iOS всегда
+      // рисует часы белыми, и на светлом фоне их не видно. В default
+      // статус-бар берёт цвет из theme-color (= фон страницы) и визуально
+      // сливается с приложением, часы при этом тёмные. Отступы
+      // env(safe-area-inset-top) в шапке/модалках оставлены: в этом режиме
+      // инсет равен 0, а при возврате к black-translucent они снова нужны.
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { name: "apple-mobile-web-app-title", content: "Учёт работ" },
       { name: "mobile-web-app-capable", content: "yes" },
@@ -172,7 +182,11 @@ function RootComponent() {
             Outlet оборачивает КАЖДЫЙ роут целиком, вместе с сайдбаром/нижней навигацией/FAB —
             их обёртка в fade заставляла бы весь layout на десктопе мигать на каждый переход. */}
         <Outlet />
-        <Toaster position="top-center" />
+        <Toaster
+          position="top-center"
+          offset={{ top: "calc(env(safe-area-inset-top) + 24px)" }}
+          mobileOffset={{ top: "calc(env(safe-area-inset-top) + 16px)" }}
+        />
       </AppProvider>
     </QueryClientProvider>
   );
