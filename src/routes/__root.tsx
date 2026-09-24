@@ -158,7 +158,7 @@ function RootShell({ children }: { children: ReactNode }) {
             фоне приложения (цвет текста статус-бара iOS здесь всегда белый). */}
         <div
           aria-hidden
-          className="pointer-events-none fixed inset-x-0 top-0 z-[100] h-[env(safe-area-inset-top)] bg-linear-to-b from-black/35 to-transparent"
+          className="pointer-events-none fixed inset-x-0 top-0 z-[100] h-[calc(env(safe-area-inset-top)/2)] bg-linear-to-b from-black/10 to-transparent"
         />
         {children}
         <Scripts />
