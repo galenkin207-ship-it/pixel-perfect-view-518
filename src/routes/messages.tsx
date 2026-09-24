@@ -5,10 +5,11 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
+import type { WorkTypeEditorTarget } from "@/components/app/work-type-editor-dialog";
 import {
+  usePreloadWorkTypeEditorDialog,
   WorkTypeEditorDialog,
-  type WorkTypeEditorTarget,
-} from "@/components/app/work-type-editor-dialog";
+} from "@/components/app/work-type-editor-dialog-lazy";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -96,6 +97,7 @@ function MessagesPage() {
   // curator, только десктоп (форма — большая модалка каскадного справочника).
   const canAddToCatalog = (isAdmin || role === "curator") && !isMobile;
   const [catalogTarget, setCatalogTarget] = useState<WorkTypeEditorTarget | null>(null);
+  usePreloadWorkTypeEditorDialog(canAddToCatalog);
   const [selected, setSelected] = useState<string[]>([]);
   const [draft, setDraft] = useState<Record<string, string>>({});
   // Свёрнутость блока переписки по каждой заявке в общем списке. По
