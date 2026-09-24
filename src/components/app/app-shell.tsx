@@ -176,7 +176,7 @@ export function AppShell({
           <PullToRefresh onRefresh={refreshData}>
             {/* Mobile top bar. Отступ сверху = safe-area-inset-top, чтобы
                 шапка не оказалась под статус-баром/Dynamic Island на iPhone. */}
-            <div className="flex items-center justify-between gap-2 px-2 pt-[calc(1rem+env(safe-area-inset-top))] desktop:hidden">
+            <div className="flex items-center justify-between gap-2 px-2 pt-[calc(0.25rem+env(safe-area-inset-top))] desktop:hidden">
               <Link to="/" className="flex items-center gap-2 text-sm font-bold">
                 <img
                   src="/icon-192.png"
