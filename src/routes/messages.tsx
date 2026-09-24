@@ -1,15 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import ExcelJS from "exceljs";
 import { ChevronDown, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
+import type { WorkTypeEditorTarget } from "@/components/app/work-type-editor-dialog";
 import {
+  usePreloadWorkTypeEditorDialog,
   WorkTypeEditorDialog,
-  type WorkTypeEditorTarget,
-} from "@/components/app/work-type-editor-dialog";
+} from "@/components/app/work-type-editor-dialog-lazy";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -97,6 +97,7 @@ function MessagesPage() {
   // curator, только десктоп (форма — большая модалка каскадного справочника).
   const canAddToCatalog = (isAdmin || role === "curator") && !isMobile;
   const [catalogTarget, setCatalogTarget] = useState<WorkTypeEditorTarget | null>(null);
+  usePreloadWorkTypeEditorDialog(canAddToCatalog);
   const [selected, setSelected] = useState<string[]>([]);
   const [draft, setDraft] = useState<Record<string, string>>({});
   // Свёрнутость блока переписки по каждой заявке в общем списке. По
@@ -165,6 +166,8 @@ function MessagesPage() {
         right: { style: "thin" as const, color: { argb: BORDER_CLR } },
       };
 
+      // ExcelJS тяжёлый (~250 kB gzip) — грузим только в момент экспорта.
+      const { default: ExcelJS } = await import("exceljs");
       const wb = new ExcelJS.Workbook();
       wb.creator = "Учёт работ";
       wb.created = new Date();

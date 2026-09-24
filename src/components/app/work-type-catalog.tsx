@@ -14,11 +14,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { WorkTypeCascade } from "@/components/app/work-type-cascade";
+import type { WorkTypeEditorResult, WorkTypeEditorTarget } from "@/components/app/work-type-editor-dialog";
 import {
+  usePreloadWorkTypeEditorDialog,
   WorkTypeEditorDialog,
-  type WorkTypeEditorResult,
-  type WorkTypeEditorTarget,
-} from "@/components/app/work-type-editor-dialog";
+} from "@/components/app/work-type-editor-dialog-lazy";
 import { clearWorkTypeInfoCache, WorkTypeDetailsDialog } from "@/components/app/work-type-details-dialog";
 import { DeleteNodeDialog, NodeNameDialog } from "@/components/app/work-type-node-dialogs";
 import { WorkTypeLeafCard } from "@/components/app/work-type-leaf-card";
@@ -181,6 +181,7 @@ export function WorkTypeCatalog({
   const { role, archiveWorkType } = useApp();
   const isAdminLike = role === "admin" || role === "curator";
   const readOnly = !isAdminLike;
+  usePreloadWorkTypeEditorDialog(!readOnly);
   // Архивация на сервере разрешена только admin (PATCH /:id/archive), правка
   // и создание — admin и curator.
   const canDelete = role === "admin";

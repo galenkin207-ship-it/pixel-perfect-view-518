@@ -1,11 +1,16 @@
-import { useState } from "react";
-import { CalendarIcon } from "lucide-react";
+import { lazy, Suspense, useState } from "react";
+import { CalendarIcon, Loader2 } from "lucide-react";
 import { ru } from "date-fns/locale";
 
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+
+// Календарь (react-day-picker, ~20 kB gzip) виден только в открытом поповере —
+// грузим его отдельным чанком при первом открытии.
+const Calendar = lazy(() =>
+  import("@/components/ui/calendar").then((m) => ({ default: m.Calendar })),
+);
 
 type DateInputProps = {
   value: string;
@@ -49,16 +54,24 @@ export function DateInput({ value, onChange, className }: DateInputProps) {
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          locale={ru}
-          selected={selected}
-          {...(selected ? { defaultMonth: selected } : {})}
-          onSelect={(date) => {
-            onChange(date ? toIso(date) : "");
-            setOpen(false);
-          }}
-        />
+        <Suspense
+          fallback={
+            <div className="grid h-[300px] w-[276px] place-items-center">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          }
+        >
+          <Calendar
+            mode="single"
+            locale={ru}
+            selected={selected}
+            {...(selected ? { defaultMonth: selected } : {})}
+            onSelect={(date) => {
+              onChange(date ? toIso(date) : "");
+              setOpen(false);
+            }}
+          />
+        </Suspense>
         <div className="flex items-center justify-between gap-2 border-t border-border p-2">
           <Button
             type="button"
