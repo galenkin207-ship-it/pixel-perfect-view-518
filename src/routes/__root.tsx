@@ -152,12 +152,13 @@ function RootShell({ children }: { children: ReactNode }) {
       </head>
       <body>
         {/* Подложка под статус-бар iOS (black-translucent): высота =
-            safe-area-inset-top, т.е. на десктопе/Android она нулевая. Контент
-            при прокрутке уходит под неё и виден сквозь размытие, а белые
-            часы/батарея остаются читаемыми и на светлом фоне приложения. */}
+            safe-area-inset-top, т.е. на десктопе/Android она нулевая. Лёгкий
+            градиент без размытия — контент под статус-баром почти не
+            затемняется, но белые часы/батарея остаются читаемыми на светлом
+            фоне приложения (цвет текста статус-бара iOS здесь всегда белый). */}
         <div
           aria-hidden
-          className="pointer-events-none fixed inset-x-0 top-0 z-[100] h-[env(safe-area-inset-top)] bg-shell/70 backdrop-blur-md"
+          className="pointer-events-none fixed inset-x-0 top-0 z-[100] h-[env(safe-area-inset-top)] bg-linear-to-b from-black/35 to-transparent"
         />
         {children}
         <Scripts />
