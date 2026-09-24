@@ -110,7 +110,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "theme-color", content: "#0a37a5" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      // black-translucent — в установленном на iPhone PWA контент уходит под
+      // статус-бар/Dynamic Island (как в Safari), а не упирается в сплошную
+      // полосу. Текст статус-бара при этом всегда белый, поэтому под ним
+      // лежит полупрозрачная тёмная подложка (см. RootShell), а шапка и
+      // полноэкранные модалки сами отступают на env(safe-area-inset-top).
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "Учёт работ" },
       { name: "mobile-web-app-capable", content: "yes" },
     ],
@@ -146,6 +151,14 @@ function RootShell({ children }: { children: ReactNode }) {
         />
       </head>
       <body>
+        {/* Подложка под статус-бар iOS (black-translucent): высота =
+            safe-area-inset-top, т.е. на десктопе/Android она нулевая. Контент
+            при прокрутке уходит под неё и виден сквозь размытие, а белые
+            часы/батарея остаются читаемыми и на светлом фоне приложения. */}
+        <div
+          aria-hidden
+          className="pointer-events-none fixed inset-x-0 top-0 z-[100] h-[env(safe-area-inset-top)] bg-shell/70 backdrop-blur-md"
+        />
         {children}
         <Scripts />
       </body>
@@ -172,7 +185,11 @@ function RootComponent() {
             Outlet оборачивает КАЖДЫЙ роут целиком, вместе с сайдбаром/нижней навигацией/FAB —
             их обёртка в fade заставляла бы весь layout на десктопе мигать на каждый переход. */}
         <Outlet />
-        <Toaster position="top-center" />
+        <Toaster
+          position="top-center"
+          offset={{ top: "calc(env(safe-area-inset-top) + 24px)" }}
+          mobileOffset={{ top: "calc(env(safe-area-inset-top) + 16px)" }}
+        />
       </AppProvider>
     </QueryClientProvider>
   );

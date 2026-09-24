@@ -281,7 +281,7 @@ export function PhotoViewer({
       onClick={onClose}
       data-no-swipe-nav
     >
-      <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4">
+      <div className="flex items-center justify-between px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] md:px-6 md:py-4 md:pt-[calc(1rem+env(safe-area-inset-top))]">
         {canNavigate ? (
           <span className="rounded-full bg-white/10 px-3 py-1 font-mono text-xs text-white/80">
             {index + 1} / {count}

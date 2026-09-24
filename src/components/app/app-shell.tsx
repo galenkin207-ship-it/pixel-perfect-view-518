@@ -99,7 +99,7 @@ export function AppShell({
     <div className="min-h-[var(--app-vh,100dvh)] bg-panel text-foreground desktop:h-screen">
       <div className="flex h-[var(--app-vh,100dvh)] w-full overflow-hidden bg-panel desktop:h-full desktop:min-h-0">
         {/* Desktop sidebar */}
-        <aside className="hidden w-[220px] shrink-0 flex-col overflow-y-auto border-r border-border bg-sidebar p-4 desktop:flex lg:w-[250px] xl:w-[280px]">
+        <aside className="hidden w-[220px] shrink-0 flex-col overflow-y-auto border-r border-border bg-sidebar p-4 pt-[calc(1rem+env(safe-area-inset-top))] desktop:flex lg:w-[250px] xl:w-[280px]">
           <Link to="/" className="mb-6 flex items-center gap-2 px-2">
             <img
               src="/icon-192.png"
@@ -174,8 +174,9 @@ export function AppShell({
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <PullToRefresh onRefresh={refreshData}>
-            {/* Mobile top bar */}
-            <div className="flex items-center justify-between gap-2 px-2 pt-4 desktop:hidden">
+            {/* Mobile top bar. Отступ сверху = safe-area-inset-top, чтобы
+                шапка не оказалась под статус-баром/Dynamic Island на iPhone. */}
+            <div className="flex items-center justify-between gap-2 px-2 pt-[calc(1rem+env(safe-area-inset-top))] desktop:hidden">
               <Link to="/" className="flex items-center gap-2 text-sm font-bold">
                 <img
                   src="/icon-192.png"

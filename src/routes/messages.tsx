@@ -748,7 +748,7 @@ function MessagesPage() {
           className={cn(
             "overflow-y-auto border-none shadow-none",
             isMobile
-              ? "inset-0 left-0 top-0 h-full max-h-full w-full max-w-full translate-x-0 translate-y-0 rounded-none bg-background p-4"
+              ? "inset-0 left-0 top-0 h-full max-h-full w-full max-w-full translate-x-0 translate-y-0 rounded-none bg-background p-4 pt-[calc(1rem+env(safe-area-inset-top))] [&>button:last-child]:top-[calc(1rem+env(safe-area-inset-top))]"
               : "max-h-[85vh] w-[calc(100%-2rem)] bg-transparent p-0 sm:max-w-xl",
           )}
           // Диалог открывается программно по URL (?request=...), а не через
