@@ -102,6 +102,7 @@ export type AppState = {
       active?: boolean;
       password?: string;
       is_submitter?: boolean;
+      email?: string;
     },
   ) => Promise<AppUser>;
   /** Личные бригады текущего пользователя — видны и редактируются только им. */
