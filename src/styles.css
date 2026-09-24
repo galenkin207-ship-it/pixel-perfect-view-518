@@ -194,8 +194,16 @@
     overscroll-behavior-x: contain;
   }
 
+  /* Фон html/body = фон приложения, а не тёмный --shell: в установленном
+     на iPhone PWA именно он виден за статус-баром (и при "резиновой"
+     прокрутке за краями) — с --shell сверху была тёмная полоса в светлой
+     теме. Экраны входа/сброса пароля красят себя в bg-shell сами. */
+  html {
+    background-color: var(--color-background);
+  }
+
   body {
-    background-color: var(--color-shell);
+    background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     overscroll-behavior-x: contain;
