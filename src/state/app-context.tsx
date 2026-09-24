@@ -434,6 +434,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // они всегда оставались светлыми даже при включённой тёмной теме.
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
+    // Статус-бар iPhone (и Android) красится в theme-color — держим его в
+    // цвет фона приложения (--background светлой/тёмной темы), чтобы
+    // сверху не было полосы другого цвета.
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", theme === "dark" ? "#121417" : "#ffffff");
   }, [theme]);
 
   const objectNameById = useMemo(() => new Map(objects.map((o) => [o.id, o.name])), [objects]);

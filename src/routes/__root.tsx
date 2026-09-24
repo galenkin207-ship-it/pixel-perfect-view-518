@@ -108,14 +108,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "theme-color", content: "#0a37a5" },
+      // Цвет фона приложения (--background): на iPhone статус-бар в режиме
+      // "default" красится в theme-color и сливается со страницей, а часы
+      // iOS сама делает тёмными/светлыми по контрасту. Для тёмной темы
+      // значение подменяется на лету в app-context.tsx.
+      { name: "theme-color", content: "#ffffff" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
-      // black-translucent — в установленном на iPhone PWA контент уходит под
-      // статус-бар/Dynamic Island (как в Safari), а не упирается в сплошную
-      // полосу. Текст статус-бара при этом всегда белый, поэтому под ним
-      // лежит полупрозрачная тёмная подложка (см. RootShell), а шапка и
-      // полноэкранные модалки сами отступают на env(safe-area-inset-top).
-      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      // default, а не black-translucent: при black-translucent iOS всегда
+      // рисует часы белыми, и на светлом фоне их не видно. В default
+      // статус-бар берёт цвет из theme-color (= фон страницы) и визуально
+      // сливается с приложением, часы при этом тёмные. Отступы
+      // env(safe-area-inset-top) в шапке/модалках оставлены: в этом режиме
+      // инсет равен 0, а при возврате к black-translucent они снова нужны.
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { name: "apple-mobile-web-app-title", content: "Учёт работ" },
       { name: "mobile-web-app-capable", content: "yes" },
     ],
@@ -151,15 +156,6 @@ function RootShell({ children }: { children: ReactNode }) {
         />
       </head>
       <body>
-        {/* Подложка под статус-бар iOS (black-translucent): высота =
-            safe-area-inset-top, т.е. на десктопе/Android она нулевая. Лёгкий
-            градиент без размытия — контент под статус-баром почти не
-            затемняется, но белые часы/батарея остаются читаемыми на светлом
-            фоне приложения (цвет текста статус-бара iOS здесь всегда белый). */}
-        <div
-          aria-hidden
-          className="pointer-events-none fixed inset-x-0 top-0 z-[100] h-[calc(env(safe-area-inset-top)/2)] bg-linear-to-b from-black/10 to-transparent"
-        />
         {children}
         <Scripts />
       </body>
