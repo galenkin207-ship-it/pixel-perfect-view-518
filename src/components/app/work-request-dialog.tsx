@@ -1,14 +1,27 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useApp } from "@/state/use-app";
 
 // Заявка мастера администратору на новый вид работы (страница «Справочник»).
-export function WorkRequestDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+// initialText — предзаполнение при открытии (запрос из «Поиск ИИ»).
+export function WorkRequestDialog({
+  open,
+  onClose,
+  initialText,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initialText?: string | undefined;
+}) {
   const { createRequest } = useApp();
   const [requestText, setRequestText] = useState("");
   const [sendingRequest, setSendingRequest] = useState(false);
+
+  useEffect(() => {
+    if (open && initialText) setRequestText(initialText);
+  }, [open, initialText]);
 
   const sendRequest = async () => {
     const text = requestText.trim();

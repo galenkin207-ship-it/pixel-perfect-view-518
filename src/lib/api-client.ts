@@ -12,6 +12,7 @@ import type {
 import type {
   CatalogType,
   WorkTypeAncestor,
+  WorkTypeAiConfidence,
   WorkTypeBatchInput,
   WorkTypeCounterStep,
   WorkTypeDetail,
@@ -766,6 +767,25 @@ export const api = {
       `/work-types/search?q=${encodeURIComponent(q)}&limit=${limit}`,
     );
     return items.map((item) => ({ ...mapWorkTypeTreeNode(item), breadcrumb: item.breadcrumb }));
+  },
+
+  // ИИ-поиск (кнопка «Поиск ИИ»): эмбеддинги + реранк через DeepSeek, может
+  // занимать несколько секунд. confidence — у лучшего результата: "exact" /
+  // "likely" / "similar" или null (реранк не сработал).
+  async searchWorkTypesSmart(
+    q: string,
+    opts: { signal?: AbortSignal } = {},
+  ): Promise<{ items: WorkTypeSearchResult[]; topConfidence: WorkTypeAiConfidence }> {
+    const { items } = await request<{
+      items: (RawWorkTypeTreeNode & { breadcrumb?: string[]; confidence?: WorkTypeAiConfidence })[];
+    }>(
+      `/work-types/search-smart?q=${encodeURIComponent(q)}&mode=ai`,
+      opts.signal ? { signal: opts.signal } : undefined,
+    );
+    return {
+      items: items.map((item) => ({ ...mapWorkTypeTreeNode(item), breadcrumb: item.breadcrumb ?? [] })),
+      topConfidence: items[0]?.confidence ?? null,
+    };
   },
 
   async getWorkTypeCounterSteps(baseId: string): Promise<WorkTypeCounterStep[]> {

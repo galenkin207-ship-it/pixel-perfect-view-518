@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { Camera, ChevronLeft, Image as ImageIcon, Plus, Search, Trash2, X } from "lucide-react";
 import { motion } from "framer-motion";
+import type { MotionStyle } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import { createPortal } from "react-dom";
@@ -10,12 +11,15 @@ import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { EmployeeSelect } from "@/components/app/employee-select";
 import { NumberField } from "@/components/app/number-field";
 import { ObjectSelect } from "@/components/app/object-select";
+import { WorkTypeAiSearchButton, WorkTypeAiSearchPanel } from "@/components/app/work-type-ai-search";
 import { WorkTypeCascade } from "@/components/app/work-type-cascade";
+import { AutoTextarea } from "@/components/app/work-type-editor-fields";
 import { composeCounterName, computeCounterTotal, WorkTypeCounterCard } from "@/components/app/work-type-counter-card";
 import { WorkTypeSearchResults, WorkTypeSearchResultsSkeleton } from "@/components/app/work-type-search-results";
 import { useBlurOnScroll } from "@/hooks/use-blur-on-scroll";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useModalClose } from "@/hooks/use-modal-close";
+import { useWorkTypeAiSearch } from "@/hooks/use-work-type-ai-search";
 import { useWorkTypeCascade } from "@/hooks/use-work-type-cascade";
 import { useWorkTypeSearch } from "@/hooks/use-work-type-search";
 import { cn, objectLabel } from "@/lib/utils";
@@ -991,6 +995,31 @@ export function RecordForm({
   );
 }
 
+// Высота layout viewport, замеренная один раз — при монтировании (в
+// инициализаторе state, т.е. до autoFocus поля и до появления клавиатуры).
+// resize от клавиатуры намеренно игнорируется; пересчёт — только при
+// повороте экрана (с повторами: iOS обновляет innerHeight с задержкой).
+function useFrozenViewportHeight() {
+  const [height, setHeight] = useState(() =>
+    typeof window === "undefined" ? 0 : window.innerHeight,
+  );
+
+  useEffect(() => {
+    const measure = () => setHeight(window.innerHeight);
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const onOrientationChange = () => {
+      timers.push(setTimeout(measure, 100), setTimeout(measure, 400));
+    };
+    window.addEventListener("orientationchange", onOrientationChange);
+    return () => {
+      window.removeEventListener("orientationchange", onOrientationChange);
+      timers.forEach(clearTimeout);
+    };
+  }, []);
+
+  return height;
+}
+
 function WorkTypePicker({
   types,
   onPick,
@@ -1008,12 +1037,15 @@ function WorkTypePicker({
 }) {
   const [query, setQuery] = useState("");
   const { results: searchResults, loading: searchLoading } = useWorkTypeSearch(query);
+  const ai = useWorkTypeAiSearch(query);
   const [catalogType, setCatalogType] = useState<CatalogType | null>(null);
   const cascade = useWorkTypeCascade(catalogType);
   const [customOpen, setCustomOpen] = useState(false);
   const [custom, setCustom] = useState("");
+  const customRef = useRef<HTMLTextAreaElement>(null);
   const isMobile = useIsMobile();
   const { closing, requestClose } = useModalClose(onClose);
+  const frozenHeight = useFrozenViewportHeight();
 
   // В запись идёт полное название позиции как в справочнике (leaf.name): его
   // собирает сервер (группа + вариант, с защитой от дублей), склеивать заново
@@ -1103,6 +1135,17 @@ function WorkTypePicker({
     handlePickLeaf(node);
   }
 
+  // «Отправить заявку админу» из «Поиск ИИ» — тот же блок «Свой вариант»
+  // внизу (заявка администратору), с поисковым запросом в тексте.
+  function openRequestFromAi(q: string) {
+    setCustom(q);
+    setCustomOpen(true);
+    requestAnimationFrame(() => {
+      customRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      customRef.current?.focus();
+    });
+  }
+
   function handleBack() {
     if (!cascade.back()) setCatalogType(null);
   }
@@ -1131,13 +1174,25 @@ function WorkTypePicker({
   return createPortal(
     <motion.div
       data-pull-refresh-ignore
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 md:items-center md:p-4"
+      className="fixed inset-x-0 top-0 z-50 flex h-[var(--picker-vh,100dvh)] items-end justify-center bg-black/70 p-0 md:items-center md:p-4"
+      {...(isMobile && { style: { "--picker-vh": `${frozenHeight}px` } as MotionStyle })}
       initial={{ opacity: 0 }}
       animate={{ opacity: closing ? 0 : 1 }}
       transition={{ duration: 0.18, ease: "easeOut" }}
     >
+      {/* Высота фиксированная (весь экран; на мобильном — за вычетом
+          safe area сверху, снизу отступ под Home Indicator), а не по
+          содержимому: модалка не «прыгает» при смене числа результатов и
+          при переключении обычный поиск / «Поиск ИИ». Скроллится только
+          список внутри (listRef).
+          На тач-устройствах база — не 100dvh, а --picker-vh (высота окна,
+          замеренная один раз при открытии, см. useFrozenViewportHeight):
+          из-за interactive-widget=resizes-content dvh и fixed inset-0
+          пересчитываются при показе/скрытии клавиатуры, и модалка
+          «дышала» вместе с ней. Клавиатура теперь просто перекрывает низ
+          списка, рамка модалки не меняется. */}
       <motion.div
-        className="flex max-h-[calc(100dvh-env(safe-area-inset-top)-0.5rem)] w-full max-w-7xl 2xl:max-w-[1800px] flex-col rounded-t-3xl bg-card shadow-2xl md:rounded-3xl"
+        className="flex h-[calc(var(--picker-vh,100dvh)-env(safe-area-inset-top)-0.5rem)] w-full max-w-7xl 2xl:max-w-[1800px] flex-col rounded-t-3xl bg-card pb-[env(safe-area-inset-bottom)] shadow-2xl md:h-[calc(var(--picker-vh,100dvh)-2rem)] md:rounded-3xl md:pb-0"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: closing ? 0 : 1, y: closing ? 16 : 0 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
@@ -1167,17 +1222,30 @@ function WorkTypePicker({
 
         {!counterBase && (
           <div className="px-4 md:px-8">
-            <div className="relative">
-              <Search className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                autoFocus
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Поиск по названию..."
-                className="w-full rounded-xl border border-border bg-surface py-3 pr-5 pl-12 text-base"
+            {/* Поле растёт по высоте под длинный запрос (до ~4 строк, дальше
+                — прокрутка внутри поля), окно при этом не меняется: место
+                забирается у списка ниже. Иконка и «Поиск ИИ» прижаты к
+                первой строке (items-start), а не тянутся за полем. */}
+            <div className="flex items-start gap-3">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute top-3.5 left-4 size-5 text-muted-foreground" />
+                <AutoTextarea
+                  singleLine
+                  autoFocus
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Поиск по названию..."
+                  className="min-h-12 max-h-[7.25rem] py-3 pr-5 pl-12 text-base"
+                />
+              </div>
+              <WorkTypeAiSearchButton
+                query={query}
+                loading={ai.state.status === "loading"}
+                onRun={(q) => void ai.run(q)}
+                className="size-12 md:h-12 md:self-start"
               />
             </div>
-            {isSearching && (
+            {isSearching && !ai.active && (
               <div className="mt-2 flex items-center justify-between text-sm text-muted-foreground">
                 <span className="label-caps">Справочник</span>
                 <span>
@@ -1232,6 +1300,19 @@ function WorkTypePicker({
               onChangeCount={changeCounterValue}
               onConfirm={handleConfirmCounter}
               onBack={() => setCounterBase(null)}
+            />
+          ) : isSearching && ai.state.status !== "idle" ? (
+            <WorkTypeAiSearchPanel
+              state={ai.state}
+              onClose={ai.reset}
+              onRequest={openRequestFromAi}
+              renderResults={(results) => (
+                <WorkTypeSearchResults
+                  results={results}
+                  isAdminLike={isAdminLike}
+                  onPick={(t) => pickOrOpenCounter(t)}
+                />
+              )}
             />
           ) : isSearching ? (
             searchLoading ? (
@@ -1320,6 +1401,7 @@ function WorkTypePicker({
                   </button>
                 </div>
                 <textarea
+                  ref={customRef}
                   rows={4}
                   value={custom}
                   onChange={(e) => setCustom(e.target.value)}
