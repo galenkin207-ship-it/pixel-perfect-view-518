@@ -13,6 +13,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { WorkRequestDialog } from "@/components/app/work-request-dialog";
+import { WorkTypeAiSearchButton, WorkTypeAiSearchPanel } from "@/components/app/work-type-ai-search";
 import { WorkTypeCascade } from "@/components/app/work-type-cascade";
 import type { WorkTypeEditorResult, WorkTypeEditorTarget } from "@/components/app/work-type-editor-dialog";
 import {
@@ -30,6 +32,7 @@ import type {
   WorkTypeTreeNode,
 } from "@/data/work-type-tree";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useWorkTypeAiSearch } from "@/hooks/use-work-type-ai-search";
 import { useWorkTypeCascade } from "@/hooks/use-work-type-cascade";
 import { useWorkTypeSearch } from "@/hooks/use-work-type-search";
 import { api, ApiError } from "@/lib/api-client";
@@ -207,6 +210,9 @@ export function WorkTypeCatalog({
     collapseSingles: readOnly,
   });
   const search = useWorkTypeSearch(query);
+  const ai = useWorkTypeAiSearch(query);
+  // Заявка администратору из «Поиск ИИ» (текст — поисковый запрос).
+  const [aiRequestText, setAiRequestText] = useState<string | null>(null);
   const [selectedLeafId, setSelectedLeafId] = useState<string | undefined>();
   // Только чтение (мастер): выбранная позиция целиком — для карточки.
   const [selectedLeaf, setSelectedLeaf] = useState<WorkTypeTreeNode | WorkTypeSearchResult | null>(null);
@@ -385,6 +391,36 @@ export function WorkTypeCatalog({
     }
   }
 
+  // Карточки результатов — общие для обычного поиска и «Поиск ИИ».
+  function renderSearchResults(results: WorkTypeSearchResult[]) {
+    return (
+      <WorkTypeSearchResults
+        results={results}
+        isAdminLike={isAdminLike}
+        selectedId={selectedLeafId}
+        onPick={pickLeaf}
+        renderActions={
+          showEditTools
+            ? (item) => (
+                <LeafActionsMenu
+                  label={item.name}
+                  canDelete={canDelete}
+                  onDetails={() => setDetailsTarget({ id: item.id, label: item.name })}
+                  onCopyPath={() => void copyPath(item.id)}
+                  onEdit={
+                    canEditPosition ? () => setEditor({ kind: "edit", id: item.id }) : undefined
+                  }
+                  onDelete={() =>
+                    setDeleteTarget({ id: item.id, label: item.name, parentId: item.parent_id })
+                  }
+                />
+              )
+            : undefined
+        }
+      />
+    );
+  }
+
   const resultsCount = search.results?.length ?? 0;
 
   return (
@@ -416,6 +452,12 @@ export function WorkTypeCatalog({
             className="w-full rounded-xl border border-border bg-surface py-2.5 pr-4 pl-10 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
+        <WorkTypeAiSearchButton
+          query={query}
+          loading={ai.state.status === "loading"}
+          onRun={(q) => void ai.run(q)}
+          className="py-2.5"
+        />
         {showEditTools && (
           // Общая кнопка добавления: форма создания с пустым расположением
           // (место выбирается в самой форме). Только десктоп ≥ lg.
@@ -430,7 +472,7 @@ export function WorkTypeCatalog({
         )}
       </div>
 
-      {isSearching && (
+      {isSearching && !ai.active && (
         <div className="flex shrink-0 items-center justify-between text-sm text-muted-foreground">
           <span className="label-caps">Справочник</span>
           <span>{search.loading ? "Поиск..." : `Найдено: ${resultsCount}`}</span>
@@ -448,7 +490,14 @@ export function WorkTypeCatalog({
           isSearching || isMobile ? "overflow-y-auto" : "flex flex-col overflow-y-hidden",
         )}
       >
-        {isSearching ? (
+        {isSearching && ai.state.status !== "idle" ? (
+          <WorkTypeAiSearchPanel
+            state={ai.state}
+            onClose={ai.reset}
+            onRequest={setAiRequestText}
+            renderResults={(results) => renderSearchResults(results)}
+          />
+        ) : isSearching ? (
           search.loading ? (
             <WorkTypeSearchResultsSkeleton />
           ) : resultsCount === 0 ? (
@@ -456,30 +505,7 @@ export function WorkTypeCatalog({
               Ничего не найдено
             </div>
           ) : (
-            <WorkTypeSearchResults
-              results={search.results!}
-              isAdminLike={isAdminLike}
-              selectedId={selectedLeafId}
-              onPick={pickLeaf}
-              renderActions={
-                showEditTools
-                  ? (item) => (
-                      <LeafActionsMenu
-                        label={item.name}
-                        canDelete={canDelete}
-                        onDetails={() => setDetailsTarget({ id: item.id, label: item.name })}
-                        onCopyPath={() => void copyPath(item.id)}
-                        onEdit={
-                          canEditPosition ? () => setEditor({ kind: "edit", id: item.id }) : undefined
-                        }
-                        onDelete={() =>
-                          setDeleteTarget({ id: item.id, label: item.name, parentId: item.parent_id })
-                        }
-                      />
-                    )
-                  : undefined
-              }
-            />
+            renderSearchResults(search.results!)
           )
         ) : (
           <div className={cn("flex flex-col gap-2", !isMobile && "min-h-0 flex-1")}>
@@ -701,6 +727,12 @@ export function WorkTypeCatalog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <WorkRequestDialog
+        open={aiRequestText !== null}
+        initialText={aiRequestText ?? undefined}
+        onClose={() => setAiRequestText(null)}
+      />
     </div>
   );
 }

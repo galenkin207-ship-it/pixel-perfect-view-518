@@ -10,12 +10,14 @@ import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { EmployeeSelect } from "@/components/app/employee-select";
 import { NumberField } from "@/components/app/number-field";
 import { ObjectSelect } from "@/components/app/object-select";
+import { WorkTypeAiSearchButton, WorkTypeAiSearchPanel } from "@/components/app/work-type-ai-search";
 import { WorkTypeCascade } from "@/components/app/work-type-cascade";
 import { composeCounterName, computeCounterTotal, WorkTypeCounterCard } from "@/components/app/work-type-counter-card";
 import { WorkTypeSearchResults, WorkTypeSearchResultsSkeleton } from "@/components/app/work-type-search-results";
 import { useBlurOnScroll } from "@/hooks/use-blur-on-scroll";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useModalClose } from "@/hooks/use-modal-close";
+import { useWorkTypeAiSearch } from "@/hooks/use-work-type-ai-search";
 import { useWorkTypeCascade } from "@/hooks/use-work-type-cascade";
 import { useWorkTypeSearch } from "@/hooks/use-work-type-search";
 import { cn, objectLabel } from "@/lib/utils";
@@ -1008,10 +1010,12 @@ function WorkTypePicker({
 }) {
   const [query, setQuery] = useState("");
   const { results: searchResults, loading: searchLoading } = useWorkTypeSearch(query);
+  const ai = useWorkTypeAiSearch(query);
   const [catalogType, setCatalogType] = useState<CatalogType | null>(null);
   const cascade = useWorkTypeCascade(catalogType);
   const [customOpen, setCustomOpen] = useState(false);
   const [custom, setCustom] = useState("");
+  const customRef = useRef<HTMLTextAreaElement>(null);
   const isMobile = useIsMobile();
   const { closing, requestClose } = useModalClose(onClose);
 
@@ -1103,6 +1107,17 @@ function WorkTypePicker({
     handlePickLeaf(node);
   }
 
+  // «Отправить заявку админу» из «Поиск ИИ» — тот же блок «Свой вариант»
+  // внизу (заявка администратору), с поисковым запросом в тексте.
+  function openRequestFromAi(q: string) {
+    setCustom(q);
+    setCustomOpen(true);
+    requestAnimationFrame(() => {
+      customRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      customRef.current?.focus();
+    });
+  }
+
   function handleBack() {
     if (!cascade.back()) setCatalogType(null);
   }
@@ -1167,17 +1182,24 @@ function WorkTypePicker({
 
         {!counterBase && (
           <div className="px-4 md:px-8">
-            <div className="relative">
-              <Search className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                autoFocus
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Поиск по названию..."
-                className="w-full rounded-xl border border-border bg-surface py-3 pr-5 pl-12 text-base"
+            <div className="flex gap-3">
+              <div className="relative min-w-0 flex-1">
+                <Search className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  autoFocus
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Поиск по названию..."
+                  className="w-full rounded-xl border border-border bg-surface py-3 pr-5 pl-12 text-base"
+                />
+              </div>
+              <WorkTypeAiSearchButton
+                query={query}
+                loading={ai.state.status === "loading"}
+                onRun={(q) => void ai.run(q)}
               />
             </div>
-            {isSearching && (
+            {isSearching && !ai.active && (
               <div className="mt-2 flex items-center justify-between text-sm text-muted-foreground">
                 <span className="label-caps">Справочник</span>
                 <span>
@@ -1232,6 +1254,19 @@ function WorkTypePicker({
               onChangeCount={changeCounterValue}
               onConfirm={handleConfirmCounter}
               onBack={() => setCounterBase(null)}
+            />
+          ) : isSearching && ai.state.status !== "idle" ? (
+            <WorkTypeAiSearchPanel
+              state={ai.state}
+              onClose={ai.reset}
+              onRequest={openRequestFromAi}
+              renderResults={(results) => (
+                <WorkTypeSearchResults
+                  results={results}
+                  isAdminLike={isAdminLike}
+                  onPick={(t) => pickOrOpenCounter(t)}
+                />
+              )}
             />
           ) : isSearching ? (
             searchLoading ? (
@@ -1320,6 +1355,7 @@ function WorkTypePicker({
                   </button>
                 </div>
                 <textarea
+                  ref={customRef}
                   rows={4}
                   value={custom}
                   onChange={(e) => setCustom(e.target.value)}

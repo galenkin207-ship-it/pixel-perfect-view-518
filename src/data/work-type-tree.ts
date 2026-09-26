@@ -54,6 +54,10 @@ export type WorkTypePath = {
 
 export type WorkTypeSearchResult = WorkTypeTreeNode & { breadcrumb: string[] };
 
+// GET /work-types/search-smart?mode=ai — уверенность ИИ в лучшем результате.
+// null — реранк не сработал (порядок только по эмбеддингам).
+export type WorkTypeAiConfidence = "exact" | "likely" | "similar" | null;
+
 // GET /work-types/:id/details — полные сведения о позиции для модалки «Сведения»
 // (admin/curator, только чтение). path — от сборника до группы, без самой
 // позиции. У «своих» позиций (user_added/legacy) catalog_type, gesn_code,
