@@ -13,6 +13,7 @@ import { NumberField } from "@/components/app/number-field";
 import { ObjectSelect } from "@/components/app/object-select";
 import { WorkTypeAiSearchButton, WorkTypeAiSearchPanel } from "@/components/app/work-type-ai-search";
 import { WorkTypeCascade } from "@/components/app/work-type-cascade";
+import { AutoTextarea } from "@/components/app/work-type-editor-fields";
 import { composeCounterName, computeCounterTotal, WorkTypeCounterCard } from "@/components/app/work-type-counter-card";
 import { WorkTypeSearchResults, WorkTypeSearchResultsSkeleton } from "@/components/app/work-type-search-results";
 import { useBlurOnScroll } from "@/hooks/use-blur-on-scroll";
@@ -1221,22 +1222,27 @@ function WorkTypePicker({
 
         {!counterBase && (
           <div className="px-4 md:px-8">
-            <div className="flex gap-3">
+            {/* Поле растёт по высоте под длинный запрос (до ~4 строк, дальше
+                — прокрутка внутри поля), окно при этом не меняется: место
+                забирается у списка ниже. Иконка и «Поиск ИИ» прижаты к
+                первой строке (items-start), а не тянутся за полем. */}
+            <div className="flex items-start gap-3">
               <div className="relative min-w-0 flex-1">
-                <Search className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" />
-                <input
+                <Search className="pointer-events-none absolute top-3.5 left-4 size-5 text-muted-foreground" />
+                <AutoTextarea
+                  singleLine
                   autoFocus
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Поиск по названию..."
-                  className="h-12 w-full rounded-xl border border-border bg-surface py-3 pr-5 pl-12 text-base md:h-auto"
+                  className="min-h-12 max-h-[7.25rem] py-3 pr-5 pl-12 text-base"
                 />
               </div>
               <WorkTypeAiSearchButton
                 query={query}
                 loading={ai.state.status === "loading"}
                 onRun={(q) => void ai.run(q)}
-                className="size-12"
+                className="size-12 md:h-12 md:self-start"
               />
             </div>
             {isSearching && !ai.active && (
