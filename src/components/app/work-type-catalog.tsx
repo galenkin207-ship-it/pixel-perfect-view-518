@@ -452,14 +452,14 @@ export function WorkTypeCatalog({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Поиск по названию..."
-              className="w-full rounded-xl border border-border bg-surface py-2.5 pr-4 pl-10 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className="h-11 w-full rounded-xl border border-border bg-surface py-2.5 pr-4 pl-10 text-sm outline-none focus:ring-2 focus:ring-ring md:h-auto"
             />
           </div>
           <WorkTypeAiSearchButton
             query={query}
             loading={ai.state.status === "loading"}
             onRun={(q) => void ai.run(q)}
-            className="w-11 md:w-auto"
+            className="size-11"
           />
         </div>
         {showEditTools && (

@@ -1195,13 +1195,14 @@ function WorkTypePicker({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Поиск по названию..."
-                  className="w-full rounded-xl border border-border bg-surface py-3 pr-5 pl-12 text-base"
+                  className="h-12 w-full rounded-xl border border-border bg-surface py-3 pr-5 pl-12 text-base md:h-auto"
                 />
               </div>
               <WorkTypeAiSearchButton
                 query={query}
                 loading={ai.state.status === "loading"}
                 onRun={(q) => void ai.run(q)}
+                className="size-12"
               />
             </div>
             {isSearching && !ai.active && (

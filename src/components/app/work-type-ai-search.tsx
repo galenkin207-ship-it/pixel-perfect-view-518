@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 
 // Кнопка «Поиск ИИ» рядом с полем поиска (справа, в одну строку). На
 // десктопе — иконка с подписью, на мобильном — компактная иконка «волшебная
-// палочка» (ширину задаёт className). Активна, когда в поле есть текст; во
+// палочка» — квадрат по высоте поля (размер задаёт className, поле рядом
+// должно быть той же фиксированной высоты). Активна, когда в поле есть текст; во
 // время запроса — спиннер, но кнопка не блокируется: повторный клик
 // перезапускает поиск с новым текстом.
 export function WorkTypeAiSearchButton({
@@ -30,7 +31,7 @@ export function WorkTypeAiSearchButton({
       aria-label="Поиск ИИ"
       title="Поиск ИИ"
       className={cn(
-        "inline-flex shrink-0 items-center justify-center gap-1.5 self-stretch rounded-xl border border-primary/50 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50 md:px-4",
+        "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-primary/50 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50 md:h-auto md:w-auto md:self-stretch md:px-4",
         className,
       )}
     >
