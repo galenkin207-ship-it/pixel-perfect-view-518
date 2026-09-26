@@ -443,21 +443,25 @@ export function WorkTypeCatalog({
             </button>
           ))}
         </div>
-        <div className="relative min-w-[14rem] flex-1">
-          <Search className="absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск по названию..."
-            className="w-full rounded-xl border border-border bg-surface py-2.5 pr-4 pl-10 text-sm outline-none focus:ring-2 focus:ring-ring"
+        {/* Поле и «Поиск ИИ» — одной группой, чтобы при переносе строк
+            кнопка не отрывалась от поля. */}
+        <div className="flex min-w-[14rem] flex-1 gap-3">
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Поиск по названию..."
+              className="w-full rounded-xl border border-border bg-surface py-2.5 pr-4 pl-10 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <WorkTypeAiSearchButton
+            query={query}
+            loading={ai.state.status === "loading"}
+            onRun={(q) => void ai.run(q)}
+            className="w-11 md:w-auto"
           />
         </div>
-        <WorkTypeAiSearchButton
-          query={query}
-          loading={ai.state.status === "loading"}
-          onRun={(q) => void ai.run(q)}
-          className="py-2.5"
-        />
         {showEditTools && (
           // Общая кнопка добавления: форма создания с пустым расположением
           // (место выбирается в самой форме). Только десктоп ≥ lg.

@@ -1151,8 +1151,13 @@ function WorkTypePicker({
       animate={{ opacity: closing ? 0 : 1 }}
       transition={{ duration: 0.18, ease: "easeOut" }}
     >
+      {/* Высота фиксированная (весь экран; на мобильном — за вычетом
+          safe area сверху, снизу отступ под Home Indicator), а не по
+          содержимому: модалка не «прыгает» при смене числа результатов и
+          при переключении обычный поиск / «Поиск ИИ». Скроллится только
+          список внутри (listRef). */}
       <motion.div
-        className="flex max-h-[calc(100dvh-env(safe-area-inset-top)-0.5rem)] w-full max-w-7xl 2xl:max-w-[1800px] flex-col rounded-t-3xl bg-card shadow-2xl md:rounded-3xl"
+        className="flex h-[calc(100dvh-env(safe-area-inset-top)-0.5rem)] w-full max-w-7xl 2xl:max-w-[1800px] flex-col rounded-t-3xl bg-card pb-[env(safe-area-inset-bottom)] shadow-2xl md:h-[calc(100dvh-2rem)] md:rounded-3xl md:pb-0"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: closing ? 0 : 1, y: closing ? 16 : 0 }}
         transition={{ duration: 0.18, ease: "easeOut" }}

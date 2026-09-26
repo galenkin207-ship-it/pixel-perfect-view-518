@@ -1,14 +1,16 @@
 import type { ReactNode } from "react";
-import { FilePlus2, Loader2, Sparkles, X } from "lucide-react";
+import { FilePlus2, Loader2, Sparkles, Wand2, X } from "lucide-react";
 
 import { WorkTypeSearchResultsSkeleton } from "@/components/app/work-type-search-results";
 import type { WorkTypeSearchResult } from "@/data/work-type-tree";
 import type { WorkTypeAiSearchState } from "@/hooks/use-work-type-ai-search";
 import { cn } from "@/lib/utils";
 
-// Кнопка «Поиск ИИ» рядом с полем поиска. Пока только десктоп (на мобильных
-// скрыта). Активна, когда в поле есть текст; во время запроса — спиннер, но
-// кнопка не блокируется: повторный клик перезапускает поиск с новым текстом.
+// Кнопка «Поиск ИИ» рядом с полем поиска (справа, в одну строку). На
+// десктопе — иконка с подписью, на мобильном — компактная иконка «волшебная
+// палочка» (ширину задаёт className). Активна, когда в поле есть текст; во
+// время запроса — спиннер, но кнопка не блокируется: повторный клик
+// перезапускает поиск с новым текстом.
 export function WorkTypeAiSearchButton({
   query,
   loading,
@@ -25,13 +27,22 @@ export function WorkTypeAiSearchButton({
       type="button"
       onClick={() => onRun(query)}
       disabled={!query.trim()}
+      aria-label="Поиск ИИ"
+      title="Поиск ИИ"
       className={cn(
-        "hidden shrink-0 items-center justify-center gap-1.5 rounded-xl border border-primary/50 px-4 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50 md:inline-flex",
+        "inline-flex shrink-0 items-center justify-center gap-1.5 self-stretch rounded-xl border border-primary/50 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50 md:px-4",
         className,
       )}
     >
-      {loading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-      Поиск ИИ
+      {loading ? (
+        <Loader2 className="size-5 animate-spin md:size-4" />
+      ) : (
+        <>
+          <Wand2 className="size-5 md:hidden" />
+          <Sparkles className="hidden size-4 md:block" />
+        </>
+      )}
+      <span className="hidden md:inline">Поиск ИИ</span>
     </button>
   );
 }
