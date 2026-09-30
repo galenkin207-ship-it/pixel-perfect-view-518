@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ChevronRight } from "lucide-react";
@@ -7,12 +7,44 @@ import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { DateInput } from "@/components/app/date-input";
 import { SearchableSelect } from "@/components/app/searchable-select";
+import {
+  EmployeeObjectWorks,
+  useEmployeeObjectTitle,
+} from "@/components/app/employee-object-works";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  crewOf,
+  employeeObjects,
+  formatMoney,
+  formatQty,
+  recordsInRange,
+} from "@/lib/employee-stats";
 import { cn } from "@/lib/utils";
 import { allocationsFor, itemQty } from "@/lib/record-utils";
 import { roleLabels, type WorkObject, type WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 
+// Состояние «Статистики за период» живёт в URL, чтобы после «Назад» со
+// страницы работ сотрудника (телефон) сохранялись период и раскрытая строка.
+type ReportsSearch = {
+  stats?: "1" | undefined;
+  sg?: "objects" | undefined;
+  sFrom?: string | undefined;
+  sTo?: string | undefined;
+  sExp?: string | undefined;
+};
+
+const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
+
 export const Route = createFileRoute("/reports/")({
+  validateSearch: (search: Record<string, unknown>): ReportsSearch => ({
+    stats: search["stats"] === "1" || search["stats"] === 1 ? "1" : undefined,
+    sg: search["sg"] === "objects" ? "objects" : undefined,
+    sFrom: str(search["sFrom"]),
+    sTo: str(search["sTo"]),
+    sExp: str(search["sExp"]),
+  }),
   head: () => ({
     meta: [
       { title: "Отчёты и дашборд — Учёт работ" },
@@ -51,19 +83,6 @@ const monthNames = [
 function parseDate(d: string) {
   const [dd, mm, yyyy] = d.split(".").map(Number);
   return new Date(yyyy ?? 1970, (mm ?? 1) - 1, dd ?? 1);
-}
-
-function crewOf(r: WorkRecord) {
-  return r.execution_type === "brigade" ? (r.brigade_members ?? []) : r.employees;
-}
-
-function formatQty(n: number) {
-  const rounded = Math.round(n * 1000) / 1000;
-  return rounded.toLocaleString("ru-RU", { maximumFractionDigits: 3 });
-}
-
-function formatMoney(n: number) {
-  return `${Math.round(n).toLocaleString("ru-RU").replace(/,/g, " ")} ₽`;
 }
 
 type StatsRow = {
@@ -182,11 +201,29 @@ function buildObjectStats(records: WorkRecord[], objects: WorkObject[]): StatsRo
 function ReportsPage() {
   const { records, objects, role, employees, workTypes, submitterNames } = useApp();
   const [period, setPeriod] = useState<(typeof periods)[number]>("Эта неделя");
-  const [grouping, setGrouping] = useState<"employees" | "objects">("employees");
-  const [statsFrom, setStatsFrom] = useState("");
-  const [statsTo, setStatsTo] = useState("");
-  const [statsOpen, setStatsOpen] = useState(false);
-  const [expandedStatsKey, setExpandedStatsKey] = useState<string | null>(null);
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const setStatsSearch = (patch: Partial<ReportsSearch>) =>
+    void navigate({
+      search: (prev) => ({ ...prev, ...patch }),
+      replace: true,
+      resetScroll: false,
+    });
+  const grouping = search.sg ?? "employees";
+  const setGrouping = (g: "employees" | "objects") =>
+    setStatsSearch({ sg: g === "objects" ? "objects" : undefined, sExp: undefined });
+  const statsFrom = search.sFrom ?? "";
+  const setStatsFrom = (v: string) => setStatsSearch({ sFrom: v || undefined });
+  const statsTo = search.sTo ?? "";
+  const setStatsTo = (v: string) => setStatsSearch({ sTo: v || undefined });
+  const statsOpen = search.stats === "1";
+  const setStatsOpen = (open: boolean) => setStatsSearch({ stats: open ? "1" : undefined });
+  const expandedStatsKey = search.sExp ?? null;
+  const setExpandedStatsKey = (key: string | null) => setStatsSearch({ sExp: key ?? undefined });
+  const isMobile = useIsMobile();
+  const [worksDialog, setWorksDialog] = useState<{ employee: string; objectId: string } | null>(
+    null,
+  );
   const [rObject, setRObject] = useState("");
   const [rEmployee, setREmployee] = useState("");
   const [rSubmitter, setRSubmitter] = useState("");
@@ -941,30 +978,47 @@ function ReportsPage() {
     ),
   ).size;
 
-  const statsInRange = useMemo(() => {
-    return records.filter((r) => {
-      const d = parseDate(r.date);
-      if (statsFrom) {
-        const from = new Date(statsFrom);
-        from.setHours(0, 0, 0, 0);
-        if (d < from) return false;
-      }
-      if (statsTo) {
-        const to = new Date(statsTo);
-        to.setHours(23, 59, 59, 999);
-        if (d > to) return false;
-      }
-      return true;
-    });
-  }, [records, statsFrom, statsTo]);
+  const statsInRange = useMemo(
+    () => recordsInRange(records, statsFrom, statsTo),
+    [records, statsFrom, statsTo],
+  );
 
-  const statsRows = useMemo(
+  // Строки приходят отсортированными по сумме ↓ — лидер для «Больше всех сделал»
+  // берём до пересортировки сотрудников по алфавиту.
+  const statsBySum = useMemo(
     () =>
       grouping === "employees"
         ? buildEmployeeStats(statsInRange)
         : buildObjectStats(statsInRange, objects),
     [statsInRange, grouping, objects],
   );
+  const statsLeader = statsBySum[0];
+  const statsRows = useMemo(
+    () =>
+      grouping === "employees"
+        ? [...statsBySum].sort((a, b) =>
+            a.label.localeCompare(b.label, "ru", { sensitivity: "base" }),
+          )
+        : statsBySum,
+    [statsBySum, grouping],
+  );
+  const expandedEmployeeObjects = useMemo(
+    () =>
+      grouping === "employees" && expandedStatsKey
+        ? employeeObjects(statsInRange, expandedStatsKey, objects)
+        : [],
+    [grouping, expandedStatsKey, statsInRange, objects],
+  );
+  const openEmployeeObject = (employee: string, objectId: string) => {
+    if (isMobile) {
+      void navigate({
+        to: "/reports/employee-object",
+        search: { employee, objectId, from: statsFrom, to: statsTo },
+      });
+    } else {
+      setWorksDialog({ employee, objectId });
+    }
+  };
   const statsMaxValue = Math.max(1, ...statsRows.map((r) => r.totalValue));
   const statsTotalPositions = statsRows.reduce((s, r) => s + r.positions, 0);
 
@@ -1065,7 +1119,7 @@ function ReportsPage() {
               <h3 className="font-semibold">Статистика за период</h3>
               <button
                 type="button"
-                onClick={() => setStatsOpen((v) => !v)}
+                onClick={() => setStatsOpen(!statsOpen)}
                 className="shrink-0 text-sm font-semibold text-primary cursor-pointer hover:underline"
               >
                 {statsOpen ? "Свернуть статистику" : "Показать статистику"}
@@ -1125,7 +1179,7 @@ function ReportsPage() {
                     <p className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
                       Больше всех сделал
                     </p>
-                    <p className="mt-1 truncate text-lg font-bold">{statsRows[0]?.label ?? "—"}</p>
+                    <p className="mt-1 truncate text-lg font-bold">{statsLeader?.label ?? "—"}</p>
                   </div>
                 </div>
 
@@ -1165,7 +1219,32 @@ function ReportsPage() {
                             )}
                           />
                         </button>
-                        {expanded && (
+                        {expanded && grouping === "employees" && (
+                          <div className="mt-2 ml-2 overflow-hidden rounded-xl border border-border sm:ml-8">
+                            {expandedEmployeeObjects.map((o) => (
+                              <button
+                                key={o.objectId}
+                                type="button"
+                                onClick={() => openEmployeeObject(row.key, o.objectId)}
+                                className="group flex w-full cursor-pointer items-center gap-3 border-t border-border px-3 py-2 text-left transition-colors first:border-t-0 hover:bg-surface/60"
+                              >
+                                <span className="min-w-0 flex-1 text-sm break-words text-primary group-hover:underline">
+                                  {o.objectName}
+                                </span>
+                                <span className="shrink-0 text-right">
+                                  <span className="block font-mono text-xs font-bold whitespace-nowrap">
+                                    {formatMoney(o.totalSum)}
+                                  </span>
+                                  <span className="block text-[11px] whitespace-nowrap text-muted-foreground">
+                                    {o.positions} поз.
+                                  </span>
+                                </span>
+                                <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {expanded && grouping === "objects" && (
                           <div className="mt-2 ml-2 overflow-hidden rounded-xl border border-border sm:ml-8">
                             <div className="overflow-x-auto">
                               <table className="w-full text-sm">
@@ -1357,7 +1436,31 @@ function ReportsPage() {
           Все записи — таблица с фильтрами →
         </Link>
       </section>
+      <Dialog open={!!worksDialog} onOpenChange={(open) => !open && setWorksDialog(null)}>
+        <DialogContent className="max-h-[85dvh] max-w-2xl rounded-2xl" aria-describedby={undefined}>
+          {worksDialog && (
+            <WorksDialogBody
+              employee={worksDialog.employee}
+              objectId={worksDialog.objectId}
+              from={statsFrom}
+              to={statsTo}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
+  );
+}
+
+function WorksDialogBody(props: { employee: string; objectId: string; from: string; to: string }) {
+  const title = useEmployeeObjectTitle(props.employee, props.objectId);
+  return (
+    <div className="min-w-0">
+      <DialogTitle className="pr-6 text-lg leading-snug font-bold break-words">{title}</DialogTitle>
+      <div className="mt-1">
+        <EmployeeObjectWorks {...props} />
+      </div>
+    </div>
   );
 }
 

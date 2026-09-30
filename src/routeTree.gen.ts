@@ -25,6 +25,7 @@ import { Route as RecordsNewRouteImport } from './routes/records.new'
 import { Route as ReportsIndexRouteImport } from './routes/reports.index'
 import { Route as ReportsAllRouteImport } from './routes/reports.all'
 import { Route as ReportsDetailRouteImport } from './routes/reports.detail'
+import { Route as ReportsEmployeeObjectRouteImport } from './routes/reports.employee-object'
 import { Route as ProfileManageSectionRouteImport } from './routes/profile.manage.$section'
 
 const IndexRoute = IndexRouteImport.update({
@@ -107,6 +108,11 @@ const ReportsDetailRoute = ReportsDetailRouteImport.update({
   path: '/reports/detail',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReportsEmployeeObjectRoute = ReportsEmployeeObjectRouteImport.update({
+  id: '/reports/employee-object',
+  path: '/reports/employee-object',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileManageSectionRoute = ProfileManageSectionRouteImport.update({
   id: '/profile/manage/$section',
   path: '/profile/manage/$section',
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/records/new': typeof RecordsNewRoute
   '/reports/all': typeof ReportsAllRoute
   '/reports/detail': typeof ReportsDetailRoute
+  '/reports/employee-object': typeof ReportsEmployeeObjectRoute
   '/profile/': typeof ProfileIndexRoute
   '/reports/': typeof ReportsIndexRoute
   '/profile/manage/$section': typeof ProfileManageSectionRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/records/new': typeof RecordsNewRoute
   '/reports/all': typeof ReportsAllRoute
   '/reports/detail': typeof ReportsDetailRoute
+  '/reports/employee-object': typeof ReportsEmployeeObjectRoute
   '/profile': typeof ProfileIndexRoute
   '/reports': typeof ReportsIndexRoute
   '/profile/manage/$section': typeof ProfileManageSectionRoute
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/records/new': typeof RecordsNewRoute
   '/reports/all': typeof ReportsAllRoute
   '/reports/detail': typeof ReportsDetailRoute
+  '/reports/employee-object': typeof ReportsEmployeeObjectRoute
   '/profile/': typeof ProfileIndexRoute
   '/reports/': typeof ReportsIndexRoute
   '/profile/manage/$section': typeof ProfileManageSectionRoute
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/records/new'
     | '/reports/all'
     | '/reports/detail'
+    | '/reports/employee-object'
     | '/profile/'
     | '/reports/'
     | '/profile/manage/$section'
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/records/new'
     | '/reports/all'
     | '/reports/detail'
+    | '/reports/employee-object'
     | '/profile'
     | '/reports'
     | '/profile/manage/$section'
@@ -226,6 +237,7 @@ export interface FileRouteTypes {
     | '/records/new'
     | '/reports/all'
     | '/reports/detail'
+    | '/reports/employee-object'
     | '/profile/'
     | '/reports/'
     | '/profile/manage/$section'
@@ -246,6 +258,7 @@ export interface RootRouteChildren {
   RecordsNewRoute: typeof RecordsNewRoute
   ReportsAllRoute: typeof ReportsAllRoute
   ReportsDetailRoute: typeof ReportsDetailRoute
+  ReportsEmployeeObjectRoute: typeof ReportsEmployeeObjectRoute
   ProfileIndexRoute: typeof ProfileIndexRoute
   ReportsIndexRoute: typeof ReportsIndexRoute
   ProfileManageSectionRoute: typeof ProfileManageSectionRoute
@@ -365,6 +378,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReportsDetailRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reports/employee-object': {
+      id: '/reports/employee-object'
+      path: '/reports/employee-object'
+      fullPath: '/reports/employee-object'
+      preLoaderRoute: typeof ReportsEmployeeObjectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile/manage/$section': {
       id: '/profile/manage/$section'
       path: '/profile/manage/$section'
@@ -390,6 +410,7 @@ const rootRouteChildren: RootRouteChildren = {
   RecordsNewRoute: RecordsNewRoute,
   ReportsAllRoute: ReportsAllRoute,
   ReportsDetailRoute: ReportsDetailRoute,
+  ReportsEmployeeObjectRoute: ReportsEmployeeObjectRoute,
   ProfileIndexRoute: ProfileIndexRoute,
   ReportsIndexRoute: ReportsIndexRoute,
   ProfileManageSectionRoute: ProfileManageSectionRoute,
