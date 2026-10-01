@@ -1,10 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronDown, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ListTree, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
+import { WorkTypePicker } from "@/components/app/record-form";
+import { RequestAddToRecordDialog } from "@/components/app/request-add-to-record-dialog";
 import type { WorkTypeEditorTarget } from "@/components/app/work-type-editor-dialog";
 import {
   usePreloadWorkTypeEditorDialog,
@@ -39,6 +41,8 @@ import { cn } from "@/lib/utils";
 import { roleLabels, type WorkRequest } from "@/data/mock";
 import { useApp } from "@/state/use-app";
 import { notificationIdsForRequest } from "@/lib/notification-items";
+import { buildWorkTypePathChain } from "@/lib/work-type-format";
+import { ApiError } from "@/lib/api-client";
 
 type MessagesSearch = { request?: string | undefined; from?: "notifications" | undefined };
 
@@ -62,12 +66,22 @@ export const Route = createFileRoute("/messages")({
   component: MessagesPage,
 });
 
+// approved — «Выполнена»: заявка закрыта позицией справочника (work_type), а
+// у старых заявок (до миграции 031) — без позиции, просто одобрена.
 const statusText: Record<WorkRequest["status"], string> = {
   pending: "На рассмотрении",
-  approved: "Одобрено",
-  rejected: "Отклонено",
+  approved: "Выполнена",
+  rejected: "Отклонена",
   deleted: "Удалена автором",
 };
+
+// Решение по заявке (выполнена/отклонена) — id уведомления для автора, см.
+// buildNotificationItems.
+function decisionNotificationId(r: WorkRequest): string | null {
+  if (r.status === "approved") return `${r.id}-approved`;
+  if (r.status === "rejected") return `${r.id}-rejected`;
+  return null;
+}
 
 function autoResizeTextarea(el: HTMLTextAreaElement | null) {
   if (!el) return;
@@ -81,11 +95,14 @@ function MessagesPage() {
     role,
     currentUser,
     decideRequest,
+    completeRequest,
     deleteRequest,
     addRequestComment,
     editRequestComment,
     deleteRequestComment,
     markNotificationsRead,
+    readNotificationIds,
+    workTypes,
   } = useApp();
   const { request: focusId, from } = Route.useSearch();
   const navigate = useNavigate();
@@ -93,11 +110,22 @@ function MessagesPage() {
 
   const isAdmin = role === "admin";
   const isForeman = role === "user";
-  // Добавить позицию в справочник видов работ прямо из заявки: admin и
-  // curator, только десктоп (форма — большая модалка каскадного справочника).
-  const canAddToCatalog = (isAdmin || role === "curator") && !isMobile;
-  const [catalogTarget, setCatalogTarget] = useState<WorkTypeEditorTarget | null>(null);
-  usePreloadWorkTypeEditorDialog(canAddToCatalog);
+  // Решение по заявке (выполнить позицией справочника / отклонить) — admin и
+  // curator, как и на бэкенде (PUT /requests/:id, POST /requests/:id/complete).
+  const canDecide = isAdmin || role === "curator";
+  // «Создать позицию» — только десктоп (форма — большая модалка каскадного
+  // справочника). «Выбрать из справочника» — и на телефоне.
+  const canCreatePosition = canDecide && !isMobile;
+  const [createTarget, setCreateTarget] = useState<{
+    request: WorkRequest;
+    editor: WorkTypeEditorTarget;
+  } | null>(null);
+  usePreloadWorkTypeEditorDialog(canCreatePosition);
+  // Заявка, для которой открыт каскадный выбор позиции.
+  const [linkTarget, setLinkTarget] = useState<WorkRequest | null>(null);
+  const counterValuesRef = useRef(new Map<string, Record<string, number>>());
+  // Мастер: «Внести в запись» по выполненной заявке.
+  const [addTarget, setAddTarget] = useState<WorkRequest | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [draft, setDraft] = useState<Record<string, string>>({});
   // Свёрнутость блока переписки по каждой заявке в общем списке. По
@@ -136,6 +164,29 @@ function MessagesPage() {
     : requests;
   const pending = visible.filter((r) => r.status === "pending");
   const history = visible.filter((r) => r.status !== "pending");
+
+  // Мастер открыл раздел заявок — решения по его заявкам (выполнена/отклонена)
+  // считаются просмотренными: бейдж на вкладке гаснет. Какие были новыми на
+  // момент открытия — запоминаем, чтобы пометить карточки «Новое».
+  const [freshDecisionIds] = useState(
+    () =>
+      new Set(
+        isForeman
+          ? visible
+              .map(decisionNotificationId)
+              .filter((id): id is string => id != null && !readNotificationIds.has(id))
+          : [],
+      ),
+  );
+  const unreadDecisionIds = isForeman
+    ? visible
+        .map(decisionNotificationId)
+        .filter((id): id is string => id != null && !readNotificationIds.has(id))
+    : [];
+  const unreadDecisionKey = unreadDecisionIds.join(",");
+  useEffect(() => {
+    if (unreadDecisionKey) markNotificationsRead(unreadDecisionKey.split(","));
+  }, [unreadDecisionKey, markNotificationsRead]);
 
   const [exportingPending, setExportingPending] = useState(false);
 
@@ -318,28 +369,28 @@ function MessagesPage() {
 
   const [deciding, setDeciding] = useState<string | null>(null);
 
-  // Одобрение — через окно с необязательным сообщением мастеру (справочник при
-  // одобрении не меняется: позицию, если нужно, админ добавляет отдельно).
-  const [approveTarget, setApproveTarget] = useState<WorkRequest | null>(null);
-  const [approveMessage, setApproveMessage] = useState("");
-  const approveMessageRef = useRef<HTMLTextAreaElement | null>(null);
+  // Отклонение — через окно с необязательным комментарием мастеру
+  // (requests.reject_reason).
+  const [rejectTarget, setRejectTarget] = useState<WorkRequest | null>(null);
+  const [rejectComment, setRejectComment] = useState("");
+  const rejectCommentRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const openApprove = (r: WorkRequest) => {
-    setApproveMessage("");
-    setApproveTarget(r);
+  const openReject = (r: WorkRequest) => {
+    setRejectComment("");
+    setRejectTarget(r);
   };
 
-  const approve = async () => {
-    if (!approveTarget) return;
-    const message = approveMessage.trim();
-    setDeciding(approveTarget.id);
+  const reject = async () => {
+    if (!rejectTarget) return;
+    const comment = rejectComment.trim();
+    setDeciding(rejectTarget.id);
     try {
-      await decideRequest(approveTarget.id, {
-        status: "approved",
-        ...(message ? { message } : {}),
+      await decideRequest(rejectTarget.id, {
+        status: "rejected",
+        ...(comment ? { reject_reason: comment } : {}),
       });
-      setApproveTarget(null);
-      toast.success("Заявка одобрена");
+      setRejectTarget(null);
+      toast.success("Заявка отклонена");
     } catch {
       toast.error("Не удалось сохранить решение, попробуйте ещё раз");
     } finally {
@@ -347,13 +398,19 @@ function MessagesPage() {
     }
   };
 
-  const reject = async (id: string) => {
-    setDeciding(id);
+  // Выбор существующей позиции из справочника — заявка сразу закрывается со
+  // ссылкой на неё.
+  const completeWithExisting = async (r: WorkRequest, workTypeId: string) => {
+    setDeciding(r.id);
     try {
-      await decideRequest(id, { status: "rejected" });
-      toast.success("Заявка отклонена");
-    } catch {
-      toast.error("Не удалось сохранить решение, попробуйте ещё раз");
+      const saved = await completeRequest(r.id, { work_type_id: workTypeId });
+      toast.success(`Заявка выполнена: ${saved.work_type?.name ?? "позиция привязана"}`);
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError && (err.status === 400 || err.status === 409)
+          ? err.message
+          : "Не удалось закрыть заявку, попробуйте ещё раз",
+      );
     } finally {
       setDeciding(null);
     }
@@ -425,28 +482,14 @@ function MessagesPage() {
             {statusText[r.status]}
           </span>
         </div>
-
-        {canAddToCatalog && !inDialog && r.status === "pending" && (
-          <div className="mt-2 hidden lg:block">
-            <button
-              type="button"
-              onClick={() =>
-                // В заявке — только свободный текст (единицы в ней нет): название
-                // берём из текста заявки. Статус заявки не меняется.
-                setCatalogTarget({
-                  kind: "create",
-                  catalogType: "новое строительство",
-                  ancestors: [],
-                  prefill: { name: r.requested_text.trim(), unit: "" },
-                })
-              }
-              className="flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-1.5 text-sm font-semibold text-primary transition-colors hover:border-primary hover:bg-primary/10"
-            >
-              <Plus className="size-4" />
-              Добавить в справочник
-            </button>
-          </div>
-        )}
+        {(() => {
+          const decisionId = decisionNotificationId(r);
+          return decisionId && freshDecisionIds.has(decisionId) ? (
+            <p className="mt-1 text-[10px] font-semibold tracking-[0.08em] text-primary uppercase">
+              Новое
+            </p>
+          ) : null;
+        })()}
 
         {r.status === "deleted" && (
           <div className="mt-2 rounded-xl bg-muted px-3 py-2">
@@ -472,10 +515,60 @@ function MessagesPage() {
           </div>
         )}
 
+        {r.status === "approved" && r.work_type && (
+          <div className="mt-2 rounded-xl bg-status-done-soft px-3 py-2 md:px-4 md:py-3">
+            <p className="text-[10px] font-semibold tracking-[0.08em] text-status-done uppercase">
+              Позиция в справочнике
+            </p>
+            {r.work_type.available ? (
+              <>
+                <p className="mt-0.5 text-sm font-semibold break-words md:text-base">
+                  {r.work_type.name}
+                </p>
+                {buildWorkTypePathChain(r.work_type) && (
+                  <p className="mt-0.5 text-xs break-words text-muted-foreground md:text-sm">
+                    {buildWorkTypePathChain(r.work_type)}
+                  </p>
+                )}
+                {isForeman && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      markNotificationsRead(notificationIdsForRequest(r));
+                      setAddTarget(r);
+                    }}
+                    className="mt-2 flex items-center gap-1.5 rounded-lg bg-status-done px-3 py-2 text-sm font-semibold text-white"
+                  >
+                    <Plus className="size-4" />
+                    Внести в запись
+                  </button>
+                )}
+              </>
+            ) : (
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {isForeman
+                  ? "Позиция недоступна, обратитесь к администратору"
+                  : `Позиция в архиве: ${r.work_type.name}`}
+              </p>
+            )}
+          </div>
+        )}
+
+        {r.status === "rejected" && r.reject_reason?.trim() && (
+          <div className="mt-2 rounded-xl bg-status-rejected-soft px-3 py-2 md:px-4 md:py-3">
+            <p className="text-[10px] font-semibold tracking-[0.08em] text-status-rejected uppercase">
+              Комментарий
+            </p>
+            <p className="mt-0.5 text-sm break-words whitespace-pre-wrap select-text md:text-base">
+              {r.reject_reason}
+            </p>
+          </div>
+        )}
+
         {r.status === "approved" && r.response_message?.trim() && (
           <div className="mt-2 rounded-xl bg-status-done-soft px-3 py-2 md:px-4 md:py-3">
             <p className="text-[10px] font-semibold tracking-[0.08em] text-status-done uppercase">
-              Ответ
+              Комментарий
             </p>
             <p className="mt-0.5 text-sm break-words whitespace-pre-wrap select-text md:text-base">
               {r.response_message}
@@ -654,19 +747,42 @@ function MessagesPage() {
           );
         })()}
 
-        {isAdmin && r.status === "pending" && (
-          <div className="mt-3 flex gap-2 rounded-xl bg-surface p-3">
+        {canDecide && r.status === "pending" && (
+          <div className="mt-3 flex flex-wrap gap-2 rounded-xl bg-surface p-3">
             <button
-              onClick={() => openApprove(r)}
+              onClick={() => setLinkTarget(r)}
               disabled={deciding === r.id}
-              className="flex-1 rounded-lg bg-status-done py-2 text-sm font-semibold text-white disabled:opacity-60"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-status-done px-3 py-2 text-sm font-semibold whitespace-nowrap text-white disabled:opacity-60"
             >
-              Одобрить
+              <ListTree className="size-4" />
+              Выбрать из справочника
             </button>
+            {canCreatePosition && (
+              <button
+                onClick={() =>
+                  // В заявке — только свободный текст (единицы в ней нет):
+                  // название берём из текста заявки.
+                  setCreateTarget({
+                    request: r,
+                    editor: {
+                      kind: "create",
+                      catalogType: "новое строительство",
+                      ancestors: [],
+                      prefill: { name: r.requested_text.trim(), unit: "" },
+                    },
+                  })
+                }
+                disabled={deciding === r.id}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-status-done px-3 py-2 text-sm font-semibold whitespace-nowrap text-status-done disabled:opacity-60"
+              >
+                <Plus className="size-4" />
+                Создать позицию
+              </button>
+            )}
             <button
-              onClick={() => void reject(r.id)}
+              onClick={() => openReject(r)}
               disabled={deciding === r.id}
-              className="flex-1 rounded-lg bg-status-rejected py-2 text-sm font-semibold text-white disabled:opacity-60"
+              className="flex-1 rounded-lg bg-status-rejected px-3 py-2 text-sm font-semibold whitespace-nowrap text-white disabled:opacity-60"
             >
               {deciding === r.id ? "Сохранение..." : "Отклонить"}
             </button>
@@ -678,21 +794,43 @@ function MessagesPage() {
 
   return (
     <AppShell>
-      {catalogTarget && (
+      {createTarget && (
         <WorkTypeEditorDialog
           key="catalog-from-request"
-          target={catalogTarget}
-          onClose={() => setCatalogTarget(null)}
-          onSaved={(result, opts) => {
-            // Заявка остаётся как есть (статус не меняем) — решение по ней
-            // принимается отдельно кнопками «Одобрить»/«Отклонить».
-            if (!opts?.keepOpen) setCatalogTarget(null);
-            toast.success(
-              (result.createdIds?.length ?? 1) > 1
-                ? `Добавлено в справочник: позиций — ${result.createdIds!.length}`
-                : `Добавлено в справочник: ${result.after.name}`,
-            );
+          target={createTarget.editor}
+          onClose={() => setCreateTarget(null)}
+          onSaved={() => setCreateTarget(null)}
+          // Позиция создаётся вместе с закрытием заявки — одной транзакцией
+          // на сервере (POST /requests/:id/complete). Ошибку показывает форма.
+          submitCreate={async ({ parent_id, work_composition, item }) => {
+            const saved = await completeRequest(createTarget.request.id, {
+              new_work_type: { ...item, parent_id, work_composition },
+            });
+            setCreateTarget(null);
+            toast.success(`Заявка выполнена: ${saved.work_type?.name ?? "позиция создана"}`);
           }}
+        />
+      )}
+      {linkTarget && (
+        <WorkTypePicker
+          title="Позиция для заявки"
+          linkMode
+          isAdminLike
+          types={workTypes}
+          counterValuesRef={counterValuesRef}
+          onClose={() => setLinkTarget(null)}
+          onPick={(item) => {
+            const target = linkTarget;
+            setLinkTarget(null);
+            if (item.work_type_id) void completeWithExisting(target, item.work_type_id);
+          }}
+        />
+      )}
+      {addTarget?.work_type && (
+        <RequestAddToRecordDialog
+          workType={addTarget.work_type}
+          recordId={addTarget.record_id}
+          onClose={() => setAddTarget(null)}
         />
       )}
       <PageHeading
@@ -773,56 +911,49 @@ function MessagesPage() {
       </Dialog>
 
       <Dialog
-        open={!!approveTarget}
-        onOpenChange={(open) => !open && deciding == null && setApproveTarget(null)}
+        open={!!rejectTarget}
+        onOpenChange={(open) => !open && deciding == null && setRejectTarget(null)}
       >
         <DialogContent
           className="w-[calc(100%-2rem)] sm:max-w-lg"
           onOpenAutoFocus={(e) => {
             e.preventDefault();
-            approveMessageRef.current?.focus();
+            rejectCommentRef.current?.focus();
           }}
         >
           <DialogHeader>
-            <DialogTitle>Одобрить заявку</DialogTitle>
+            <DialogTitle>Отклонить заявку</DialogTitle>
             <DialogDescription className="sr-only">
-              Необязательное сообщение мастеру, которое придёт вместе с одобрением.
+              Необязательный комментарий мастеру, который придёт вместе с отклонением.
             </DialogDescription>
           </DialogHeader>
-          {approveTarget && (
+          {rejectTarget && (
             <div className="rounded-xl bg-surface px-3 py-2">
               <p className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
                 Запрошено автором
               </p>
               <p className="mt-0.5 text-sm font-semibold break-words whitespace-pre-wrap">
-                {approveTarget.requested_text}
+                {rejectTarget.requested_text}
               </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{approveTarget.author}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{rejectTarget.author}</p>
             </div>
           )}
           <label className="block">
-            <FieldLabel>Сообщение мастеру</FieldLabel>
+            <FieldLabel>Комментарий мастеру (необязательно)</FieldLabel>
             <textarea
-              ref={approveMessageRef}
-              autoFocus
-              value={approveMessage}
-              onChange={(e) => setApproveMessage(e.target.value)}
+              ref={rejectCommentRef}
+              value={rejectComment}
+              onChange={(e) => setRejectComment(e.target.value)}
               maxLength={2000}
-              rows={5}
-              className="mt-1 max-h-60 min-h-28 w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm leading-normal"
+              rows={4}
+              placeholder="Например: такая позиция уже есть — …"
+              className="mt-1 max-h-60 min-h-24 w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm leading-normal"
             />
-            <span className="mt-1 flex items-start justify-between gap-3 text-xs text-muted-foreground">
-              <span>
-                Например: путь и название добавленной позиции в справочнике. Можно вставить
-                скопированный путь
-              </span>
-              <span className="shrink-0 tabular-nums">{approveMessage.length}/2000</span>
-            </span>
           </label>
           <DialogFooter className="gap-2 sm:gap-2">
             <button
               type="button"
-              onClick={() => setApproveTarget(null)}
+              onClick={() => setRejectTarget(null)}
               disabled={deciding != null}
               className="rounded-lg border border-border px-4 py-2 text-sm font-semibold disabled:opacity-60"
             >
@@ -830,11 +961,11 @@ function MessagesPage() {
             </button>
             <button
               type="button"
-              onClick={() => void approve()}
+              onClick={() => void reject()}
               disabled={deciding != null}
-              className="rounded-lg bg-status-done px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              className="rounded-lg bg-status-rejected px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
             >
-              {deciding != null ? "Сохранение..." : "Одобрить"}
+              {deciding != null ? "Сохранение..." : "Отклонить"}
             </button>
           </DialogFooter>
         </DialogContent>

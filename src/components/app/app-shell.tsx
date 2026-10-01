@@ -55,10 +55,21 @@ export function AppShell({
   children: ReactNode;
   fab?: { to: string; label?: string; search?: Record<string, string> };
 }) {
-  const { role, currentUser, notificationsCount, requests, refreshData } = useApp();
+  const { role, currentUser, notificationsCount, requests, refreshData, readNotificationIds } =
+    useApp();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isAdminLike = role === "admin" || role === "curator";
   const pending = requests.filter((r) => r.status === "pending").length;
+  // Мастер: выполненные заявки (с позицией справочника), которые он ещё не
+  // открывал — то же уведомление «-approved», что и в разделе «Уведомления»
+  // (прочитанным помечается при открытии раздела заявок). Сервер отдаёт
+  // мастеру только его заявки.
+  const unreadDone =
+    role === "user"
+      ? requests.filter(
+          (r) => r.status === "approved" && r.work_type && !readNotificationIds.has(`${r.id}-approved`),
+        ).length
+      : 0;
 
   const swipeOrder = useMemo(() => mobileTabs(role).map((t) => t.to), [role]);
   useSwipeNav(swipeOrder, pathname);
@@ -144,7 +155,7 @@ export function AppShell({
                     { to: "/reports/all", label: "Все записи", icon: ListChecks },
                     { to: "/work-types", label: "Все виды работ", icon: ClipboardList },
                     { to: "/brigades", label: "Бригады", icon: HardHat },
-                    tabs[2]!,
+                    { ...tabs[2]!, ...(unreadDone > 0 ? { badge: unreadDone } : {}) },
                     tabs[3]!,
                   ]
             }
@@ -278,7 +289,11 @@ export function AppShell({
           // Синяя точка на вкладке «Заявки» у админов, пока есть хотя бы
           // одна необработанная (pending) заявка — независимо от того,
           // на какой странице сейчас находится пользователь.
-          const showPendingDot = role === "admin" && t.to === "/messages" && pending > 0;
+          // У мастера — точка, пока есть выполненные заявки, которые он ещё не
+          // открывал.
+          const showPendingDot =
+            t.to === "/messages" &&
+            ((role === "admin" && pending > 0) || (role === "user" && unreadDone > 0));
           return (
             <Link
               key={t.to}
@@ -292,7 +307,9 @@ export function AppShell({
                 <t.icon className="size-[22px]" />
                 {showPendingDot && (
                   <span
-                    aria-label="Есть необработанные заявки"
+                    aria-label={
+                      role === "user" ? "Есть выполненные заявки" : "Есть необработанные заявки"
+                    }
                     className="absolute -top-0.5 -right-0.5 block size-2 rounded-full bg-primary ring-2 ring-panel"
                   />
                 )}

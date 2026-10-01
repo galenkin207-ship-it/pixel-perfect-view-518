@@ -25,6 +25,7 @@ import {
 import type {
   CatalogType,
   WorkTypeAncestor,
+  WorkTypeBatchItemInput,
   WorkTypeDetail,
   WorkTypeLeafInput,
 } from "@/data/work-type-tree";
@@ -195,6 +196,7 @@ export function WorkTypeEditorDialog({
   onNodeCreated,
   onNodeRenamed,
   onNodeDeleted,
+  submitCreate,
 }: {
   target: WorkTypeEditorTarget;
   onClose: () => void;
@@ -207,6 +209,16 @@ export function WorkTypeEditorDialog({
   onNodeCreated?: (parentId: string | null) => void | Promise<void>;
   onNodeRenamed?: (id: string, name: string, parentId: string | null) => void | Promise<void>;
   onNodeDeleted?: (id: string, parentId: string | null) => void | Promise<void>;
+  // Создание ровно одной позиции своим запросом вместо POST /work-types/batch
+  // (закрытие заявки мастера новой позицией — POST /requests/:id/complete, всё
+  // в одной транзакции). Строка одна, «Сохранить и добавить ещё» нет; после
+  // успеха хозяин сам закрывает окно (onSaved не вызывается). Ошибка сервера
+  // показывается в форме, окно остаётся открытым.
+  submitCreate?: (input: {
+    parent_id: string;
+    work_composition: string | null;
+    item: WorkTypeBatchItemInput;
+  }) => Promise<void>;
 }) {
   const { units, role } = useApp();
   // Создавать разделы (уровни 1–4) может только admin (POST /work-types/nodes
@@ -567,7 +579,14 @@ export function WorkTypeEditorDialog({
 
     setSaving(true);
     try {
-      if (target.kind === "create") {
+      if (target.kind === "create" && submitCreate) {
+        await submitCreate({
+          parent_id: deepest!,
+          work_composition: composition,
+          item: { text: form.variants[0]!.text.trim(), ...rowFields(0) },
+        });
+        setSaving(false);
+      } else if (target.kind === "create") {
         // Единственный путь создания — batch; имя каждой позиции считает сервер.
         const createdNodes = await api.createWorkTypeBatch({
           parent_id: deepest!,
@@ -897,7 +916,7 @@ export function WorkTypeEditorDialog({
                       neighbors={neighborUnits}
                       disabled={saving}
                       onChange={setVariant}
-                      onAdd={addVariant}
+                      {...(submitCreate ? {} : { onAdd: addVariant })}
                       onRemove={removeVariant}
                     />
                   </section>
@@ -1016,7 +1035,7 @@ export function WorkTypeEditorDialog({
               >
                 Закрыть
               </button>
-              {isCreate && (
+              {isCreate && !submitCreate && (
                 <button
                   type="button"
                   onClick={() => void save(true)}

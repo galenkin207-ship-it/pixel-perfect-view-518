@@ -14,6 +14,7 @@ import type {
   WorkTypeAncestor,
   WorkTypeAiConfidence,
   WorkTypeBatchInput,
+  WorkTypeBatchItemInput,
   WorkTypeCounterStep,
   WorkTypeDetail,
   WorkTypeInfo,
@@ -320,6 +321,90 @@ type RawWorkTypeCounterStep = {
 };
 
 // ---- Публичное API ----
+
+// Строка заявки с бэкенда (GET /requests, PUT /requests/:id,
+// POST /requests/:id/complete). comments есть только в списке.
+type ApiRequestRow = {
+  id: number;
+  text: string;
+  submitted_by: string;
+  submitted_by_user_id: number | null;
+  status: string;
+  resolved_name: string | null;
+  resolved_unit: string | null;
+  resolved_price: number | string | null;
+  reject_reason: string | null;
+  response_message: string | null;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  rejected_by: string | null;
+  rejected_at: string | null;
+  created_at: string;
+  record_id?: number | null;
+  admin_comment?: string | null;
+  work_type?: {
+    id: number | string;
+    name: string;
+    unit: string;
+    price: number | string;
+    available: boolean;
+    catalog_type: CatalogType | null;
+    levels: { id: number | string; level: number; name: string; gesn_code: string | null }[];
+  } | null;
+  comments: {
+    id: number;
+    author: string;
+    author_user_id: number | null;
+    text: string;
+    created_at: string;
+    edited_at: string | null;
+  }[];
+};
+
+function mapApiRequest(r: ApiRequestRow, comments: RequestComment[]): WorkRequest {
+  const wt = r.work_type;
+  return {
+    id: String(r.id),
+    author: r.submitted_by,
+    ...(r.submitted_by_user_id != null ? { author_user_id: String(r.submitted_by_user_id) } : {}),
+    requested_text: r.text,
+    status: r.status as WorkRequest["status"],
+    ...(r.resolved_name != null ? { resolved_name: r.resolved_name } : {}),
+    ...(r.resolved_unit != null ? { resolved_unit: r.resolved_unit } : {}),
+    ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
+    ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
+    response_message: r.response_message ?? null,
+    ...(r.resolved_by != null ? { resolved_by: r.resolved_by } : {}),
+    ...(r.resolved_at != null
+      ? { resolved_date: isoToRu(r.resolved_at), resolved_time: formatTime(r.resolved_at) }
+      : {}),
+    ...(r.rejected_by != null ? { rejected_by: r.rejected_by } : {}),
+    ...(r.rejected_at != null
+      ? { rejected_date: isoToRu(r.rejected_at), rejected_time: formatTime(r.rejected_at) }
+      : {}),
+    created_at: isoToRu(r.created_at),
+    created_time: formatTime(r.created_at),
+    comments,
+    admin_comment: r.admin_comment ?? null,
+    work_type: wt
+      ? {
+          id: String(wt.id),
+          name: wt.name,
+          unit: wt.unit,
+          price: Number(wt.price),
+          available: wt.available,
+          catalog_type: wt.catalog_type,
+          levels: wt.levels.map((l) => ({
+            id: String(l.id),
+            level: l.level,
+            name: l.name,
+            gesn_code: l.gesn_code,
+          })),
+        }
+      : null,
+    ...(r.record_id != null ? { record_id: String(r.record_id) } : {}),
+  };
+}
 
 export const api = {
   async login(login: string, password: string) {
@@ -950,65 +1035,22 @@ export const api = {
   },
 
   async listRequests(): Promise<WorkRequest[]> {
-    const rows = await request<
-      {
-        id: number;
-        text: string;
-        submitted_by: string;
-        submitted_by_user_id: number | null;
-        status: string;
-        resolved_name: string | null;
-        resolved_unit: string | null;
-        resolved_price: number | string | null;
-        reject_reason: string | null;
-        response_message: string | null;
-        resolved_by: string | null;
-        resolved_at: string | null;
-        rejected_by: string | null;
-        rejected_at: string | null;
-        created_at: string;
-        comments: {
-          id: number;
-          author: string;
-          author_user_id: number | null;
-          text: string;
-          created_at: string;
-          edited_at: string | null;
-        }[];
-      }[]
-    >("/requests");
-    return rows.map((r) => ({
-      id: String(r.id),
-      author: r.submitted_by,
-      ...(r.submitted_by_user_id != null ? { author_user_id: String(r.submitted_by_user_id) } : {}),
-      requested_text: r.text,
-      status: r.status as WorkRequest["status"],
-      ...(r.resolved_name != null ? { resolved_name: r.resolved_name } : {}),
-      ...(r.resolved_unit != null ? { resolved_unit: r.resolved_unit } : {}),
-      ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
-      ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
-      response_message: r.response_message ?? null,
-      ...(r.resolved_by != null ? { resolved_by: r.resolved_by } : {}),
-      ...(r.resolved_at != null
-        ? { resolved_date: isoToRu(r.resolved_at), resolved_time: formatTime(r.resolved_at) }
-        : {}),
-      ...(r.rejected_by != null ? { rejected_by: r.rejected_by } : {}),
-      ...(r.rejected_at != null
-        ? { rejected_date: isoToRu(r.rejected_at), rejected_time: formatTime(r.rejected_at) }
-        : {}),
-      created_at: isoToRu(r.created_at),
-      created_time: formatTime(r.created_at),
-      comments: r.comments.map((c) => ({
-        id: String(c.id),
-        author: c.author,
-        ...(c.author_user_id != null ? { author_user_id: String(c.author_user_id) } : {}),
-        own: false,
-        text: c.text,
-        time: formatTime(c.created_at),
-        date: isoToRu(c.created_at),
-        edited: c.edited_at != null,
-      })),
-    }));
+    const rows = await request<ApiRequestRow[]>("/requests");
+    return rows.map((r) =>
+      mapApiRequest(
+        r,
+        r.comments.map((c) => ({
+          id: String(c.id),
+          author: c.author,
+          ...(c.author_user_id != null ? { author_user_id: String(c.author_user_id) } : {}),
+          own: false,
+          text: c.text,
+          time: formatTime(c.created_at),
+          date: isoToRu(c.created_at),
+          edited: c.edited_at != null,
+        })),
+      ),
+    );
   },
 
   async addRequestComment(requestId: string, text: string): Promise<RequestComment> {
@@ -1067,7 +1109,8 @@ export const api = {
     );
   },
 
-  async createRequest(text: string): Promise<WorkRequest> {
+  // recordId — запись, из формы которой отправлена заявка (необязательно).
+  async createRequest(text: string, recordId?: string): Promise<WorkRequest> {
     const r = await request<{
       id: number;
       text: string;
@@ -1075,7 +1118,11 @@ export const api = {
       submitted_by_user_id: number | null;
       status: string;
       created_at: string;
-    }>("/requests", { method: "POST", body: JSON.stringify({ text }) });
+      record_id: number | null;
+    }>("/requests", {
+      method: "POST",
+      body: JSON.stringify({ text, ...(recordId ? { record_id: recordId } : {}) }),
+    });
     return {
       id: String(r.id),
       author: r.submitted_by,
@@ -1083,6 +1130,7 @@ export const api = {
       requested_text: r.text,
       status: r.status as WorkRequest["status"],
       response_message: null,
+      ...(r.record_id != null ? { record_id: String(r.record_id) } : {}),
       created_at: isoToRu(r.created_at),
       created_time: formatTime(r.created_at),
       comments: [],
@@ -1132,49 +1180,44 @@ export const api = {
       status: "approved" | "rejected";
       // Сообщение мастеру при одобрении (необязательное, до 2000 символов).
       message?: string;
+      // Комментарий мастеру при отклонении (необязательный).
       reject_reason?: string;
     },
   ): Promise<WorkRequest> {
-    const r = await request<{
-      id: number;
-      text: string;
-      submitted_by: string;
-      submitted_by_user_id: number | null;
-      status: string;
-      resolved_name: string | null;
-      resolved_unit: string | null;
-      resolved_price: number | string | null;
-      reject_reason: string | null;
-      response_message: string | null;
-      resolved_by: string | null;
-      resolved_at: string | null;
-      rejected_by: string | null;
-      rejected_at: string | null;
-      created_at: string;
-    }>(`/requests/${id}`, { method: "PUT", body: JSON.stringify(input) });
-    return {
-      id: String(r.id),
-      author: r.submitted_by,
-      ...(r.submitted_by_user_id != null ? { author_user_id: String(r.submitted_by_user_id) } : {}),
-      requested_text: r.text,
-      status: r.status as WorkRequest["status"],
-      ...(r.resolved_name != null ? { resolved_name: r.resolved_name } : {}),
-      ...(r.resolved_unit != null ? { resolved_unit: r.resolved_unit } : {}),
-      ...(r.resolved_price != null ? { resolved_price: Number(r.resolved_price) } : {}),
-      ...(r.reject_reason != null ? { reject_reason: r.reject_reason } : {}),
-      response_message: r.response_message ?? null,
-      ...(r.resolved_by != null ? { resolved_by: r.resolved_by } : {}),
-      ...(r.resolved_at != null
-        ? { resolved_date: isoToRu(r.resolved_at), resolved_time: formatTime(r.resolved_at) }
-        : {}),
-      ...(r.rejected_by != null ? { rejected_by: r.rejected_by } : {}),
-      ...(r.rejected_at != null
-        ? { rejected_date: isoToRu(r.rejected_at), rejected_time: formatTime(r.rejected_at) }
-        : {}),
-      created_at: isoToRu(r.created_at),
-      created_time: formatTime(r.created_at),
-      comments: [],
-    };
+    const r = await request<ApiRequestRow>(`/requests/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    });
+    return mapApiRequest(r, []);
+  },
+
+  // POST /requests/:id/complete (admin/curator) — закрыть заявку позицией
+  // справочника: либо существующей (work_type_id), либо новой (new_work_type —
+  // как строка POST /work-types/batch, имя считает сервер). Создание позиции,
+  // привязка и смена статуса — одна транзакция на сервере.
+  async completeRequest(
+    id: string,
+    input:
+      | { work_type_id: string; comment?: string }
+      | {
+          new_work_type: WorkTypeBatchItemInput & {
+            parent_id: string;
+            work_composition: string | null;
+          };
+          comment?: string;
+        },
+  ): Promise<WorkRequest> {
+    const r = await request<ApiRequestRow>(`/requests/${id}/complete`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return mapApiRequest(r, []);
+  },
+
+  // Одна запись — для проверки «запись ещё существует» перед добавлением в неё
+  // позиции из заявки. 404 — удалена (или чужой черновик).
+  async getRecord(id: string): Promise<WorkRecord> {
+    return apiRecordToWorkRecord(await request<ApiRecord>(`/records/${id}`));
   },
 
   async listRecords(): Promise<WorkRecord[]> {

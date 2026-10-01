@@ -127,7 +127,8 @@ export function VariantList({
   neighbors: string[];
   disabled: boolean;
   onChange: (index: number, patch: Partial<VariantForm>) => void;
-  onAdd: () => void;
+  // Не задан — только одна строка, кнопки «Добавить вариант» нет.
+  onAdd?: () => void;
   onRemove: (index: number) => void;
 }) {
   const underGroup = group !== null;
@@ -241,15 +242,17 @@ export function VariantList({
           </div>
         );
       })}
-      <button
-        type="button"
-        disabled={disabled || rows.length >= MAX_BATCH_ROWS}
-        onClick={onAdd}
-        className="flex items-center gap-1.5 rounded-xl border border-dashed border-border px-3 py-2 text-sm font-semibold text-primary transition-colors hover:border-primary hover:bg-primary/10 disabled:opacity-60"
-      >
-        <Plus className="size-4" />
-        Добавить вариант
-      </button>
+      {onAdd && (
+        <button
+          type="button"
+          disabled={disabled || rows.length >= MAX_BATCH_ROWS}
+          onClick={onAdd}
+          className="flex items-center gap-1.5 rounded-xl border border-dashed border-border px-3 py-2 text-sm font-semibold text-primary transition-colors hover:border-primary hover:bg-primary/10 disabled:opacity-60"
+        >
+          <Plus className="size-4" />
+          Добавить вариант
+        </button>
+      )}
     </div>
   );
 }

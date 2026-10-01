@@ -22,14 +22,21 @@ const CATALOG_TYPE_LABELS: Record<CatalogType, string> = {
 // номером, как в каскаде: «N. Название»; пропущенные уровни отсутствуют),
 // строка 2 — «Позиция: <название>». Цена не входит.
 export function buildWorkTypePathText(path: WorkTypePath): string {
-  const chain = [
+  const chain = buildWorkTypePathChain(path);
+  return [...(chain ? [chain] : []), `Позиция: ${path.leaf.name}`].join("\n");
+}
+
+// Только цепочка расположения (тип каталога → уровни) без самой позиции;
+// пустая строка, если расположения нет. Так же показывается путь позиции в
+// выполненной заявке мастера.
+export function buildWorkTypePathChain(path: Pick<WorkTypePath, "catalog_type" | "levels">): string {
+  return [
     ...(path.catalog_type ? [CATALOG_TYPE_LABELS[path.catalog_type]] : []),
     ...path.levels.map((l) => {
       const number = l.level === 1 ? formatGesnNumberLabel(l.gesn_code) : null;
       return number ? `${number} ${l.name}` : l.name;
     }),
-  ];
-  return [...(chain.length > 0 ? [chain.join(" → ")] : []), `Позиция: ${path.leaf.name}`].join("\n");
+  ].join(" → ");
 }
 
 function normalizeForNameCompare(text: string): string {

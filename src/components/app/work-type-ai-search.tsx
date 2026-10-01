@@ -59,7 +59,8 @@ export function WorkTypeAiSearchPanel({
 }: {
   state: Exclude<WorkTypeAiSearchState, { status: "idle" }>;
   onClose: () => void;
-  onRequest: (query: string) => void;
+  // Не задан — кнопки «Отправить заявку админу» нет (выбор позиции админом).
+  onRequest?: (query: string) => void;
   renderResults: (results: WorkTypeSearchResult[]) => ReactNode;
 }) {
   return (
@@ -103,7 +104,7 @@ export function WorkTypeAiSearchPanel({
           ) : (
             renderResults(state.results)
           )}
-          {state.noMatch && (
+          {state.noMatch && onRequest && (
             <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-surface p-5 text-center">
               <p className="text-sm text-muted-foreground">Не нашли подходящую позицию?</p>
               <button

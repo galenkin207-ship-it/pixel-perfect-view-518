@@ -10,6 +10,7 @@ import type {
   RequestComment,
 } from "@/data/mock";
 import type { NotificationItem } from "@/lib/notification-items";
+import type { api } from "@/lib/api-client";
 
 export type AppState = {
   role: Role;
@@ -56,7 +57,7 @@ export type AppState = {
   setRecordPhotos: (id: string, photos: string[]) => void;
   requests: WorkRequest[];
   setRequests: React.Dispatch<React.SetStateAction<WorkRequest[]>>;
-  createRequest: (text: string) => Promise<WorkRequest>;
+  createRequest: (text: string, recordId?: string) => Promise<WorkRequest>;
   decideRequest: (
     id: string,
     input: {
@@ -64,6 +65,11 @@ export type AppState = {
       message?: string;
       reject_reason?: string;
     },
+  ) => Promise<WorkRequest>;
+  /** Закрыть заявку позицией справочника (существующей или новой) — admin/curator. */
+  completeRequest: (
+    id: string,
+    input: Parameters<typeof api.completeRequest>[1],
   ) => Promise<WorkRequest>;
   deleteRequest: (id: string) => Promise<void>;
   addRequestComment: (requestId: string, text: string) => Promise<RequestComment>;

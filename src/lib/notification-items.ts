@@ -79,7 +79,7 @@ export function buildNotificationItems(
           requestId: r.id,
           kind: "approved",
           author: r.resolved_by || r.author,
-          title: "Заявка одобрена",
+          title: r.work_type ? `Заявка выполнена: ${r.work_type.name}` : "Заявка выполнена",
           text: r.requested_text,
           date: r.resolved_date ?? r.created_at,
           time: r.resolved_time ?? "—",

@@ -119,6 +119,27 @@ export type WorkRequest = {
   // сортировки в уведомлениях, пока у заявки ещё нет ни одного сообщения.
   created_time?: string;
   comments: RequestComment[];
+  // Ответ на заявку (миграция 031). approved + work_type → «Выполнена» со
+  // ссылкой на позицию; approved без work_type — старая заявка или позиция
+  // удалена из справочника. admin_comment — комментарий админа/куратора
+  // (при отклонении — причина, при выполнении — сообщение мастеру).
+  admin_comment?: string | null;
+  work_type?: RequestWorkType | null;
+  // Запись, из формы которой мастер отправил заявку (если была).
+  record_id?: string;
+};
+
+// Позиция справочника, которой закрыта заявка: путь в формате
+// GET /work-types/:id/path (доступен и мастеру), плюс единица и цена — чтобы
+// добавить позицию в запись. available=false — позиция архивирована.
+export type RequestWorkType = {
+  id: string;
+  name: string;
+  unit: string;
+  price: number;
+  available: boolean;
+  catalog_type: "новое строительство" | "ремонт" | null;
+  levels: { id: string; level: number; name: string; gesn_code: string | null }[];
 };
 
 export type AppUser = {

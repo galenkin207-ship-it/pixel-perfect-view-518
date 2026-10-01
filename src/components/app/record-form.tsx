@@ -127,9 +127,18 @@ export function RecordForm({
   defaultObjectId,
   returnTo,
   returnSearch,
+  addWorkTypeId,
+  onAddWorkTypeDone,
 }: {
   record?: WorkRecord;
   defaultObjectId?: string;
+  // «Внести в запись» из выполненной заявки (?add_wt=<id>): позиция справочника,
+  // которую нужно сразу добавить строкой в форму (курсор — в поле объёма).
+  // Название/единица/цена — из заявки мастера (requests[].work_type).
+  // onAddWorkTypeDone — убрать параметр из адреса, чтобы позиция не добавилась
+  // повторно при обновлении страницы.
+  addWorkTypeId?: string;
+  onAddWorkTypeDone?: () => void;
   // См. records.$id.tsx — необязательный "обратный адрес" после сохранения/
   // отмены/удаления записи, чтобы вернуться туда, откуда открыли
   // редактирование (сейчас — /reports/all с восстановлением её фильтров),
@@ -150,6 +159,7 @@ export function RecordForm({
     setRecordPhotos,
     createRequest,
     currentUser,
+    requests,
   } = useApp();
 
   const isAdminLike = role === "admin" || role === "curator";
@@ -322,6 +332,44 @@ export function RecordForm({
       autoSaveInFlightRef.current = false;
     }
   };
+
+  // Строка, в поле объёма которой нужно поставить курсор (добавлена из заявки).
+  const [focusItemIdx, setFocusItemIdx] = useState<number | null>(null);
+
+  // Добавление позиции из выполненной заявки — тем же путём, что и выбор в
+  // пикере (syncItem с текущим составом). Ref — защита от повторного запуска
+  // эффекта (StrictMode, повторный рендер до очистки параметра в адресе).
+  const addedWorkTypeRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!addWorkTypeId || addedWorkTypeRef.current === addWorkTypeId) return;
+    addedWorkTypeRef.current = addWorkTypeId;
+    const wt = requests.find((r) => r.work_type?.id === addWorkTypeId)?.work_type;
+    if (!wt || !wt.available) {
+      toast.error("Позиция недоступна, обратитесь к администратору");
+    } else {
+      const newItem: WorkItem = {
+        name: wt.name,
+        unit: wt.unit,
+        qty: 0,
+        price: wt.price,
+        work_type_id: wt.id,
+      };
+      setItems((prev) => {
+        setFocusItemIdx(prev.length);
+        return [...prev, syncItem(newItem, selectedEmployees)];
+      });
+      toast.success(`«${wt.name}» добавлено — укажите объём`);
+    }
+    onAddWorkTypeDone?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addWorkTypeId]);
+
+  useEffect(() => {
+    if (focusItemIdx == null) return;
+    document
+      .querySelector(`[data-record-item="${focusItemIdx}"]`)
+      ?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [focusItemIdx]);
 
   const applyCrew = (next: string[]) => {
     setSelectedEmployees(next);
@@ -711,7 +759,11 @@ export function RecordForm({
             {items.map((item, idx) => {
               const itemCrew = (item.allocations ?? []).map((a) => a.employee);
               return (
-                <div key={idx} className="rounded-2xl border border-border bg-surface p-4">
+                <div
+                  key={idx}
+                  data-record-item={idx}
+                  className="rounded-2xl border border-border bg-surface p-4"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-sm font-semibold break-words whitespace-normal">
                       {item.name}
@@ -729,6 +781,7 @@ export function RecordForm({
                       <span className="text-muted-foreground">Общий объём</span>
                       <NumberField
                         value={itemQty(item)}
+                        autoFocus={idx === focusItemIdx}
                         readOnly={item.manual}
                         onChange={(v) => setItemTotal(idx, v)}
                         className={cn(
@@ -980,7 +1033,9 @@ export function RecordForm({
           onRequest={(text) => {
             void (async () => {
               try {
-                await createRequest(text);
+                // Запись (если уже сохранена) — чтобы «Внести в запись» по
+                // выполненной заявке предложило её первой.
+                await createRequest(text, draftRecordIdRef.current ?? record?.id);
                 toast.success("Заявка отправлена администратору");
                 setPickerOpen(false);
               } catch {
@@ -1020,20 +1075,28 @@ function useFrozenViewportHeight() {
   return height;
 }
 
-function WorkTypePicker({
+// Каскадный выбор вида работ (поиск + «Поиск ИИ» + каскад справочника).
+// Экспортируется и для закрытия заявки мастера позицией (messages.tsx):
+// linkMode — нужна сама позиция, а не строка записи: счётчик шаговых
+// модификаторов не открывается, блока «Свой вариант» (заявка) нет.
+export function WorkTypePicker({
   types,
   onPick,
   onClose,
   onRequest,
   isAdminLike,
   counterValuesRef,
+  linkMode = false,
+  title = "Выбор вида работ",
 }: {
   types: { id: string; name: string; unit: string; price: number }[];
   onPick: (item: WorkItem) => void;
   onClose: () => void;
-  onRequest: (text: string) => void;
+  onRequest?: (text: string) => void;
   isAdminLike: boolean;
   counterValuesRef: MutableRefObject<Map<string, Record<string, number>>>;
+  linkMode?: boolean;
+  title?: string;
 }) {
   const [query, setQuery] = useState("");
   const { results: searchResults, loading: searchLoading } = useWorkTypeSearch(query);
@@ -1128,7 +1191,7 @@ function WorkTypePicker({
   // есть свои шаговые модификаторы, вместо мгновенного коммита открываем
   // счётчик.
   function pickOrOpenCounter(node: WorkTypeTreeNode | WorkTypeSearchResult) {
-    if (node.has_counter_steps) {
+    if (node.has_counter_steps && !linkMode) {
       setCounterBase({ base: node });
       return;
     }
@@ -1206,7 +1269,7 @@ function WorkTypePicker({
             p-2.5 = не меньше 44px тач-таргета). */}
         <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 md:px-8 md:pt-5 md:pb-4">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <h2 className="text-lg font-bold md:text-2xl">Выбор вида работ</h2>
+            <h2 className="text-lg font-bold md:text-2xl">{title}</h2>
             <p className="hidden truncate text-xs text-muted-foreground sm:block md:text-sm">
               Найдите позицию в справочнике или укажите свой вариант
             </p>
@@ -1305,7 +1368,7 @@ function WorkTypePicker({
             <WorkTypeAiSearchPanel
               state={ai.state}
               onClose={ai.reset}
-              onRequest={openRequestFromAi}
+              {...(onRequest ? { onRequest: openRequestFromAi } : {})}
               renderResults={(results) => (
                 <WorkTypeSearchResults
                   results={results}
@@ -1320,12 +1383,14 @@ function WorkTypePicker({
             ) : (searchResults?.length ?? 0) === 0 ? (
               <div className="rounded-2xl border border-dashed border-border bg-surface p-8 text-center">
                 <p className="text-base text-muted-foreground">Ничего не найдено</p>
-                <button
-                  onClick={() => setCustomOpen(true)}
-                  className="mt-3 text-base font-semibold text-primary"
-                >
-                  Указать свой вариант
-                </button>
+                {onRequest && (
+                  <button
+                    onClick={() => setCustomOpen(true)}
+                    className="mt-3 text-base font-semibold text-primary"
+                  >
+                    Указать свой вариант
+                  </button>
+                )}
               </div>
             ) : (
               <WorkTypeSearchResults
@@ -1379,7 +1444,7 @@ function WorkTypePicker({
           )}
         </div>
 
-        {!counterBase && (
+        {!counterBase && onRequest && (
           <div className="border-t border-border px-6 py-5 md:px-10 md:py-7">
             {!customOpen ? (
               <button

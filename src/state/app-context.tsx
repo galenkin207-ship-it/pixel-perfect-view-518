@@ -583,9 +583,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRecords((prev) => prev.map((r) => (r.id === id ? { ...r, photos } : r)));
   };
 
-  const createRequest = async (text: string): Promise<WorkRequest> => {
+  const createRequest = async (text: string, recordId?: string): Promise<WorkRequest> => {
     try {
-      const created = await trackMutation(api.createRequest(text));
+      const created = await trackMutation(api.createRequest(text, recordId));
       setRequests((prev) => [created, ...prev]);
       return created;
     } catch (err) {
@@ -610,6 +610,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       throw err instanceof ApiError ? err : new Error("failed to decide request");
     }
+  };
+
+  const completeRequest = async (
+    id: string,
+    input: Parameters<typeof api.completeRequest>[1],
+  ): Promise<WorkRequest> => {
+    const saved = await trackMutation(api.completeRequest(id, input));
+    setRequests((prev) =>
+      prev.map((r) => (r.id === saved.id ? { ...saved, comments: r.comments } : r)),
+    );
+    return saved;
   };
 
   // Оптимистично: сообщение сразу появляется в переписке с временным id и
@@ -1031,6 +1042,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRequests,
     createRequest,
     decideRequest,
+    completeRequest,
     deleteRequest,
     addRequestComment,
     editRequestComment,

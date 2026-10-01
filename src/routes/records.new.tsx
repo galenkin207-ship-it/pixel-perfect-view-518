@@ -1,12 +1,18 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app/app-shell";
 import { RecordForm } from "@/components/app/record-form";
 
 export const Route = createFileRoute("/records/new")({
-  validateSearch: (search: Record<string, unknown>): { object?: string } => {
+  // add_wt — позиция справочника из выполненной заявки мастера («Внести в
+  // запись» → «Новая запись»): сразу добавляется строкой в новую запись.
+  validateSearch: (search: Record<string, unknown>): { object?: string; add_wt?: string } => {
     const object = typeof search["object"] === "string" ? search["object"] : undefined;
-    return object ? { object } : {};
+    const addWt =
+      typeof search["add_wt"] === "string" || typeof search["add_wt"] === "number"
+        ? String(search["add_wt"])
+        : undefined;
+    return { ...(object ? { object } : {}), ...(addWt ? { add_wt: addWt } : {}) };
   },
   head: () => ({
     meta: [
@@ -25,10 +31,24 @@ export const Route = createFileRoute("/records/new")({
 });
 
 function NewRecordPage() {
-  const { object } = Route.useSearch();
+  const { object, add_wt } = Route.useSearch();
+  const navigate = useNavigate();
   return (
     <AppShell>
-      <RecordForm {...(object ? { defaultObjectId: object } : {})} />
+      <RecordForm
+        {...(object ? { defaultObjectId: object } : {})}
+        {...(add_wt
+          ? {
+              addWorkTypeId: add_wt,
+              onAddWorkTypeDone: () =>
+                void navigate({
+                  to: "/records/new",
+                  search: object ? { object } : {},
+                  replace: true,
+                }),
+            }
+          : {})}
+      />
     </AppShell>
   );
 }

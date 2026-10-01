@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app/app-shell";
 import { RecordForm } from "@/components/app/record-form";
@@ -9,9 +9,12 @@ import { useApp } from "@/state/use-app";
 // отмены/удаления записи (сейчас единственное значение — "reports-all", для
 // возврата на /reports/all с сохранением её фильтров). Без них — прежнее
 // поведение (переход на страницу объекта).
+// add_wt — позиция справочника из выполненной заявки мастера («Внести в
+// запись»): сразу добавляется строкой в эту запись.
 type RecordEditSearch = {
   returnTo?: string;
   returnSearch?: string;
+  add_wt?: string;
 };
 
 export const Route = createFileRoute("/records/$id")({
@@ -19,6 +22,9 @@ export const Route = createFileRoute("/records/$id")({
     ...(typeof search["returnTo"] === "string" ? { returnTo: search["returnTo"] } : {}),
     ...(typeof search["returnSearch"] === "string"
       ? { returnSearch: search["returnSearch"] }
+      : {}),
+    ...(typeof search["add_wt"] === "string" || typeof search["add_wt"] === "number"
+      ? { add_wt: String(search["add_wt"]) }
       : {}),
   }),
   head: () => ({
@@ -43,7 +49,8 @@ export const Route = createFileRoute("/records/$id")({
 
 function EditRecordPage() {
   const { id } = useParams({ from: "/records/$id" });
-  const { returnTo, returnSearch } = Route.useSearch();
+  const { returnTo, returnSearch, add_wt } = Route.useSearch();
+  const navigate = useNavigate();
   const { records, role, currentUser } = useApp();
   const record = records.find((r) => r.id === id);
   const allowed = record ? canEditRecord(role, currentUser, record) : false;
@@ -55,6 +62,21 @@ function EditRecordPage() {
           record={record}
           {...(returnTo ? { returnTo } : {})}
           {...(returnSearch ? { returnSearch } : {})}
+          {...(add_wt
+            ? {
+                addWorkTypeId: add_wt,
+                onAddWorkTypeDone: () =>
+                  void navigate({
+                    to: "/records/$id",
+                    params: { id },
+                    search: {
+                      ...(returnTo ? { returnTo } : {}),
+                      ...(returnSearch ? { returnSearch } : {}),
+                    },
+                    replace: true,
+                  }),
+              }
+            : {})}
         />
       ) : record ? (
         <>
@@ -67,10 +89,24 @@ function EditRecordPage() {
         </>
       ) : (
         <>
-          <p className="text-sm text-muted-foreground">Запись не найдена.</p>
-          <Link to="/" className="mt-3 inline-block text-sm font-semibold text-primary">
-            К списку объектов
-          </Link>
+          <p className="text-sm text-muted-foreground">
+            {add_wt
+              ? "Эта запись удалена — добавить в неё позицию нельзя."
+              : "Запись не найдена."}
+          </p>
+          {add_wt ? (
+            <Link
+              to="/records/new"
+              search={{ add_wt }}
+              className="mt-3 inline-block text-sm font-semibold text-primary"
+            >
+              Новая запись с этой позицией
+            </Link>
+          ) : (
+            <Link to="/" className="mt-3 inline-block text-sm font-semibold text-primary">
+              К списку объектов
+            </Link>
+          )}
         </>
       )}
     </AppShell>
