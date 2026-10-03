@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   ChevronDown,
   ChevronLeft,
@@ -30,7 +30,7 @@ import {
   workTypeKey,
   type WorkTypeEntry,
 } from "@/lib/employee-stats";
-import { forgetScroll, usePageState } from "@/lib/page-state";
+import { isDesktopNow, readPageState, resetPageState, usePageState } from "@/lib/page-state";
 import { allocationsFor, itemQty, recordTotal } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
 import type { WorkItem, WorkRecord } from "@/data/mock";
@@ -67,6 +67,15 @@ export const Route = createFileRoute("/reports/detail")({
 
 // Ключ сохранённого состояния страницы (lib/page-state.ts).
 const PAGE = "/reports/detail";
+
+type Applied = { employee: string; objectId: string; submitter: string; from: string; to: string };
+const EMPTY_APPLIED: Applied = { employee: "", objectId: "", submitter: "", from: "", to: "" };
+const sameApplied = (a: Applied, b: Applied) =>
+  a.employee === b.employee &&
+  a.objectId === b.objectId &&
+  a.submitter === b.submitter &&
+  a.from === b.from &&
+  a.to === b.to;
 
 const WEEKDAYS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 
@@ -147,27 +156,41 @@ function ReportDetailPage() {
       initial.employee || initial.objectId || initial.submitter || initial.from || initial.to,
     );
 
-  // На компьютере состояние отчёта запоминается (lib/page-state.ts); если
-  // параметры пришли в URL — они главнее сохранённого.
-  const [employee, setEmployee] = usePageState(PAGE, "employee", initial.employee, hasInitial);
-  const [objectId, setObjectId] = usePageState(PAGE, "objectId", initial.objectId, hasInitial);
-  const [submitter, setSubmitter] = usePageState(PAGE, "submitter", initial.submitter, hasInitial);
-  const [from, setFrom] = usePageState(PAGE, "from", initial.from, hasInitial);
-  const [to, setTo] = usePageState(PAGE, "to", initial.to, hasInitial);
-  const [applied, setApplied] = usePageState<{
-    employee: string;
-    objectId: string;
-    submitter: string;
-    from: string;
-    to: string;
-  } | null>(PAGE, "applied", hasInitial ? initial : null, hasInitial);
-  const [sortDesc, setSortDesc] = usePageState(PAGE, "sortDesc", true, hasInitial);
-  const [openDays, setOpenDays] = usePageState<string[]>(PAGE, "openDays", [], hasInitial);
+  // На компьютере состояние отчёта запоминается (lib/page-state.ts), а
+  // применённые фильтры («Сформировать отчёт») ещё и живут в URL — ссылка
+  // «Отчёты» в меню ведёт на последний URL этой страницы. Сохранённое
+  // (поля формы, сортировка, раскрытые дни/записи) берём, если URL пустой или
+  // это тот же отчёт; другой отчёт в URL (пришли по ссылке) — главнее.
+  const [desktop] = useState(isDesktopNow);
+  const [ignoreSaved] = useState(() => {
+    if (!desktop) return true;
+    if (!hasInitial) return false;
+    const saved = readPageState<Applied | null>(PAGE, "applied");
+    return !(saved && sameApplied(saved, initial));
+  });
+  const [employee, setEmployee] = usePageState(PAGE, "employee", initial.employee, ignoreSaved);
+  const [objectId, setObjectId] = usePageState(PAGE, "objectId", initial.objectId, ignoreSaved);
+  const [submitter, setSubmitter] = usePageState(
+    PAGE,
+    "submitter",
+    initial.submitter,
+    ignoreSaved,
+  );
+  const [from, setFrom] = usePageState(PAGE, "from", initial.from, ignoreSaved);
+  const [to, setTo] = usePageState(PAGE, "to", initial.to, ignoreSaved);
+  const [applied, setApplied] = usePageState<Applied | null>(
+    PAGE,
+    "applied",
+    hasInitial ? initial : null,
+    ignoreSaved,
+  );
+  const [sortDesc, setSortDesc] = usePageState(PAGE, "sortDesc", true, ignoreSaved);
+  const [openDays, setOpenDays] = usePageState<string[]>(PAGE, "openDays", [], ignoreSaved);
   const [openRecords, setOpenRecords] = usePageState<string[]>(
     PAGE,
     "openRecords",
     [],
-    hasInitial,
+    ignoreSaved,
   );
   const [mobileDay, setMobileDay] = useState<string | null>(null);
   const [mobileRecord, setMobileRecord] = useState<string | null>(null);
@@ -183,14 +206,42 @@ function ReportDetailPage() {
   } | null>(null);
   const [expandedItemsByRecord, setExpandedItemsByRecord] = usePageState<
     Record<string, string[]>
-  >(PAGE, "expandedItems", {}, hasInitial);
+  >(PAGE, "expandedItems", {}, ignoreSaved);
   const [photosOpenByRecord, setPhotosOpenByRecord] = usePageState<Record<string, boolean>>(
     PAGE,
     "photosOpen",
     {},
-    hasInitial,
+    ignoreSaved,
   );
-  const [filtersOpen, setFiltersOpen] = usePageState(PAGE, "filtersOpen", !hasInitial, hasInitial);
+  const [filtersOpen, setFiltersOpen] = usePageState(
+    PAGE,
+    "filtersOpen",
+    !hasInitial,
+    ignoreSaved,
+  );
+
+  // Применённые фильтры → URL (компьютер). replace — без новых записей в истории.
+  const navigate = useNavigate({ from: Route.fullPath });
+  useEffect(() => {
+    if (!desktop) return;
+    const next = applied ?? EMPTY_APPLIED;
+    if (sameApplied(next, initial) && (applied ? search.apply === "1" : !hasInitial)) return;
+    void navigate({
+      search: (applied
+        ? {
+            ...(applied.employee ? { employee: applied.employee } : {}),
+            ...(applied.objectId ? { object: applied.objectId } : {}),
+            ...(applied.submitter ? { submitter: applied.submitter } : {}),
+            ...(applied.from ? { from: applied.from } : {}),
+            ...(applied.to ? { to: applied.to } : {}),
+            apply: "1",
+          }
+        : {}) as never,
+      replace: true,
+      resetScroll: false,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [desktop, applied]);
   // Детализация строки «Сводной таблицы по видам работ» (ключ name||unit).
   const [summaryKey, setSummaryKey] = useState<string | null>(null);
   const closeSummary = useCallback(() => setSummaryKey(null), []);
@@ -220,6 +271,37 @@ function ReportDetailPage() {
     () => Array.from(new Set([...records.map((r) => r.created_by), ...submitterNames])).sort(),
     [records, submitterNames],
   );
+
+  // Восстановили (из памяти или URL) сотрудника/объект/подавшего, которых уже
+  // нет в справочниках, — молча сбрасываем это поле. Архивные объекты не
+  // трогаем: они есть в выборе объекта, отчёт по завершённому объекту законен.
+  useEffect(() => {
+    const ok = (field: keyof Applied, v: string) =>
+      !v ||
+      (field === "employee"
+        ? employees.includes(v)
+        : field === "objectId"
+          ? objects.some((o) => o.id === v)
+          : field === "submitter"
+            ? submitters.includes(v)
+            : true);
+    if (!ok("employee", employee)) setEmployee("");
+    if (!ok("objectId", objectId)) setObjectId("");
+    if (!ok("submitter", submitter)) setSubmitter("");
+    if (applied) {
+      const clean: Applied = {
+        ...applied,
+        employee: ok("employee", applied.employee) ? applied.employee : "",
+        objectId: ok("objectId", applied.objectId) ? applied.objectId : "",
+        submitter: ok("submitter", applied.submitter) ? applied.submitter : "",
+      };
+      if (!sameApplied(clean, applied)) {
+        setApplied(Object.values(clean).some(Boolean) ? clean : null);
+      }
+    }
+    // Только при открытии страницы.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const days: DayGroup[] = useMemo(() => {
     if (!applied) return [];
@@ -681,7 +763,11 @@ function ReportDetailPage() {
     setPhotosOpenByRecord({});
     setSummaryKey(null);
     setFiltersOpen(true);
-    forgetScroll(PAGE);
+    // Полный сброс: сохранённое состояние, прокрутка, «последняя страница
+    // раздела» — «Отчёты» в меню снова ведёт на /reports.
+    resetPageState(PAGE);
+    const el = document.getElementById("app-scroll-container");
+    if (el) el.scrollTop = 0;
   };
 
   const toggle = (arr: string[], set: (v: string[]) => void, id: string) =>

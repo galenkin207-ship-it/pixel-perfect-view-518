@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar, PageHeading } from "@/components/app/bits";
 import { DateInput } from "@/components/app/date-input";
+import { PageStateResetButton } from "@/components/app/page-state-reset";
 import { PhotoViewer } from "@/components/app/photo-viewer";
 import { WorkTypeRecordsModal } from "@/components/app/work-type-records-modal";
 import {
@@ -35,6 +36,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useModalClose } from "@/hooks/use-modal-close";
 import { api, photoThumbUrl } from "@/lib/api-client";
+import { PageStateScope, usePageState } from "@/lib/page-state";
 import { isMyRecord } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/state/use-app";
@@ -54,7 +56,7 @@ export const Route = createFileRoute("/objects/$id")({
       },
     ],
   }),
-  component: ObjectRecordsPage,
+  component: ObjectRecordsRoute,
 });
 
 type WorkSummaryPosition = {
@@ -295,6 +297,18 @@ function PhotoGrid({
   );
 }
 
+// Период на странице объекта на компьютере запоминается отдельно для каждого
+// объекта (lib/page-state.ts). key — чтобы при переходе к другому объекту
+// состояние читалось заново.
+function ObjectRecordsRoute() {
+  const { id } = useParams({ from: "/objects/$id" });
+  return (
+    <PageStateScope key={id} page={`/objects/${id}`}>
+      <ObjectRecordsPage />
+    </PageStateScope>
+  );
+}
+
 function ObjectRecordsPage() {
   const { id } = useParams({ from: "/objects/$id" });
   const {
@@ -318,8 +332,9 @@ function ObjectRecordsPage() {
   const canManage = role === "curator" || role === "admin";
   const isForeman = role === "user";
 
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const statePage = `/objects/${id}`;
+  const [dateFrom, setDateFrom] = usePageState(statePage, "dateFrom", "");
+  const [dateTo, setDateTo] = usePageState(statePage, "dateTo", "");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [positions, setPositions] = useState<WorkSummaryPosition[]>([]);
@@ -675,6 +690,9 @@ function ObjectRecordsPage() {
                 <DateInput value={dateTo} onChange={setDateTo} />
               </div>
             </label>
+            {hasActiveFilters && (
+              <PageStateResetButton page={statePage} className="mt-2" />
+            )}
           </div>
         </div>
 

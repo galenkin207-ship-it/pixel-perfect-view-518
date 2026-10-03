@@ -5,7 +5,9 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
+import { PageStateResetButton } from "@/components/app/page-state-reset";
 import { cn } from "@/lib/utils";
+import { PageStateScope, usePageState } from "@/lib/page-state";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/objects/archive")({
@@ -19,7 +21,11 @@ export const Route = createFileRoute("/objects/archive")({
       { property: "og:title", content: "Архив объектов — Учёт работ" },
     ],
   }),
-  component: ObjectsArchivePage,
+  component: () => (
+    <PageStateScope page="/objects/archive">
+      <ObjectsArchivePage />
+    </PageStateScope>
+  ),
 });
 
 function formatDate(iso: string | null) {
@@ -35,7 +41,8 @@ function formatDate(iso: string | null) {
 
 function ObjectsArchivePage() {
   const { objects, role, restoreObject } = useApp();
-  const [query, setQuery] = useState("");
+  // На компьютере поиск запоминается (lib/page-state.ts).
+  const [query, setQuery] = usePageState("/objects/archive", "query", "");
   const [busyId, setBusyId] = useState<string | null>(null);
   const canManage = role === "curator" || role === "admin";
 
@@ -49,7 +56,11 @@ function ObjectsArchivePage() {
 
   return (
     <AppShell>
-      <PageHeading context="История" title="Архив объектов" />
+      <PageHeading
+        context="История"
+        title="Архив объектов"
+        action={<PageStateResetButton page="/objects/archive" />}
+      />
 
       <div className="relative mt-4 w-full max-w-xl lg:max-w-2xl xl:max-w-3xl">
         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />

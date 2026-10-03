@@ -115,6 +115,10 @@ export function resetPageState(page: string) {
   delete store.pages[page];
   delete store.pages[SCROLL_PAGE]?.[page];
   delete store.pages[NAV_PAGE]?.[page];
+  const sections = store.pages[SECTION_PAGE];
+  if (sections) {
+    for (const [root, sub] of Object.entries(sections)) if (sub === page) delete sections[root];
+  }
   versions.set(page, (versions.get(page) ?? 0) + 1);
   schedulePersist();
   emit();
@@ -217,4 +221,15 @@ export function writeNavSearch(pathname: string, search: Record<string, unknown>
   const prev = readNavSearch(pathname);
   if (prev && JSON.stringify(prev) === JSON.stringify(search)) return;
   writePageState(NAV_PAGE, pathname, search);
+}
+
+// --- Последняя подстраница раздела меню (Отчёты → подробный отчёт) ---
+const SECTION_PAGE = "__section";
+
+export function readSectionSub(root: string): string | undefined {
+  const v = readPageState<string>(SECTION_PAGE, root);
+  return typeof v === "string" ? v : undefined;
+}
+export function writeSectionSub(root: string, path: string) {
+  writePageState(SECTION_PAGE, root, path);
 }

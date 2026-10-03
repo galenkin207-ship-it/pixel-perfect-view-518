@@ -21,8 +21,10 @@ import {
   isDesktopNow,
   readNavSearch,
   readScroll,
+  readSectionSub,
   writeNavSearch,
   writeScroll,
+  writeSectionSub,
 } from "@/lib/page-state";
 import { cn } from "@/lib/utils";
 import { roleLabels, type Role } from "@/data/mock";
@@ -39,7 +41,12 @@ type NavItem = { to: string; label: string; icon: typeof Building2; badge?: numb
 // Разделы, у которых фильтры живут в URL: ссылка левого меню ведёт на их
 // последний URL (на компьютере), а не на «чистый» раздел. /messages сюда не
 // входит — его параметры открывают конкретную заявку (модалку).
-const NAV_SEARCH_PATHS = new Set(["/reports", "/reports/all"]);
+const NAV_SEARCH_PATHS = new Set(["/reports", "/reports/all", "/reports/detail"]);
+// Пункт меню → его подстраницы. Из другого раздела пункт ведёт на последнюю
+// открытую подстраницу (с её URL), изнутри раздела — на корень.
+const NAV_SECTIONS: Record<string, string[]> = {
+  "/reports": ["/reports", "/reports/detail"],
+};
 // Прокрутку не запоминаем у форм и экранов входа.
 const noScrollMemory = (path: string) =>
   path.startsWith("/records/") || path === "/login" || path === "/reset-password";
@@ -86,7 +93,8 @@ export function AppShell({
   const unreadDone =
     role === "user"
       ? requests.filter(
-          (r) => r.status === "approved" && r.work_type && !readNotificationIds.has(`${r.id}-approved`),
+          (r) =>
+            r.status === "approved" && r.work_type && !readNotificationIds.has(`${r.id}-approved`),
         ).length
       : 0;
 
@@ -117,6 +125,21 @@ export function AppShell({
     { to: "/profile/manage/users", label: "Пользователи", icon: Users },
     { to: "/profile", label: "Настройки", icon: Settings },
   ];
+
+  // Ссылки и подсветка левого меню (только компьютер, см. NAV_SECTIONS).
+  const sidebarLink = (to: string): { to: string; search?: Record<string, unknown> } => {
+    if (!desktop) return { to };
+    const sub = NAV_SECTIONS[to];
+    let target = to;
+    if (sub && !sub.includes(pathname)) {
+      const last = readSectionSub(to);
+      if (last && sub.includes(last)) target = last;
+    }
+    const search = NAV_SEARCH_PATHS.has(target) ? readNavSearch(target) : undefined;
+    return search ? { to: target, search } : { to: target };
+  };
+  const sidebarActive = (to: string) =>
+    desktop && NAV_SECTIONS[to] ? NAV_SECTIONS[to].includes(pathname) : isActive(to);
 
   const isActive = (to: string) =>
     to === "/"
@@ -162,9 +185,26 @@ export function AppShell({
             )}
           </Link>
 
-          <NavGroup title="Главная" items={isAdminLike ? home : [tabs[0]!]} isActive={isActive} />
-          <NavGroup title="Аналитика" items={tabs.slice(1, 2)} isActive={isActive} />
-          {isAdminLike && <NavGroup title="Управление" items={manage} isActive={isActive} />}
+          <NavGroup
+            title="Главная"
+            items={isAdminLike ? home : [tabs[0]!]}
+            isActive={sidebarActive}
+            linkFor={sidebarLink}
+          />
+          <NavGroup
+            title="Аналитика"
+            items={tabs.slice(1, 2)}
+            isActive={sidebarActive}
+            linkFor={sidebarLink}
+          />
+          {isAdminLike && (
+            <NavGroup
+              title="Управление"
+              items={manage}
+              isActive={sidebarActive}
+              linkFor={sidebarLink}
+            />
+          )}
           <NavGroup
             title={isAdminLike ? "Администрирование" : "Разделы"}
             items={
@@ -178,7 +218,8 @@ export function AppShell({
                     tabs[3]!,
                   ]
             }
-            isActive={isActive}
+            isActive={sidebarActive}
+            linkFor={sidebarLink}
           />
 
           <div className="mt-auto space-y-3 pt-4">
@@ -347,10 +388,12 @@ function NavGroup({
   title,
   items,
   isActive,
+  linkFor,
 }: {
   title: string;
   items: NavItem[];
   isActive: (to: string) => boolean;
+  linkFor: (to: string) => { to: string; search?: Record<string, unknown> };
 }) {
   return (
     <div className="mb-5">
@@ -358,13 +401,12 @@ function NavGroup({
       <ul className="mt-2 space-y-1">
         {items.map((item) => {
           const active = isActive(item.to);
+          const link = linkFor(item.to);
           return (
             <li key={item.to + item.label}>
               <Link
-                to={item.to}
-                {...(NAV_SEARCH_PATHS.has(item.to) && readNavSearch(item.to)
-                  ? { search: readNavSearch(item.to) as never }
-                  : {})}
+                to={link.to}
+                {...(link.search ? { search: link.search as never } : {})}
                 className={cn(
                   "flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
                   active ? "bg-accent font-semibold text-accent-foreground" : "hover:bg-muted",
@@ -408,6 +450,12 @@ function usePageMemory(
   useEffect(() => {
     if (desktop && NAV_SEARCH_PATHS.has(pathname)) writeNavSearch(pathname, search);
   }, [desktop, pathname, search]);
+  useEffect(() => {
+    if (!desktop) return;
+    for (const [root, subs] of Object.entries(NAV_SECTIONS)) {
+      if (subs.includes(pathname)) writeSectionSub(root, pathname);
+    }
+  }, [desktop, pathname]);
 
   // Восстановление: несколько кадров подряд держим сохранённую позицию —
   // пока дорисовывается содержимое и пока роутер делает свой scroll-to-top.
@@ -433,7 +481,8 @@ function usePageMemory(
     const tick = () => {
       if (stopped) return finish();
       if (Math.abs(el.scrollTop - target) > 1) el.scrollTop = target;
-      if (performance.now() - start < 700) raf = requestAnimationFrame(tick);
+      // ~1.2 с: часть страниц (объект) догружает данные с сервера.
+      if (performance.now() - start < 1200) raf = requestAnimationFrame(tick);
       else finish();
     };
     tick();
