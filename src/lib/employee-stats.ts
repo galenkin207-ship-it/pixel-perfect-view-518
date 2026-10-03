@@ -88,6 +88,56 @@ export function employeeObjects(
 
 export type EmployeeWorkRow = { name: string; unit: string; qty: number; sum: number };
 
+/** Ключ позиции в сводных таблицах: название + ед. изм. (не id — он разный на staging/prod,
+ * а у legacy-позиций его нет вовсе). Так же группируют и сами таблицы. */
+export function workTypeKey(name: string, unit: string) {
+  return `${name}||${unit}`;
+}
+
+/** Одна строка детализации по виду работ: позиция из конкретной записи. */
+export type WorkTypeEntry = {
+  id: string;
+  record: WorkRecord;
+  /** ISO yyyy-mm-dd — для сортировки. */
+  iso: string;
+  qty: number;
+  sum: number;
+  /** Чей объём: сотрудник, по которому фильтровали, либо все участники позиции. */
+  employees: string[];
+};
+
+function toIso(d: string) {
+  const [dd, mm, yyyy] = d.split(".");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+export function makeEntry(
+  record: WorkRecord,
+  itemIndex: number,
+  qty: number,
+  price: number,
+  employees: string[],
+): WorkTypeEntry {
+  return {
+    id: `${record.id}:${itemIndex}`,
+    record,
+    iso: toIso(record.date),
+    qty,
+    sum: qty * price,
+    employees,
+  };
+}
+
+/** Новые сверху; внутри дня — по времени записи. */
+export function sortEntriesDesc(entries: WorkTypeEntry[]) {
+  return [...entries].sort(
+    (a, b) =>
+      b.iso.localeCompare(a.iso) ||
+      (b.record.time ?? "").localeCompare(a.record.time ?? "") ||
+      b.record.id.localeCompare(a.record.id),
+  );
+}
+
 /** Работы сотрудника на объекте, сгруппированные по виду работ + ед. изм., по сумме ↓. */
 export function employeeObjectWorks(
   records: WorkRecord[],
@@ -99,7 +149,7 @@ export function employeeObjectWorks(
     records.filter((r) => r.object_id === objectId),
     employee,
     (_r, item, qty) => {
-      const key = `${item.name}||${item.unit}`;
+      const key = workTypeKey(item.name, item.unit);
       const row = map.get(key);
       if (row) {
         row.qty += qty;
@@ -110,6 +160,28 @@ export function employeeObjectWorks(
     },
   );
   return Array.from(map.values()).sort((a, b) => b.sum - a.sum);
+}
+
+/**
+ * Записи, из которых собрана строка employeeObjectWorks: тот же обход долей
+ * (forEachEmployeeShare), поэтому сумма объёмов/денег совпадает со строкой.
+ */
+export function employeeObjectWorkEntries(
+  records: WorkRecord[],
+  employee: string,
+  objectId: string,
+  key: string,
+): WorkTypeEntry[] {
+  const out: WorkTypeEntry[] = [];
+  forEachEmployeeShare(
+    records.filter((r) => r.object_id === objectId),
+    employee,
+    (r, item, qty) => {
+      if (workTypeKey(item.name, item.unit) !== key) return;
+      out.push(makeEntry(r, r.items.indexOf(item), qty, item.price, [employee]));
+    },
+  );
+  return out;
 }
 
 export function formatQty(n: number) {

@@ -10,17 +10,26 @@ import {
   X,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { DateInput } from "@/components/app/date-input";
+import { pickableRowClass, pickProps } from "@/components/app/employee-object-works";
 import { PhotoViewer } from "@/components/app/photo-viewer";
 import { SearchableSelect } from "@/components/app/searchable-select";
+import { WorkTypeBreakdownModal } from "@/components/app/work-type-breakdown-modal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useModalClose } from "@/hooks/use-modal-close";
 import { photoThumbUrl, ruToIso } from "@/lib/api-client";
+import {
+  formatPeriod,
+  formatQty,
+  makeEntry,
+  workTypeKey,
+  type WorkTypeEntry,
+} from "@/lib/employee-stats";
 import { allocationsFor, itemQty, recordTotal } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
 import type { WorkItem, WorkRecord } from "@/data/mock";
@@ -164,6 +173,9 @@ function ReportDetailPage() {
   const [expandedItemsByRecord, setExpandedItemsByRecord] = useState<Record<string, string[]>>({});
   const [photosOpenByRecord, setPhotosOpenByRecord] = useState<Record<string, boolean>>({});
   const [filtersOpen, setFiltersOpen] = useState(!hasInitial);
+  // Детализация строки «Сводной таблицы по видам работ» (ключ name||unit).
+  const [summaryKey, setSummaryKey] = useState<string | null>(null);
+  const closeSummary = useCallback(() => setSummaryKey(null), []);
 
   // При переходе между мобильными "экранами" (список/день) страница
   // рендерится в том же контейнере, реальной навигации не происходит — поэтому
@@ -244,7 +256,7 @@ function ReportDetailPage() {
             ? employeeItemQty(item, applied.employee, crew)
             : itemQty(item);
           if (!qty) continue;
-          const key = `${item.name}||${item.unit}`;
+          const key = workTypeKey(item.name, item.unit);
           const prev = map.get(key) ?? {
             name: item.name,
             unit: item.unit,
@@ -263,6 +275,48 @@ function ReportDetailPage() {
       .map((s) => ({ ...s, qty: Math.round(s.qty * 100) / 100 }))
       .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
   }, [days, applied]);
+
+  // Позиции, из которых собрана строка сводной: тот же обход и тот же объём
+  // (доля сотрудника из фильтра либо весь объём), что и в summary выше.
+  const summaryEntriesFor = useCallback(
+    (key: string) => {
+      const out: WorkTypeEntry[] = [];
+      for (const day of days) {
+        for (const r of day.records) {
+          const crew = crewOf(r);
+          r.items.forEach((item, i) => {
+            if (workTypeKey(item.name, item.unit) !== key) return;
+            const qty = applied?.employee
+              ? employeeItemQty(item, applied.employee, crew)
+              : itemQty(item);
+            if (!qty) return;
+            const allocs = item.allocations?.length ? item.allocations : allocationsFor(item, crew);
+            const who = applied?.employee
+              ? [applied.employee]
+              : allocs.filter((a) => a.qty > 0).map((a) => a.employee);
+            out.push(makeEntry(r, i, qty, item.price, who.length ? who : crew));
+          });
+        }
+      }
+      return out;
+    },
+    [days, applied],
+  );
+  const summaryNavRows = useMemo(
+    () => summary.map((s) => ({ key: workTypeKey(s.name, s.unit), name: s.name, unit: s.unit })),
+    [summary],
+  );
+  const summaryContext = applied
+    ? [
+        applied.objectId
+          ? (objects.find((o) => o.id === applied.objectId)?.name ?? applied.objectId)
+          : "Все объекты",
+        applied.employee,
+        applied.submitter && `подал: ${applied.submitter}`,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
 
   const exportExcel = async () => {
     const NAVY = "FF2E4A6B";
@@ -607,6 +661,7 @@ function ReportDetailPage() {
     setDayPhotoViewer(null);
     setExpandedItemsByRecord({});
     setPhotosOpenByRecord({});
+    setSummaryKey(null);
     setFiltersOpen(true);
   };
 
@@ -1038,56 +1093,94 @@ function ReportDetailPage() {
                 <h3 className="font-bold">Сводная таблица по видам работ</h3>
                 <p className="text-xs text-muted-foreground">Объёмы со всех дней объединены</p>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-surface/60 text-left text-xs text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-2 font-semibold">Вид работы</th>
-                      <th className="px-4 py-2 text-right font-semibold">Объём</th>
-                      <th className="px-4 py-2 text-right font-semibold">Записей</th>
-                      {isAdminLike && <th className="px-4 py-2 text-right font-semibold">Сумма</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {summary.map((s) => (
-                      <tr
-                        key={`${s.name}-${s.unit}`}
-                        className="border-t border-border transition-colors hover:bg-surface/60"
-                      >
-                        <td className="px-4 py-2.5 font-medium break-words">{s.name}</td>
-                        <td className="px-4 py-2.5 text-right font-mono font-bold whitespace-nowrap">
-                          {s.qty} {s.unit}
-                        </td>
-                        <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">
-                          {s.count}
-                        </td>
-                        {isAdminLike && (
-                          <td className="px-4 py-2.5 text-right font-mono font-bold text-primary whitespace-nowrap">
-                            {money(s.total)}
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                  {isAdminLike && (
-                    <tfoot>
-                      <tr className="border-t border-border bg-surface/60">
-                        <td className="px-4 py-2.5 font-bold" colSpan={3}>
-                          Итого
-                        </td>
-                        <td className="px-4 py-2.5 text-right font-mono font-bold text-primary whitespace-nowrap">
-                          {money(summary.reduce((s, r) => s + r.total, 0))}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
-              </div>
+              <SummaryTable summary={summary} showMoney={isAdminLike} onPick={setSummaryKey} />
             </div>
           )}
         </section>
       )}
+      {summaryKey && applied && (
+        <WorkTypeBreakdownModal
+          title="Сводная таблица по видам работ"
+          context={summaryContext}
+          period={formatPeriod(applied.from, applied.to)}
+          rows={summaryNavRows}
+          initialKey={summaryKey}
+          showMoney={isAdminLike}
+          qtyDecimals={2}
+          entriesFor={summaryEntriesFor}
+          renderList={(pick) => (
+            <div className="overflow-hidden rounded-xl border border-border">
+              <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
+                {summaryContext} · {formatPeriod(applied.from, applied.to)}
+              </p>
+              <SummaryTable summary={summary} showMoney={isAdminLike} onPick={pick} />
+            </div>
+          )}
+          onClose={closeSummary}
+        />
+      )}
     </AppShell>
+  );
+}
+
+/** «Сводная таблица по видам работ»; строки открывают детализацию по виду работ. */
+function SummaryTable({
+  summary,
+  showMoney,
+  onPick,
+}: {
+  summary: SummaryRow[];
+  showMoney: boolean;
+  onPick: (key: string) => void;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-surface/60 text-left text-xs text-muted-foreground">
+          <tr>
+            <th className="px-4 py-2 font-semibold">Вид работы</th>
+            <th className="px-4 py-2 text-right font-semibold">Объём</th>
+            <th className="px-4 py-2 text-right font-semibold">Записей</th>
+            {showMoney && <th className="px-4 py-2 text-right font-semibold">Сумма</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {summary.map((s) => (
+            <tr
+              key={`${s.name}-${s.unit}`}
+              {...pickProps(onPick, workTypeKey(s.name, s.unit))}
+              className={cn("border-t border-border transition-colors", pickableRowClass)}
+            >
+              <td className="px-4 py-2.5 font-medium break-words">
+                {s.name}
+                <ChevronRight className="ml-1 inline size-3.5 align-[-2px] text-muted-foreground" />
+              </td>
+              <td className="px-4 py-2.5 text-right font-mono font-bold whitespace-nowrap">
+                {formatQty(s.qty)} {s.unit}
+              </td>
+              <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{s.count}</td>
+              {showMoney && (
+                <td className="px-4 py-2.5 text-right font-mono font-bold text-primary whitespace-nowrap">
+                  {money(s.total)}
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+        {showMoney && (
+          <tfoot>
+            <tr className="border-t border-border bg-surface/60">
+              <td className="px-4 py-2.5 font-bold" colSpan={3}>
+                Итого
+              </td>
+              <td className="px-4 py-2.5 text-right font-mono font-bold text-primary whitespace-nowrap">
+                {money(summary.reduce((s, r) => s + r.total, 0))}
+              </td>
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    </div>
   );
 }
 
@@ -1364,11 +1457,7 @@ function RecordDetailBlock({
               onClick={() => setPreviewIndex(i)}
               className="size-24 shrink-0 overflow-hidden rounded-xl border border-border bg-muted"
             >
-              <img
-                src={photoThumbUrl(p)}
-                alt="Фото к записи"
-                className="size-full object-cover"
-              />
+              <img src={photoThumbUrl(p)} alt="Фото к записи" className="size-full object-cover" />
             </button>
           ))}
           {record.photos.length === 0 && (

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ChevronRight } from "lucide-react";
 
@@ -7,12 +7,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { DateInput } from "@/components/app/date-input";
 import { SearchableSelect } from "@/components/app/searchable-select";
-import {
-  EmployeeObjectWorks,
-  useEmployeeObjectTitle,
-} from "@/components/app/employee-object-works";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { EmployeeObjectWorksModal } from "@/components/app/employee-object-works";
 import {
   crewOf,
   employeeObjects,
@@ -220,10 +215,10 @@ function ReportsPage() {
   const setStatsOpen = (open: boolean) => setStatsSearch({ stats: open ? "1" : undefined });
   const expandedStatsKey = search.sExp ?? null;
   const setExpandedStatsKey = (key: string | null) => setStatsSearch({ sExp: key ?? undefined });
-  const isMobile = useIsMobile();
   const [worksDialog, setWorksDialog] = useState<{ employee: string; objectId: string } | null>(
     null,
   );
+  const closeWorksDialog = useCallback(() => setWorksDialog(null), []);
   const [rObject, setRObject] = useState("");
   const [rEmployee, setREmployee] = useState("");
   const [rSubmitter, setRSubmitter] = useState("");
@@ -1009,16 +1004,11 @@ function ReportsPage() {
         : [],
     [grouping, expandedStatsKey, statsInRange, objects],
   );
-  const openEmployeeObject = (employee: string, objectId: string) => {
-    if (isMobile) {
-      void navigate({
-        to: "/reports/employee-object",
-        search: { employee, objectId, from: statsFrom, to: statsTo },
-      });
-    } else {
-      setWorksDialog({ employee, objectId });
-    }
-  };
+  // И на телефоне — модалка поверх страницы, а не переход на
+  // /reports/employee-object: страница не перемонтируется, раскрытый
+  // сотрудник, период и прокрутка остаются на месте после закрытия.
+  const openEmployeeObject = (employee: string, objectId: string) =>
+    setWorksDialog({ employee, objectId });
   const statsMaxValue = Math.max(1, ...statsRows.map((r) => r.totalValue));
   const statsTotalPositions = statsRows.reduce((s, r) => s + r.positions, 0);
 
@@ -1436,31 +1426,16 @@ function ReportsPage() {
           Все записи — таблица с фильтрами →
         </Link>
       </section>
-      <Dialog open={!!worksDialog} onOpenChange={(open) => !open && setWorksDialog(null)}>
-        <DialogContent className="max-h-[85dvh] max-w-2xl rounded-2xl" aria-describedby={undefined}>
-          {worksDialog && (
-            <WorksDialogBody
-              employee={worksDialog.employee}
-              objectId={worksDialog.objectId}
-              from={statsFrom}
-              to={statsTo}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {worksDialog && (
+        <EmployeeObjectWorksModal
+          employee={worksDialog.employee}
+          objectId={worksDialog.objectId}
+          from={statsFrom}
+          to={statsTo}
+          onClose={closeWorksDialog}
+        />
+      )}
     </AppShell>
-  );
-}
-
-function WorksDialogBody(props: { employee: string; objectId: string; from: string; to: string }) {
-  const title = useEmployeeObjectTitle(props.employee, props.objectId);
-  return (
-    <div className="min-w-0">
-      <DialogTitle className="pr-6 text-lg leading-snug font-bold break-words">{title}</DialogTitle>
-      <div className="mt-1">
-        <EmployeeObjectWorks {...props} />
-      </div>
-    </div>
   );
 }
 
