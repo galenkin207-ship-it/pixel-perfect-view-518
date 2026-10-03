@@ -1,4 +1,12 @@
-import { ArrowLeft, Camera, ChevronLeft, ChevronRight, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Camera,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  Pencil,
+  X,
+} from "lucide-react";
 import { motion, useAnimate } from "framer-motion";
 import {
   type ReactNode,
@@ -12,11 +20,31 @@ import {
 import { createPortal } from "react-dom";
 
 import { PhotoViewer } from "@/components/app/photo-viewer";
+import { RecordForm } from "@/components/app/record-form";
+import { StatusBadge } from "@/components/app/status-badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useModalClose } from "@/hooks/use-modal-close";
 import { photoThumbUrl } from "@/lib/api-client";
 import { formatMoney, formatQty, sortEntriesDesc, type WorkTypeEntry } from "@/lib/employee-stats";
+import { canEditRecord } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/state/use-app";
+
+// Оверлеи, которые открываются поверх модалки порталом в body (выбор вида
+// работ в форме, календарь, меню ⋯, PhotoViewer). Пока такой есть, Esc и
+// стрелки — его, а не модалки.
+const OVERLAY_SEL = '.fixed, [role="dialog"], [data-radix-popper-content-wrapper]';
+function isTopmost(el: HTMLElement | null) {
+  for (let n = el?.nextElementSibling; n; n = n.nextElementSibling) {
+    if (n.matches(OVERLAY_SEL) || n.querySelector(OVERLAY_SEL)) return false;
+  }
+  return true;
+}
 
 export type BreakdownRow = { key: string; name: string; unit: string };
 
@@ -63,19 +91,45 @@ export function WorkTypeBreakdownModal({
   renderList: (pick: (key: string) => void) => ReactNode;
   onClose: () => void;
 }) {
-  const { objects } = useApp();
+  const { objects, records, role, currentUser } = useApp();
   const [activeKey, setActiveKey] = useState<string | null>(initialKey);
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [photo, setPhoto] = useState<{ photos: string[]; index: number } | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const { closing, requestClose } = useModalClose(onClose);
   const [panelRef, animatePanel] = useAnimate<HTMLDivElement>();
+  const overlayRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const listScrollTop = useRef(0);
   const firstRender = useRef(true);
 
   const index = activeKey ? rows.findIndex((r) => r.key === activeKey) : -1;
-  const row = index >= 0 ? rows[index] : undefined;
+  // После правки записи вид работ может пропасть из таблицы (последнюю запись
+  // перенесли на другой вид/объект/дату) — остаёмся в детализации с пустым
+  // списком, помня, где он стоял, чтобы ‹ › продолжали работать.
+  const lastRow = useRef<{ row: BreakdownRow; index: number } | null>(null);
+  if (index >= 0) lastRow.current = { row: rows[index]!, index };
+  const row =
+    index >= 0
+      ? rows[index]
+      : activeKey && lastRow.current?.row.key === activeKey
+        ? lastRow.current.row
+        : undefined;
   const detail = !!row;
+  const lastIndex = lastRow.current?.index ?? 0;
+  const targetIndex = (delta: number) =>
+    index >= 0 ? index + delta : delta > 0 ? lastIndex : lastIndex - 1;
+
+  const editRecord = editId ? records.find((r) => r.id === editId) : undefined;
+  const closeForm = useCallback(() => {
+    setEditId(null);
+    // Фокус обратно в окно — для ← → / Esc; не синхронно (iOS).
+    requestAnimationFrame(() => panelRef.current?.focus({ preventScroll: true }));
+  }, [panelRef]);
+  // Запись удалили/она пропала из данных — форму закрываем.
+  useEffect(() => {
+    if (editId && !editRecord) setEditId(null);
+  }, [editId, editRecord]);
 
   const entries = useMemo(() => (row ? entriesFor(row.key) : []), [row, entriesFor]);
   // Итог — из тех же позиций, что в списке ниже (до сортировки, в порядке обхода
@@ -99,13 +153,12 @@ export function WorkTypeBreakdownModal({
     setActiveKey(key);
   }, []);
   const backToList = () => setActiveKey(null);
-  const go = useCallback(
-    (delta: number) => {
-      const next = rows[index + delta];
-      if (next) setActiveKey(next.key);
-    },
-    [rows, index],
-  );
+  const go = (delta: number) => {
+    const next = rows[targetIndex(delta)];
+    if (next) setActiveKey(next.key);
+  };
+  const goRef = useRef(go);
+  goRef.current = go;
 
   // Смена режима/позиции: страница списка — с начала, прокрутка — наверх
   // (в списке — туда, где была до клика).
@@ -147,33 +200,36 @@ export function WorkTypeBreakdownModal({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Открыт просмотр фото — клавиши его (у него свои ← → и Esc).
-      if (photo || closing) return;
+      // Открыт просмотр фото, меню, календарь или выбор вида работ — клавиши его.
+      if (photo || closing || !isTopmost(overlayRef.current)) return;
       if (e.key === "Escape") {
         e.preventDefault();
-        requestClose();
+        // Открыта форма — Esc закрывает только её.
+        if (editId) closeForm();
+        else requestClose();
         return;
       }
-      if (!detail) return;
+      if (!detail || editId) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       if (e.key === "ArrowLeft") {
         e.preventDefault();
-        go(-1);
+        goRef.current(-1);
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
-        go(1);
+        goRef.current(1);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [photo, closing, detail, go, requestClose]);
+  }, [photo, closing, detail, editId, closeForm, requestClose]);
 
   const navBtn =
     "flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card transition-colors hover:bg-surface disabled:pointer-events-none disabled:opacity-35 sm:size-9";
 
   return createPortal(
     <motion.div
+      ref={overlayRef}
       data-pull-refresh-ignore
       data-no-swipe-nav
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:p-6"
@@ -214,19 +270,19 @@ export function WorkTypeBreakdownModal({
                   <button
                     type="button"
                     onClick={() => go(-1)}
-                    disabled={index <= 0}
+                    disabled={targetIndex(-1) < 0}
                     aria-label="Предыдущий вид работ"
                     className={navBtn}
                   >
                     <ChevronLeft className="size-5" />
                   </button>
                   <span className="min-w-[4.5rem] text-center font-mono text-xs text-muted-foreground">
-                    {index + 1} из {rows.length}
+                    {index >= 0 ? index + 1 : "—"} из {rows.length}
                   </span>
                   <button
                     type="button"
                     onClick={() => go(1)}
-                    disabled={index >= rows.length - 1}
+                    disabled={targetIndex(1) >= rows.length}
                     aria-label="Следующий вид работ"
                     className={navBtn}
                   >
@@ -283,9 +339,19 @@ export function WorkTypeBreakdownModal({
               </div>
 
               {sorted.length === 0 ? (
-                <p className="mt-6 text-center text-sm text-muted-foreground">
-                  Записей с этим видом работ за период нет.
-                </p>
+                <div className="mt-6 flex flex-col items-center gap-3 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Записей с этим видом работ за период нет.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={backToList}
+                    className="flex h-11 items-center gap-1.5 rounded-xl border border-border px-4 text-sm font-semibold transition-colors hover:bg-surface"
+                  >
+                    <ArrowLeft className="size-4" />
+                    Назад к списку
+                  </button>
+                </div>
               ) : (
                 <ul className="mt-4 divide-y divide-border overflow-hidden rounded-xl border border-border">
                   {sorted.slice(0, visible).map((e) => (
@@ -296,6 +362,9 @@ export function WorkTypeBreakdownModal({
                       showMoney={showMoney}
                       objectName={objectName(e.record.object_id)}
                       onPhoto={() => setPhoto({ photos: e.record.photos, index: 0 })}
+                      {...(canEditRecord(role, currentUser, e.record)
+                        ? { onEdit: () => setEditId(e.record.id) }
+                        : {})}
                     />
                   ))}
                 </ul>
@@ -314,6 +383,40 @@ export function WorkTypeBreakdownModal({
           )}
         </div>
       </div>
+
+      {/* Форма правки — поверх окна детализации, само окно (вид работ,
+          прокрутка списка) под ней не трогаем. Закрытие по фону не делаем,
+          чтобы случайным тапом не потерять правки: только ✕, Esc, кнопки формы. */}
+      {editRecord && (
+        <div
+          data-pull-refresh-ignore
+          data-no-swipe-nav
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-2 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:p-6"
+        >
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Редактирование записи"
+            className="flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl sm:h-[92dvh] sm:max-w-3xl"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
+            <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2 sm:px-5">
+              <p className="min-w-0 flex-1 truncate text-sm font-semibold text-muted-foreground">
+                Запись от {editRecord.date}
+              </p>
+              <CloseButton onClick={closeForm} />
+            </div>
+            <div
+              className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-5"
+              style={{ overscrollBehaviorY: "contain" }}
+            >
+              <RecordForm key={editRecord.id} record={editRecord} onFinish={closeForm} />
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {photo && (
         <PhotoViewer
@@ -375,12 +478,15 @@ function EntryRow({
   showMoney,
   objectName,
   onPhoto,
+  onEdit,
 }: {
   entry: WorkTypeEntry;
   unit: string;
   showMoney: boolean;
   objectName: string;
   onPhoto: () => void;
+  /** Есть только у тех, кому можно править эту запись (canEditRecord). */
+  onEdit?: () => void;
 }) {
   const r = entry.record;
   const photos = r.photos.length;
@@ -404,6 +510,7 @@ function EntryRow({
               {formatMoney(entry.sum)}
             </span>
           )}
+          {r.status === "draft" && <StatusBadge status={r.status} className="py-0.5" />}
         </div>
         <dl className="mt-1 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-2 text-xs text-muted-foreground">
           <dt>Сотрудник:</dt>
@@ -432,6 +539,32 @@ function EntryRow({
             {photos}
           </span>
         </button>
+      )}
+      {onEdit && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Действия с записью"
+              onClick={(e) => e.stopPropagation()}
+              className="-mr-1 flex size-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-surface data-[state=open]:bg-surface"
+            >
+              <MoreHorizontal className="size-5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            data-pull-refresh-ignore
+            className="z-[60] min-w-[10rem]"
+            // Фокус после закрытия меню уходит в форму, а не обратно на ⋯.
+            onCloseAutoFocus={(e) => e.preventDefault()}
+          >
+            <DropdownMenuItem onSelect={onEdit} className="min-h-10 gap-2">
+              <Pencil className="size-4" />
+              Изменить
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </li>
   );

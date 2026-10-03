@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import { toast } from "sonner";
 
 import { FieldLabel, PageHeading } from "@/components/app/bits";
+import { DateInput } from "@/components/app/date-input";
 import { EmployeeSelect } from "@/components/app/employee-select";
 import { NumberField } from "@/components/app/number-field";
 import { ObjectSelect } from "@/components/app/object-select";
@@ -129,6 +130,7 @@ export function RecordForm({
   returnSearch,
   addWorkTypeId,
   onAddWorkTypeDone,
+  onFinish,
 }: {
   record?: WorkRecord;
   defaultObjectId?: string;
@@ -145,6 +147,10 @@ export function RecordForm({
   // а не на страницу объекта по умолчанию.
   returnTo?: string;
   returnSearch?: string;
+  // Форма открыта поверх другого экрана (детализация по виду работ в отчётах):
+  // после сохранения/отмены/удаления не уходим со страницы, а просто закрываем
+  // форму — вызывающий сам решает, что показать дальше.
+  onFinish?: () => void;
 }) {
   const navigate = useNavigate();
   const {
@@ -183,6 +189,7 @@ export function RecordForm({
   const lastAddSignatureRef = useRef<string | null>(null);
   const lastAddTimeRef = useRef(0);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [deletingPhoto, setDeletingPhoto] = useState<string | null>(null);
   const [dateIso, setDateIso] = useState(() => toIso(record?.date));
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -427,6 +434,10 @@ export function RecordForm({
   // "Все записи") — возвращаемся туда с восстановлением её фильтров вместо
   // перехода на страницу объекта. Иначе — прежнее поведение по умолчанию.
   const navigateAfterAction = (fallbackWhenNoObject: "/reports/all" | "/") => {
+    if (onFinish) {
+      onFinish();
+      return;
+    }
     if (returnTo === "reports-all") {
       let parsedSearch: Record<string, unknown> = {};
       if (returnSearch) {
@@ -455,6 +466,10 @@ export function RecordForm({
       toast.error("Добавьте хотя бы один вид работы");
       return;
     }
+
+    // Двойное нажатие: disabled на кнопке появляется только после ререндера.
+    if (savingRef.current) return;
+    savingRef.current = true;
 
     if (compressionPromiseRef.current) await compressionPromiseRef.current;
 
@@ -491,6 +506,7 @@ export function RecordForm({
       const detail = err instanceof Error ? err.message : String(err);
       toast.error(`Не удалось сохранить запись: ${detail}`);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -713,12 +729,7 @@ export function RecordForm({
       <div className="mt-5 w-full space-y-5 xl:max-w-5xl 2xl:max-w-none">
         <div>
           <FieldLabel>Дата работ</FieldLabel>
-          <input
-            type="date"
-            value={dateIso}
-            onChange={(e) => setDateIso(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm"
-          />
+          <DateInput value={dateIso} onChange={setDateIso} className="mt-1 py-3" />
         </div>
 
         <div>
