@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { DateInput } from "@/components/app/date-input";
+import { PageStateResetButton } from "@/components/app/page-state-reset";
 import { RecordCard } from "@/components/app/record-card";
 import { RecordDetail } from "@/components/app/record-detail";
 import { SearchableSelect } from "@/components/app/searchable-select";
@@ -58,8 +59,7 @@ function AllRecordsPage() {
   const { records, objects, employees, submitterNames, workTypes } = useApp();
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { object: objectId, status, query, submitter, performer, dateFrom, dateTo, page } =
-    search;
+  const { object: objectId, status, query, submitter, performer, dateFrom, dateTo, page } = search;
   const [openId, setOpenId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const openRecord = records.find((r) => r.id === openId) ?? null;
@@ -173,21 +173,12 @@ function AllRecordsPage() {
     });
   };
 
-  const Pagination = ({ withClear = false }: { withClear?: boolean } = {}) => (
+  const Pagination = () => (
     <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
       <span>
         Показано {filtered.length === 0 ? 0 : pageStart + 1}–
         {Math.min(pageStart + PAGE_SIZE, filtered.length)} из {filtered.length} записей
       </span>
-      {withClear && (hasActiveFilters || currentPage > 1) && (
-        <button
-          onClick={clearFilters}
-          className="hidden items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground desktop:flex"
-        >
-          <X className="size-3.5" />
-          Очистить
-        </button>
-      )}
       <span className="flex items-center gap-2">
         <button
           onClick={() => goToPage(currentPage - 1)}
@@ -219,12 +210,19 @@ function AllRecordsPage() {
               Выполненные работы по всем объектам
             </p>
           </div>
-          <Link
-            to="/records/new"
-            className="hidden rounded-xl bg-primary px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-[0_10px_20px_-6px_rgba(15,23,42,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:shadow-[0_16px_28px_-6px_rgba(15,23,42,0.55)] active:translate-y-0 active:scale-100 desktop:block"
-          >
-            Новая запись
-          </Link>
+          <div className="hidden items-center gap-3 desktop:flex">
+            {/* Полный сброс раздела (как «Сбросить» в Отчётах) — только компьютер;
+                на телефоне своя «Очистить» рядом с кнопкой фильтров. */}
+            {(hasActiveFilters || currentPage > 1) && (
+              <PageStateResetButton page="/reports/all" label="Очистить" onReset={clearFilters} />
+            )}
+            <Link
+              to="/records/new"
+              className="hidden rounded-xl bg-primary px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-[0_10px_20px_-6px_rgba(15,23,42,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:shadow-[0_16px_28px_-6px_rgba(15,23,42,0.55)] active:translate-y-0 active:scale-100 desktop:block"
+            >
+              Новая запись
+            </Link>
+          </div>
         </div>
 
         <div className="mt-4 flex items-center gap-3 desktop:hidden">
@@ -315,10 +313,7 @@ function AllRecordsPage() {
           <label className="block sm:col-span-2 lg:col-span-2">
             <span className="label-caps">Дата (с — по)</span>
             <div className="mt-1 grid grid-cols-2 gap-2">
-              <DateInput
-                value={dateFrom}
-                onChange={(v) => updateFilter({ dateFrom: v })}
-              />
+              <DateInput value={dateFrom} onChange={(v) => updateFilter({ dateFrom: v })} />
               <DateInput value={dateTo} onChange={(v) => updateFilter({ dateTo: v })} />
             </div>
           </label>
@@ -357,7 +352,7 @@ function AllRecordsPage() {
 
       {filtered.length > 0 && (
         <div className="mt-4">
-          <Pagination withClear />
+          <Pagination />
         </div>
       )}
 

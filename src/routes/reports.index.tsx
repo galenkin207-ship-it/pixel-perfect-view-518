@@ -84,6 +84,24 @@ const monthNames = [
   "Декабрь",
 ];
 
+/** Диапазон вкладки [start, end) от «сегодня» (локальное время) и подпись к нему. */
+function periodRange(period: (typeof periods)[number], now: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (period === "Месяц") {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return { start, end, label: `${monthNames[now.getMonth()]} ${now.getFullYear()}` };
+  }
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
+  const last = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 1);
+  return {
+    start,
+    end,
+    label: `${pad(start.getDate())}.${pad(start.getMonth() + 1)} – ${pad(last.getDate())}.${pad(last.getMonth() + 1)}.${last.getFullYear()}`,
+  };
+}
+
 function parseDate(d: string) {
   const [dd, mm, yyyy] = d.split(".").map(Number);
   return new Date(yyyy ?? 1970, (mm ?? 1) - 1, dd ?? 1);
@@ -204,7 +222,16 @@ function buildObjectStats(records: WorkRecord[], objects: WorkObject[]): StatsRo
 
 function ReportsPage() {
   const { records, objects, role, employees, workTypes, submitterNames } = useApp();
-  const [period, setPeriod] = usePageState<(typeof periods)[number]>(PAGE, "period", "Эта неделя");
+  // Запоминаем только id вкладки, диапазон дат считается заново от «сегодня»
+  // при каждом рендере. Невалидное сохранённое значение — вкладка по умолчанию.
+  const [savedPeriod, setPeriod] = usePageState<(typeof periods)[number]>(
+    PAGE,
+    "period",
+    "Эта неделя",
+  );
+  const period: (typeof periods)[number] = periods.includes(savedPeriod)
+    ? savedPeriod
+    : "Эта неделя";
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const setStatsSearch = (patch: Partial<ReportsSearch>) =>
@@ -933,28 +960,21 @@ function ReportsPage() {
     new Set([...records.map((r) => r.created_by), ...submitterNames]),
   ).sort();
 
+  // «Эта неделя» — календарная неделя пн–вс, «Месяц» — календарный месяц
+  // (в первые дни месяца там законно пусто — подпись с датами это показывает).
+  const { start: periodStart, end: periodEnd, label: periodLabel } = periodRange(period, now);
   const periodRecords = records.filter((r) => {
     const d = parseDate(r.date);
-    if (period === "Месяц") {
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    }
-    const start = new Date(now);
-    const dow = (now.getDay() + 6) % 7;
-    start.setDate(now.getDate() - dow);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 7);
-    return d >= start && d < end;
+    return d >= periodStart && d < periodEnd;
   });
 
-  const recentCutoff = new Date(now);
-  recentCutoff.setDate(recentCutoff.getDate() - (period === "Месяц" ? 31 : 7));
-  const recentlyActiveObjectIds = new Set(
-    records.filter((r) => parseDate(r.date) >= recentCutoff).map((r) => r.object_id),
-  );
+  // Объекты — по тому же периоду, что и карточки. Раньше список брался за
+  // скользящие 7/31 дней, а полоски — за календарный период, и объекты с
+  // записями из прошлого месяца показывались с нулём.
+  const periodObjectIds = new Set(periodRecords.map((r) => r.object_id));
 
   const perObject = objects
-    .filter((o) => recentlyActiveObjectIds.has(o.id))
+    .filter((o) => periodObjectIds.has(o.id))
     .map((o) => {
       // Считаем УНИКАЛЬНЫЕ виды работ на объекте (одинаковый вид работ,
       // записанный несколько раз — в одной записи или в разных, — считается
@@ -1056,7 +1076,7 @@ function ReportsPage() {
         }
       />
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         {periods.map((p) => (
           <button
             key={p}
@@ -1069,6 +1089,7 @@ function ReportsPage() {
             {p}
           </button>
         ))}
+        <span className="ml-1 text-sm text-muted-foreground">{periodLabel}</span>
       </div>
 
       <div
@@ -1114,7 +1135,8 @@ function ReportsPage() {
           ))}
           {perObject.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              Нет объектов с записями за последние {period === "Месяц" ? "31 день" : "7 дней"}.
+              Нет объектов с записями за {period === "Месяц" ? "этот месяц" : "эту неделю"} (
+              {periodLabel}).
             </p>
           )}
         </div>

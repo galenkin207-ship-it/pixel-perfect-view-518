@@ -13,10 +13,12 @@ export function PageStateResetButton({
   page,
   onReset,
   className,
+  label = "Сбросить",
 }: {
   page: string;
   onReset?: () => void;
   className?: string;
+  label?: string;
 }) {
   const [desktop] = useState(isDesktopNow);
   if (!desktop) return null;
@@ -36,7 +38,7 @@ export function PageStateResetButton({
       )}
     >
       <RotateCcw className="size-3.5" />
-      Сбросить
+      {label}
     </button>
   );
 }
