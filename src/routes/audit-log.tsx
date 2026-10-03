@@ -1,10 +1,11 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, History, RotateCcw } from "lucide-react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading, FieldLabel } from "@/components/app/bits";
+import { PageStateResetButton } from "@/components/app/page-state-reset";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { PageStateScope, usePageState } from "@/lib/page-state";
 import { cn } from "@/lib/utils";
 import { roleLabels } from "@/data/mock";
 import { useApp } from "@/state/use-app";
@@ -30,10 +32,16 @@ export const Route = createFileRoute("/audit-log")({
       },
     ],
   }),
-  component: AuditLogPage,
+  component: () => (
+    <PageStateScope page={PAGE}>
+      <AuditLogPage />
+    </PageStateScope>
+  ),
 });
 
 const PER_PAGE = 30;
+// Ключ сохранённого состояния страницы (lib/page-state.ts).
+const PAGE = "/audit-log";
 
 const entityLabels: Record<AuditLogEntry["entity_type"], string> = {
   record: "Запись",
@@ -451,13 +459,20 @@ function AuditLogPage() {
 
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(0);
+  // Фильтры и страница на компьютере запоминаются (lib/page-state.ts).
+  const [page, setPage] = usePageState(PAGE, "page", 0);
   const [loading, setLoading] = useState(false);
 
-  const [entityType, setEntityType] = useState<"" | "record" | "request">("");
-  const [actor, setActor] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [entityType, setEntityType] = usePageState<"" | "record" | "request">(
+    PAGE,
+    "entityType",
+    "",
+  );
+  const [actor, setActor] = usePageState(PAGE, "actor", "");
+  const [from, setFrom] = usePageState(PAGE, "from", "");
+  const [to, setTo] = usePageState(PAGE, "to", "");
+  // Первая загрузка — с сохранённой страницы, смена фильтров — с первой.
+  const initialPageRef = useRef(page);
 
   const [details, setDetails] = useState<Record<number, AuditLogEntryFull>>({});
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -487,7 +502,8 @@ function AuditLogPage() {
 
   useEffect(() => {
     if (!canView) return;
-    void load(0);
+    void load(initialPageRef.current);
+    initialPageRef.current = 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entityType, actor, from, to, canView]);
 
@@ -535,7 +551,11 @@ function AuditLogPage() {
 
   return (
     <AppShell>
-      <PageHeading context={roleLabels[role]} title="История изменений" />
+      <PageHeading
+        context={roleLabels[role]}
+        title="История изменений"
+        action={<PageStateResetButton page={PAGE} />}
+      />
 
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div>

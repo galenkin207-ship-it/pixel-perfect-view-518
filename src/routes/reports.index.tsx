@@ -6,6 +6,7 @@ import { ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
 import { DateInput } from "@/components/app/date-input";
+import { PageStateResetButton } from "@/components/app/page-state-reset";
 import { SearchableSelect } from "@/components/app/searchable-select";
 import { EmployeeObjectWorksModal } from "@/components/app/employee-object-works";
 import {
@@ -15,6 +16,7 @@ import {
   formatQty,
   recordsInRange,
 } from "@/lib/employee-stats";
+import { PageStateScope, usePageState } from "@/lib/page-state";
 import { cn } from "@/lib/utils";
 import { allocationsFor, itemQty } from "@/lib/record-utils";
 import { roleLabels, type WorkObject, type WorkRecord } from "@/data/mock";
@@ -55,10 +57,17 @@ export const Route = createFileRoute("/reports/")({
       },
     ],
   }),
-  component: ReportsPage,
+  component: () => (
+    <PageStateScope page={PAGE}>
+      <ReportsPage />
+    </PageStateScope>
+  ),
 });
 
 const periods = ["Эта неделя", "Месяц"] as const;
+
+// Ключ сохранённого состояния страницы (lib/page-state.ts).
+const PAGE = "/reports";
 
 const monthNames = [
   "Январь",
@@ -195,7 +204,7 @@ function buildObjectStats(records: WorkRecord[], objects: WorkObject[]): StatsRo
 
 function ReportsPage() {
   const { records, objects, role, employees, workTypes, submitterNames } = useApp();
-  const [period, setPeriod] = useState<(typeof periods)[number]>("Эта неделя");
+  const [period, setPeriod] = usePageState<(typeof periods)[number]>(PAGE, "period", "Эта неделя");
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const setStatsSearch = (patch: Partial<ReportsSearch>) =>
@@ -219,16 +228,16 @@ function ReportsPage() {
     null,
   );
   const closeWorksDialog = useCallback(() => setWorksDialog(null), []);
-  const [rObject, setRObject] = useState("");
-  const [rEmployee, setREmployee] = useState("");
-  const [rSubmitter, setRSubmitter] = useState("");
-  const [rFrom, setRFrom] = useState("");
-  const [rTo, setRTo] = useState("");
+  const [rObject, setRObject] = usePageState(PAGE, "rObject", "");
+  const [rEmployee, setREmployee] = usePageState(PAGE, "rEmployee", "");
+  const [rSubmitter, setRSubmitter] = usePageState(PAGE, "rSubmitter", "");
+  const [rFrom, setRFrom] = usePageState(PAGE, "rFrom", "");
+  const [rTo, setRTo] = usePageState(PAGE, "rTo", "");
 
   const now = new Date();
   const currentYear = now.getFullYear();
-  const [svodMonth, setSvodMonth] = useState(now.getMonth());
-  const [svodYear, setSvodYear] = useState(currentYear);
+  const [svodMonth, setSvodMonth] = usePageState(PAGE, "svodMonth", now.getMonth());
+  const [svodYear, setSvodYear] = usePageState(PAGE, "svodYear", currentYear);
   const [svodBusy, setSvodBusy] = useState(false);
 
   const svodYears = useMemo(() => {
@@ -1034,7 +1043,18 @@ function ReportsPage() {
 
   return (
     <AppShell>
-      <PageHeading context={roleLabels[role]} title="Отчёты" />
+      <PageHeading
+        context={roleLabels[role]}
+        title="Отчёты"
+        action={
+          <PageStateResetButton
+            page={PAGE}
+            onReset={() =>
+              void navigate({ search: {}, replace: true, resetScroll: false })
+            }
+          />
+        }
+      />
 
       <div className="mt-4 flex flex-wrap gap-2">
         {periods.map((p) => (

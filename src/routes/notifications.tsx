@@ -13,6 +13,8 @@ import {
 
 import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar, PageHeading } from "@/components/app/bits";
+import { PageStateResetButton } from "@/components/app/page-state-reset";
+import { PageStateScope, usePageState } from "@/lib/page-state";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { roleLabels } from "@/data/mock";
@@ -41,7 +43,11 @@ export const Route = createFileRoute("/notifications")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: NotificationsPage,
+  component: () => (
+    <PageStateScope page="/notifications">
+      <NotificationsPage />
+    </PageStateScope>
+  ),
 });
 
 function NotificationsPage() {
@@ -57,7 +63,7 @@ function NotificationsPage() {
 
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [unreadOnly, setUnreadOnly] = usePageState("/notifications", "unreadOnly", false);
 
   const items = useMemo(() => {
     const list = buildNotificationItems(requests, isForeman, currentUser);
@@ -118,6 +124,7 @@ function NotificationsPage() {
     <AppShell>
       <div className="flex items-start justify-between gap-3">
         <PageHeading context={roleLabels[role]} title="Уведомления" />
+        <PageStateResetButton page="/notifications" className="mt-1 ml-auto" />
         {!selectionMode && items.length > 0 && (
           <Button
             variant="outline"

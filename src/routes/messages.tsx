@@ -5,6 +5,8 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
+import { PageStateResetButton } from "@/components/app/page-state-reset";
+import { PageStateScope, usePageState } from "@/lib/page-state";
 import { WorkTypePicker } from "@/components/app/record-form";
 import { RequestAddToRecordDialog } from "@/components/app/request-add-to-record-dialog";
 import type { WorkTypeEditorTarget } from "@/components/app/work-type-editor-dialog";
@@ -63,7 +65,11 @@ export const Route = createFileRoute("/messages")({
       { property: "og:description", content: "Согласование расценок и новых видов работ." },
     ],
   }),
-  component: MessagesPage,
+  component: () => (
+    <PageStateScope page="/messages">
+      <MessagesPage />
+    </PageStateScope>
+  ),
 });
 
 // approved — «Выполнена»: заявка закрыта позицией справочника (work_type), а
@@ -130,7 +136,12 @@ function MessagesPage() {
   const [draft, setDraft] = useState<Record<string, string>>({});
   // Свёрнутость блока переписки по каждой заявке в общем списке. По
   // умолчанию свёрнуто — разворачивается по тапу.
-  const [expandedChats, setExpandedChats] = useState<Record<string, boolean>>({});
+  // На компьютере запоминается (lib/page-state.ts).
+  const [expandedChats, setExpandedChats] = usePageState<Record<string, boolean>>(
+    "/messages",
+    "expandedChats",
+    {},
+  );
   // Свёрнутость переписки внутри диалога заявки — отдельное состояние, не
   // общее со списком (иначе тап по стрелке в диалоге незаметно переключал бы
   // ту же карточку в фоновом списке вместо самого диалога). По умолчанию
@@ -836,6 +847,7 @@ function MessagesPage() {
       <PageHeading
         context={roleLabels[role]}
         title={isForeman ? "Моя переписка" : "Заявки на согласование"}
+        action={<PageStateResetButton page="/messages" />}
       />
 
       {(isForeman || isAdmin) && selected.length > 0 && (

@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { cn } from "@/lib/utils";
 
 export function InitialsAvatar({
@@ -60,11 +62,27 @@ export function FieldLabel({ children }: { children: React.ReactNode }) {
   return <span className="label-caps block">{children}</span>;
 }
 
-export function PageHeading({ context, title }: { context: string; title: string }) {
-  return (
-    <div>
+export function PageHeading({
+  context,
+  title,
+  action,
+}: {
+  context: string;
+  title: string;
+  /** Справа от заголовка (например, «Сбросить» состояние страницы). */
+  action?: ReactNode;
+}) {
+  const heading = (
+    <div className="min-w-0">
       <p className="text-xs text-muted-foreground">{context}</p>
       <h1 className="mt-0.5 text-2xl font-bold tracking-tight text-foreground">{title}</h1>
+    </div>
+  );
+  if (!action) return heading;
+  return (
+    <div className="flex items-start justify-between gap-3">
+      {heading}
+      {action}
     </div>
   );
 }

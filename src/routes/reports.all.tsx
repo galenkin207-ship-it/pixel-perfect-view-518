@@ -8,6 +8,7 @@ import { RecordCard } from "@/components/app/record-card";
 import { RecordDetail } from "@/components/app/record-detail";
 import { SearchableSelect } from "@/components/app/searchable-select";
 import { ruToIso } from "@/lib/api-client";
+import { resetPageState } from "@/lib/page-state";
 import { cn } from "@/lib/utils";
 import { statusLabels, type RecordStatus, type WorkRecord } from "@/data/mock";
 import { useApp } from "@/state/use-app";
@@ -141,7 +142,12 @@ function AllRecordsPage() {
     dateFrom !== "" ||
     dateTo !== "";
 
+  // «Очистить» — полный сброс страницы: фильтры, страница пагинации и
+  // запомненные на компьютере прокрутка/URL раздела (lib/page-state.ts).
   const clearFilters = () => {
+    resetPageState("/reports/all");
+    const el = document.getElementById("app-scroll-container");
+    if (el) el.scrollTop = 0;
     void navigate({
       to: "/reports/all",
       search: {
@@ -173,7 +179,7 @@ function AllRecordsPage() {
         Показано {filtered.length === 0 ? 0 : pageStart + 1}–
         {Math.min(pageStart + PAGE_SIZE, filtered.length)} из {filtered.length} записей
       </span>
-      {withClear && hasActiveFilters && (
+      {withClear && (hasActiveFilters || currentPage > 1) && (
         <button
           onClick={clearFilters}
           className="hidden items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground desktop:flex"

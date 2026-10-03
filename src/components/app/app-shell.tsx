@@ -15,8 +15,15 @@ import {
   Users,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import {
+  isDesktopNow,
+  readNavSearch,
+  readScroll,
+  writeNavSearch,
+  writeScroll,
+} from "@/lib/page-state";
 import { cn } from "@/lib/utils";
 import { roleLabels, type Role } from "@/data/mock";
 import { useApp } from "@/state/use-app";
@@ -28,6 +35,14 @@ import { InitialsAvatar } from "./bits";
 import { PullToRefresh } from "./pull-to-refresh";
 
 type NavItem = { to: string; label: string; icon: typeof Building2; badge?: number };
+
+// Разделы, у которых фильтры живут в URL: ссылка левого меню ведёт на их
+// последний URL (на компьютере), а не на «чистый» раздел. /messages сюда не
+// входит — его параметры открывают конкретную заявку (модалку).
+const NAV_SEARCH_PATHS = new Set(["/reports", "/reports/all"]);
+// Прокрутку не запоминаем у форм и экранов входа.
+const noScrollMemory = (path: string) =>
+  path.startsWith("/records/") || path === "/login" || path === "/reset-password";
 
 const tabs: NavItem[] = [
   { to: "/", label: "Объекты", icon: Building2 },
@@ -58,6 +73,10 @@ export function AppShell({
   const { role, currentUser, notificationsCount, requests, refreshData, readNotificationIds } =
     useApp();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const locationSearch = useRouterState({ select: (s) => s.location.search });
+  const [desktop] = useState(isDesktopNow);
+  const mainRef = useRef<HTMLElement>(null);
+  usePageMemory(desktop, pathname, locationSearch as Record<string, unknown>, mainRef);
   const isAdminLike = role === "admin" || role === "curator";
   const pending = requests.filter((r) => r.status === "pending").length;
   // Мастер: выполненные заявки (с позицией справочника), которые он ещё не
@@ -180,6 +199,7 @@ export function AppShell({
 
         {/* Content */}
         <main
+          ref={mainRef}
           id="app-scroll-container"
           className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-background pb-28 desktop:pb-0"
           style={{ WebkitOverflowScrolling: "touch" }}
@@ -342,6 +362,9 @@ function NavGroup({
             <li key={item.to + item.label}>
               <Link
                 to={item.to}
+                {...(NAV_SEARCH_PATHS.has(item.to) && readNavSearch(item.to)
+                  ? { search: readNavSearch(item.to) as never }
+                  : {})}
                 className={cn(
                   "flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
                   active ? "bg-accent font-semibold text-accent-foreground" : "hover:bg-muted",
@@ -366,6 +389,88 @@ function NavGroup({
       </ul>
     </div>
   );
+}
+
+/**
+ * Компьютер: запоминает прокрутку #app-scroll-container и URL-фильтры раздела,
+ * при возврате в раздел возвращает прокрутку (см. lib/page-state.ts).
+ */
+function usePageMemory(
+  desktop: boolean,
+  pathname: string,
+  search: Record<string, unknown>,
+  mainRef: React.RefObject<HTMLElement | null>,
+) {
+  const restoringRef = useRef(false);
+  const pathRef = useRef(pathname);
+  pathRef.current = pathname;
+
+  useEffect(() => {
+    if (desktop && NAV_SEARCH_PATHS.has(pathname)) writeNavSearch(pathname, search);
+  }, [desktop, pathname, search]);
+
+  // Восстановление: несколько кадров подряд держим сохранённую позицию —
+  // пока дорисовывается содержимое и пока роутер делает свой scroll-to-top.
+  // Любое действие пользователя (колесо, клик, клавиша) прерывает.
+  useLayoutEffect(() => {
+    const el = mainRef.current;
+    if (!desktop || !el || noScrollMemory(pathname)) return;
+    const target = readScroll(pathname);
+    if (!target) return;
+    restoringRef.current = true;
+    let stopped = false;
+    let raf = 0;
+    const start = performance.now();
+    const stop = () => {
+      stopped = true;
+    };
+    const events = ["wheel", "pointerdown", "keydown", "touchstart"] as const;
+    events.forEach((e) => el.addEventListener(e, stop, { passive: true }));
+    const finish = () => {
+      restoringRef.current = false;
+      events.forEach((e) => el.removeEventListener(e, stop));
+    };
+    const tick = () => {
+      if (stopped) return finish();
+      if (Math.abs(el.scrollTop - target) > 1) el.scrollTop = target;
+      if (performance.now() - start < 700) raf = requestAnimationFrame(tick);
+      else finish();
+    };
+    tick();
+    return () => {
+      cancelAnimationFrame(raf);
+      finish();
+    };
+  }, [desktop, pathname, mainRef]);
+
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!desktop || !el) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    // Путь и позицию фиксируем в момент прокрутки: к срабатыванию debounce
+    // pathname может уже смениться (переход между разделами).
+    let lastPath = pathRef.current;
+    let lastTop = 0;
+    const save = () => {
+      timer = null;
+      if (!noScrollMemory(lastPath)) writeScroll(lastPath, lastTop);
+    };
+    const onScroll = () => {
+      if (restoringRef.current) return;
+      lastPath = pathRef.current;
+      lastTop = el.scrollTop;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(save, 150);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      if (timer) {
+        clearTimeout(timer);
+        save();
+      }
+    };
+  }, [desktop, mainRef]);
 }
 
 export const shellIcons = { ClipboardList };

@@ -5,6 +5,8 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
+import { PageStateResetButton } from "@/components/app/page-state-reset";
+import { PageStateScope, usePageState } from "@/lib/page-state";
 import {
   Sheet,
   SheetContent,
@@ -31,7 +33,11 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
-  component: ObjectsPage,
+  component: () => (
+    <PageStateScope page="/">
+      <ObjectsPage />
+    </PageStateScope>
+  ),
 });
 
 // WorkRecord.date хранится в виде "dd.mm.yyyy" — парсим в Date для сравнения
@@ -65,7 +71,7 @@ function ObjectsPage() {
     hiddenObjectIds,
     hideObjectFromHome,
   } = useApp();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = usePageState("/", "query", "");
   const [pickerOpen, setPickerOpen] = useState(false);
   const isForeman = role === "user";
 
@@ -153,6 +159,7 @@ function ObjectsPage() {
           title={isForeman ? "Мои объекты" : "Объекты"}
         />
         <div className="flex items-center gap-2">
+          <PageStateResetButton page="/" />
           {role === "admin" && (
             <Link
               to="/objects/archive"

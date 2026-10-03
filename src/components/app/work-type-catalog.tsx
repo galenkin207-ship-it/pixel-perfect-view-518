@@ -37,6 +37,7 @@ import { useWorkTypeCascade } from "@/hooks/use-work-type-cascade";
 import { useWorkTypeSearch } from "@/hooks/use-work-type-search";
 import { api, ApiError } from "@/lib/api-client";
 import { copyText } from "@/lib/clipboard";
+import { usePageState } from "@/lib/page-state";
 import { cn } from "@/lib/utils";
 import { buildWorkTypePathText } from "@/lib/work-type-format";
 import { useApp } from "@/state/use-app";
@@ -177,9 +178,12 @@ function LeafActionsMenu({
 export function WorkTypeCatalog({
   className,
   onAddToRecord,
+  stateKey,
 }: {
   className?: string;
   onAddToRecord?: (leaf: { id: string; name: string; unit: string; price: number }) => void;
+  /** Ключ страницы — на компьютере тип справочника и поиск запоминаются (lib/page-state.ts). */
+  stateKey?: string;
 }) {
   const { role, archiveWorkType } = useApp();
   const isAdminLike = role === "admin" || role === "curator";
@@ -198,8 +202,12 @@ export function WorkTypeCatalog({
   // (не isAdminLike: куратор разделы не правит) и только десктоп.
   const showStructureTools = role === "admin" && !isMobile;
 
-  const [catalogType, setCatalogType] = useState<CatalogType>("новое строительство");
-  const [query, setQuery] = useState("");
+  const [catalogType, setCatalogType] = usePageState<CatalogType>(
+    stateKey ?? null,
+    "catalogType",
+    "новое строительство",
+  );
+  const [query, setQuery] = usePageState(stateKey ?? null, "query", "");
   // Справочник (browse): auto-skip единственного ребёнка отключён — при
   // редактировании структуры виден каждый уровень. Пустые контейнеры
   // (include_empty) подгружаются только админу на десктопе; мобильная версия

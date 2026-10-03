@@ -4,10 +4,12 @@ import { useState } from "react";
 
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
+import { PageStateResetButton } from "@/components/app/page-state-reset";
 import { WorkRequestDialog } from "@/components/app/work-request-dialog";
 import { WorkTypeCatalog } from "@/components/app/work-type-catalog";
 import { useBlurOnScroll } from "@/hooks/use-blur-on-scroll";
 import { useQuickAddToRecord } from "@/hooks/use-quick-add-to-record";
+import { PageStateScope } from "@/lib/page-state";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/work-types")({
@@ -20,8 +22,15 @@ export const Route = createFileRoute("/work-types")({
       },
     ],
   }),
-  component: WorkTypesPage,
+  component: () => (
+    <PageStateScope page={PAGE}>
+      <WorkTypesPage />
+    </PageStateScope>
+  ),
 });
+
+// Ключ сохранённого состояния страницы (lib/page-state.ts).
+const PAGE = "/work-types";
 
 function WorkTypesPage() {
   const { role } = useApp();
@@ -39,8 +48,12 @@ function WorkTypeCatalogPage() {
   return (
     <AppShell>
       <div className={CATALOG_PAGE_CLASS}>
-        <PageHeading context="Справочник" title="Все виды работ" />
-        <WorkTypeCatalog className="mt-4 min-h-[28rem] flex-1" />
+        <PageHeading
+          context="Справочник"
+          title="Все виды работ"
+          action={<PageStateResetButton page={PAGE} />}
+        />
+        <WorkTypeCatalog className="mt-4 min-h-[28rem] flex-1" stateKey={PAGE} />
       </div>
     </AppShell>
   );
@@ -62,6 +75,7 @@ function MasterWorkTypeCatalogPage() {
       <div className={CATALOG_PAGE_CLASS}>
         <div className="flex items-start justify-between gap-3">
           <PageHeading context="Справочник" title="Все виды работ" />
+          <PageStateResetButton page={PAGE} className="mt-1 ml-auto" />
           <button
             type="button"
             onClick={() => setRequestOpen(true)}
@@ -73,6 +87,7 @@ function MasterWorkTypeCatalogPage() {
         </div>
         <WorkTypeCatalog
           className="mt-4 min-h-[28rem] flex-1"
+          stateKey={PAGE}
           onAddToRecord={(leaf) => void addToRecord(leaf)}
         />
       </div>

@@ -14,6 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { isDesktopNow, resetAllPageState } from "@/lib/page-state";
 import { cn } from "@/lib/utils";
 import { roleLabels, type Role } from "@/data/mock";
 import { useApp } from "@/state/use-app";
@@ -98,6 +99,8 @@ function ProfilePage() {
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const [desktop] = useState(isDesktopNow);
 
   useEffect(() => {
     if (!isPushSupported()) return;
@@ -312,6 +315,46 @@ function ProfilePage() {
           >
             Открыть историю изменений
           </Link>
+        </section>
+      )}
+
+      {/* Состояние разделов запоминается только на компьютере (lib/page-state.ts). */}
+      {desktop && (
+        <section className="mt-4 rounded-2xl border border-border bg-card p-4">
+          <h2 className="font-semibold">Состояние разделов</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Фильтры, периоды, вкладки, раскрытые блоки и прокрутка запоминаются при переходах между
+            разделами и сбрасываются только вручную.
+          </p>
+          <button
+            type="button"
+            onClick={() => setConfirmResetOpen(true)}
+            className="mt-3 block w-full rounded-xl bg-surface px-4 py-3 text-left text-sm font-semibold transition-colors hover:bg-muted"
+          >
+            Сбросить все разделы
+          </button>
+          <AlertDialog open={confirmResetOpen} onOpenChange={setConfirmResetOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Сбросить все разделы?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Во всех разделах вернутся фильтры, периоды и вкладки по умолчанию, свернутся
+                  раскрытые блоки, прокрутка встанет в начало. Данные не удаляются.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Отмена</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    resetAllPageState();
+                    toast.success("Состояние всех разделов сброшено");
+                  }}
+                >
+                  Сбросить
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </section>
       )}
 

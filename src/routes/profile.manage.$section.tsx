@@ -32,7 +32,9 @@ import {
 } from "@/components/ui/accordion";
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
+import { PageStateResetButton } from "@/components/app/page-state-reset";
 import { WorkTypeCatalog } from "@/components/app/work-type-catalog";
+import { PageStateScope, usePageState } from "@/lib/page-state";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api-client";
 import { smartFilter } from "@/lib/smart-search";
@@ -149,6 +151,8 @@ function ManagePage() {
   const navigate = useNavigate();
   const { role } = useApp();
   const active = sections.find((s) => s.key === section) ?? sections[0];
+  // Ключ сохранённого состояния раздела (lib/page-state.ts).
+  const statePage = `/profile/manage/${active.key}`;
 
   if (role !== "admin") {
     return (
@@ -166,7 +170,11 @@ function ManagePage() {
 
   return (
     <AppShell>
-      <PageHeading context="Администрирование" title="Управление" />
+      <PageHeading
+        context="Администрирование"
+        title="Управление"
+        action={<PageStateResetButton page={statePage} />}
+      />
 
       <div className="mt-4 flex flex-col gap-4 lg:flex-row">
         {/* section list */}
@@ -196,11 +204,13 @@ function ManagePage() {
         </nav>
 
         <div className="min-w-0 flex-1">
-          {active.key === "work-types" && <WorkTypesSection />}
-          {active.key === "employees" && <EmployeesSection />}
-          {active.key === "objects" && <ObjectsSection />}
-          {active.key === "units" && <UnitsSection />}
-          {active.key === "users" && <UsersSection />}
+          <PageStateScope page={statePage}>
+            {active.key === "work-types" && <WorkTypesSection />}
+            {active.key === "employees" && <EmployeesSection />}
+            {active.key === "objects" && <ObjectsSection />}
+            {active.key === "units" && <UnitsSection />}
+            {active.key === "users" && <UsersSection />}
+          </PageStateScope>
 
           <p className="mt-4 text-xs text-muted-foreground">
             Изменения сразу видны всем, у кого открыта эта страница — обновлять или рассылать файл
@@ -218,7 +228,12 @@ function ManagePage() {
 // «Пакетная загрузка») убраны — бэкенд больше не принимает плоское
 // создание без места в дереве, позиции добавляются из каскада.
 function WorkTypesSection() {
-  return <WorkTypeCatalog className="min-h-[32rem] lg:h-[calc(100dvh-14rem)]" />;
+  return (
+    <WorkTypeCatalog
+      className="min-h-[32rem] lg:h-[calc(100dvh-14rem)]"
+      stateKey="/profile/manage/work-types"
+    />
+  );
 }
 
 function StringSection({
@@ -388,8 +403,8 @@ function EmployeesList({
   onRename: (id: string, v: string) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
 }) {
-  const [q, setQ] = useState("");
-  const [page, setPage] = useState(0);
+  const [q, setQ] = usePageState("/profile/manage/employees", "q", "");
+  const [page, setPage] = usePageState("/profile/manage/employees", "page", 0);
   const [openId, setOpenId] = useState("");
   const [draft, setDraft] = useState("");
   const [confirmId, setConfirmId] = useState("");
@@ -706,7 +721,7 @@ function ObjectsSection() {
    работ" и "Сотрудники"; кнопка "Завершить" остаётся отдельным действием. */
 function ObjectsStatusList() {
   const { objects, updateObject, deleteObject, archiveObject, restoreObject } = useApp();
-  const [q, setQ] = useState("");
+  const [q, setQ] = usePageState("/profile/manage/objects", "q", "");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [openId, setOpenId] = useState("");
   const [draft, setDraft] = useState({ name: "", address: "" });

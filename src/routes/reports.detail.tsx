@@ -30,6 +30,7 @@ import {
   workTypeKey,
   type WorkTypeEntry,
 } from "@/lib/employee-stats";
+import { forgetScroll, usePageState } from "@/lib/page-state";
 import { allocationsFor, itemQty, recordTotal } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
 import type { WorkItem, WorkRecord } from "@/data/mock";
@@ -63,6 +64,9 @@ export const Route = createFileRoute("/reports/detail")({
   }),
   component: ReportDetailPage,
 });
+
+// Ключ сохранённого состояния страницы (lib/page-state.ts).
+const PAGE = "/reports/detail";
 
 const WEEKDAYS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 
@@ -143,21 +147,28 @@ function ReportDetailPage() {
       initial.employee || initial.objectId || initial.submitter || initial.from || initial.to,
     );
 
-  const [employee, setEmployee] = useState(initial.employee);
-  const [objectId, setObjectId] = useState(initial.objectId);
-  const [submitter, setSubmitter] = useState(initial.submitter);
-  const [from, setFrom] = useState(initial.from);
-  const [to, setTo] = useState(initial.to);
-  const [applied, setApplied] = useState<{
+  // На компьютере состояние отчёта запоминается (lib/page-state.ts); если
+  // параметры пришли в URL — они главнее сохранённого.
+  const [employee, setEmployee] = usePageState(PAGE, "employee", initial.employee, hasInitial);
+  const [objectId, setObjectId] = usePageState(PAGE, "objectId", initial.objectId, hasInitial);
+  const [submitter, setSubmitter] = usePageState(PAGE, "submitter", initial.submitter, hasInitial);
+  const [from, setFrom] = usePageState(PAGE, "from", initial.from, hasInitial);
+  const [to, setTo] = usePageState(PAGE, "to", initial.to, hasInitial);
+  const [applied, setApplied] = usePageState<{
     employee: string;
     objectId: string;
     submitter: string;
     from: string;
     to: string;
-  } | null>(hasInitial ? initial : null);
-  const [sortDesc, setSortDesc] = useState(true);
-  const [openDays, setOpenDays] = useState<string[]>([]);
-  const [openRecords, setOpenRecords] = useState<string[]>([]);
+  } | null>(PAGE, "applied", hasInitial ? initial : null, hasInitial);
+  const [sortDesc, setSortDesc] = usePageState(PAGE, "sortDesc", true, hasInitial);
+  const [openDays, setOpenDays] = usePageState<string[]>(PAGE, "openDays", [], hasInitial);
+  const [openRecords, setOpenRecords] = usePageState<string[]>(
+    PAGE,
+    "openRecords",
+    [],
+    hasInitial,
+  );
   const [mobileDay, setMobileDay] = useState<string | null>(null);
   const [mobileRecord, setMobileRecord] = useState<string | null>(null);
   const [mobileItem, setMobileItem] = useState<string | null>(null);
@@ -170,9 +181,16 @@ function ReportDetailPage() {
     record: WorkRecord;
     index: number;
   } | null>(null);
-  const [expandedItemsByRecord, setExpandedItemsByRecord] = useState<Record<string, string[]>>({});
-  const [photosOpenByRecord, setPhotosOpenByRecord] = useState<Record<string, boolean>>({});
-  const [filtersOpen, setFiltersOpen] = useState(!hasInitial);
+  const [expandedItemsByRecord, setExpandedItemsByRecord] = usePageState<
+    Record<string, string[]>
+  >(PAGE, "expandedItems", {}, hasInitial);
+  const [photosOpenByRecord, setPhotosOpenByRecord] = usePageState<Record<string, boolean>>(
+    PAGE,
+    "photosOpen",
+    {},
+    hasInitial,
+  );
+  const [filtersOpen, setFiltersOpen] = usePageState(PAGE, "filtersOpen", !hasInitial, hasInitial);
   // Детализация строки «Сводной таблицы по видам работ» (ключ name||unit).
   const [summaryKey, setSummaryKey] = useState<string | null>(null);
   const closeSummary = useCallback(() => setSummaryKey(null), []);
@@ -663,6 +681,7 @@ function ReportDetailPage() {
     setPhotosOpenByRecord({});
     setSummaryKey(null);
     setFiltersOpen(true);
+    forgetScroll(PAGE);
   };
 
   const toggle = (arr: string[], set: (v: string[]) => void, id: string) =>

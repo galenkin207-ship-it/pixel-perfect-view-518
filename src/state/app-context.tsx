@@ -17,6 +17,7 @@ import { api, ApiError, SESSION_EXPIRED_EVENT } from "@/lib/api-client";
 import { playNotificationChime } from "@/lib/notification-sound";
 import { isPushSupported, resyncPushSubscription } from "@/lib/push";
 import { buildNotificationItems } from "@/lib/notification-items";
+import { bindPageStateUser, clearPageStateOnLogout } from "@/lib/page-state";
 
 const EMPTY_USER: AppUser = { id: "", login: "", password: "", full_name: "", role: "user" };
 
@@ -96,6 +97,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const sessionExpiredHandledRef = useRef(false);
   useEffect(() => {
     sessionExpiredHandledRef.current = false;
+    // Сохранённое состояние страниц — только этого пользователя: вошёл
+    // другой — начинает с чистого листа (страницы ещё не смонтированы,
+    // они рисуются только после загрузки данных).
+    if (sessionUser?.id) bindPageStateUser(sessionUser.id);
   }, [sessionUser?.id]);
   useEffect(() => {
     const onSessionExpired = () => {
@@ -542,6 +547,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // выходим локально — иначе кнопка "Выйти" выглядит как нерабочая.
       console.error("logout request failed", err);
     } finally {
+      clearPageStateOnLogout();
       setSessionUser(null);
       setDataLoaded(false);
       seenNotificationIdsRef.current = null;
