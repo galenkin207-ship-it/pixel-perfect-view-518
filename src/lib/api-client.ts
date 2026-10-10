@@ -62,9 +62,21 @@ async function request<T>(path: string, init?: RequestInit, attempt = 0): Promis
     // Даём один быстрый повтор вместо того, чтобы сразу показывать ошибку
     // или (что было раньше при 401 в этом случае) разлогинивать пользователя
     // с абсолютно рабочей сессией.
+    // Исключение — 503 {"error":"ai_unavailable"} от ИИ-поиска: повтор только
+    // удвоил бы ожидание и ещё раз вызвал платный DeepSeek. Тело читаем из
+    // клона, чтобы ниже res.json() отработал как обычно.
     if (res.status === 503 && attempt === 0) {
-      await new Promise((r) => setTimeout(r, 800));
-      return request<T>(path, init, attempt + 1);
+      let aiUnavailable = false;
+      try {
+        const body = await res.clone().json();
+        aiUnavailable = body?.error === "ai_unavailable";
+      } catch {
+        /* тело не JSON — обычный 503, повторяем */
+      }
+      if (!aiUnavailable) {
+        await new Promise((r) => setTimeout(r, 800));
+        return request<T>(path, init, attempt + 1);
+      }
     }
     let message = `HTTP ${res.status}`;
     try {
