@@ -2,6 +2,7 @@ import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import {
   Archive,
   ArchiveRestore,
+  Camera,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -20,7 +21,8 @@ import { AppShell } from "@/components/app/app-shell";
 import { InitialsAvatar, PageHeading } from "@/components/app/bits";
 import { DateInput } from "@/components/app/date-input";
 import { PageStateResetButton } from "@/components/app/page-state-reset";
-import { PhotoViewer } from "@/components/app/photo-viewer";
+import { ObjectPhotoGallery } from "@/components/app/object-photo-gallery";
+import { ReportPhotoUpload } from "@/components/app/report-photo-upload";
 import { WorkTypeRecordsModal } from "@/components/app/work-type-records-modal";
 import {
   AlertDialog,
@@ -35,10 +37,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useModalClose } from "@/hooks/use-modal-close";
-import { api, photoThumbUrl } from "@/lib/api-client";
+import { api, type ObjectPhotoItem } from "@/lib/api-client";
 import { PageStateScope, usePageState } from "@/lib/page-state";
 import { isMyRecord } from "@/lib/record-utils";
-import { cn } from "@/lib/utils";
+import { cn, objectLabel } from "@/lib/utils";
 import { useApp } from "@/state/use-app";
 
 export const Route = createFileRoute("/objects/$id")({
@@ -75,7 +77,6 @@ type WorkSummaryDetail = {
   employees: { employee: string; qty: number }[];
 };
 
-type ObjectPhoto = { record_id: number; date: string; file_path: string };
 
 const ROW_HOVER =
   "relative border border-transparent bg-surface transition-all duration-200 hover:z-10 hover:border-border/60 hover:shadow-[0_2px_8px_-3px_rgba(15,23,42,0.4)]";
@@ -198,105 +199,6 @@ function PositionDetailContent({
   );
 }
 
-const WEEKDAYS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
-
-function photoDateKey(iso: string) {
-  return String(iso).slice(0, 10);
-}
-
-function formatPhotoDateHeader(dateKey: string) {
-  const [y, m, d] = dateKey.split("-").map(Number);
-  const dt = new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
-  const ru = `${String(d ?? 1).padStart(2, "0")}.${String(m ?? 1).padStart(2, "0")}.${y ?? ""}`;
-  return `${WEEKDAYS[dt.getDay()]}, ${ru}`;
-}
-
-// Группирует уже отсортированные по дате фото в последовательные блоки по дате,
-// сохраняя исходный индекс каждого фото в общем массиве (нужен для PhotoViewer,
-// который должен листать фото сквозь границы дат, а не только внутри группы).
-function groupPhotosByDate(photos: ObjectPhoto[]) {
-  const groups: { dateKey: string; items: { photo: ObjectPhoto; index: number }[] }[] = [];
-  photos.forEach((photo, index) => {
-    const key = photoDateKey(photo.date);
-    const last = groups[groups.length - 1];
-    if (last && last.dateKey === key) {
-      last.items.push({ photo, index });
-    } else {
-      groups.push({ dateKey: key, items: [{ photo, index }] });
-    }
-  });
-  return groups;
-}
-
-function PhotoGrid({
-  photos,
-  loading,
-  onPhotoClick,
-  itemClassName = "size-24 shrink-0",
-  gridClassName = "flex flex-wrap gap-2",
-  headerClassName = "bg-background/95",
-}: {
-  photos: ObjectPhoto[] | null;
-  loading: boolean;
-  onPhotoClick: (dateKey: string, indexInGroup: number) => void;
-  itemClassName?: string;
-  gridClassName?: string;
-  headerClassName?: string;
-}) {
-  if (loading) {
-    return (
-      <div className="space-y-4" role="status" aria-label="Загрузка фото">
-        <div>
-          <Skeleton className="mb-2 h-3 w-24" />
-          <div className={gridClassName}>
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className={cn(itemClassName, "rounded-xl")} />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-  if (!photos || photos.length === 0) {
-    return <p className="text-sm text-muted-foreground">Фото по этому объекту пока нет</p>;
-  }
-  const groups = groupPhotosByDate(photos);
-  return (
-    <div className="space-y-4">
-      {groups.map((group) => (
-        <div key={group.dateKey}>
-          <p
-            className={cn(
-              "sticky top-0 z-10 -mx-1 mb-2 px-1 py-1.5 text-xs font-semibold text-muted-foreground backdrop-blur",
-              headerClassName,
-            )}
-          >
-            {formatPhotoDateHeader(group.dateKey)}
-          </p>
-          <div className={gridClassName}>
-            {group.items.map(({ photo }, indexInGroup) => (
-              <button
-                key={`${photo.record_id}-${photo.file_path}`}
-                onClick={() => onPhotoClick(group.dateKey, indexInGroup)}
-                className={cn(
-                  itemClassName,
-                  "overflow-hidden rounded-xl border border-border bg-muted",
-                )}
-              >
-                <img
-                  src={photoThumbUrl(photo.file_path)}
-                  alt="Фото объекта"
-                  className="size-full object-cover"
-                />
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // Период на странице объекта на компьютере запоминается отдельно для каждого
 // объекта (lib/page-state.ts). key — чтобы при переходе к другому объекту
 // состояние читалось заново.
@@ -352,14 +254,11 @@ function ObjectRecordsPage() {
   const [photosOpen, setPhotosOpen] = useState(false);
   const [mobilePhotosOpen, setMobilePhotosOpen] = useState(false);
   const [photosLoading, setPhotosLoading] = useState(false);
-  const [photosData, setPhotosData] = useState<ObjectPhoto[] | null>(null);
-  const [photoViewerIndex, setPhotoViewerIndex] = useState<number | null>(null);
-  const [photoViewerDateKey, setPhotoViewerDateKey] = useState<string | null>(null);
+  const [photosData, setPhotosData] = useState<ObjectPhotoItem[] | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const closePhotos = () => {
     setPhotosOpen(false);
     setMobilePhotosOpen(false);
-    setPhotoViewerIndex(null);
-    setPhotoViewerDateKey(null);
   };
   // Анимация закрытия только у десктопной модалки (photosOpen, ниже по файлу)
   // — на мобильном "Фото объекта" это не оверлей, а обычная подмена экрана
@@ -412,6 +311,7 @@ function ObjectRecordsPage() {
   }
 
   const isArchived = object.status === "archived";
+
   const objectRecords = records.filter((r) => r.object_id === id);
   // Признак "есть записи" считаем так же, как на главной: у "Кто подал" —
   // только свои записи, иначе — все. Иначе кнопка на этой странице и на
@@ -506,20 +406,17 @@ function ObjectRecordsPage() {
     void loadDetail(position);
   };
 
-  const openPhotos = async () => {
-    if (isMobile) setMobilePhotosOpen(true);
-    else setPhotosOpen(true);
+  // Фото объекта (фото записей + фото-отчёты) за выбранный период. Бэкенд
+  // отдаёт их по убыванию даты; стабильная сортировка по дате — на случай,
+  // если порядок когда-нибудь изменится (внутри даты порядок бэкенда).
+  const loadPhotos = async () => {
     setPhotosLoading(true);
     try {
-      const res = await api.getObjectPhotos(id, dateFrom || undefined, dateTo || undefined);
-      // Сначала свежие: бэкенд не гарантирует порядок, сортируем по дате (ISO,
-      // строковое сравнение корректно) с тай-брейком по record_id для одной даты.
-      const sorted = [...res.photos].sort((a, b) => {
-        const cmp = String(b.date).localeCompare(String(a.date));
-        if (cmp !== 0) return cmp;
-        return b.record_id - a.record_id;
+      const photos = await api.getObjectPhotos(id, {
+        ...(dateFrom ? { from: dateFrom } : {}),
+        ...(dateTo ? { to: dateTo } : {}),
       });
-      setPhotosData(sorted);
+      setPhotosData([...photos].sort((a, b) => b.date.localeCompare(a.date)));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Не удалось загрузить фото объекта");
     } finally {
@@ -527,15 +424,38 @@ function ObjectRecordsPage() {
     }
   };
 
-  const closePhotoViewer = () => {
-    setPhotoViewerIndex(null);
-    setPhotoViewerDateKey(null);
+  const openPhotos = async () => {
+    if (isMobile) setMobilePhotosOpen(true);
+    else setPhotosOpen(true);
+    setPhotosData(null);
+    await loadPhotos();
   };
 
-  const dayPhotos =
-    photosData && photoViewerDateKey
-      ? photosData.filter((p) => photoDateKey(p.date) === photoViewerDateKey)
-      : [];
+  // После загрузки/правки/удаления фото-отчёта — перезапрос, если галерея
+  // уже открыта (иначе свежие данные подтянутся при её открытии).
+  const reloadPhotos = () => {
+    if (photosOpen || mobilePhotosOpen) void loadPhotos();
+  };
+
+  // «Фото за день» (фото-отчёт) — только для активных объектов, любая роль.
+  const uploadButton = !isArchived && (
+    <button
+      type="button"
+      onClick={() => setUploadOpen(true)}
+      className="flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted"
+    >
+      <Camera className="size-3.5" />
+      Фото за день
+    </button>
+  );
+  const uploadDialog = uploadOpen && !isArchived && (
+    <ReportPhotoUpload
+      objectId={id}
+      objectName={objectLabel(object.name, object.address)}
+      onClose={() => setUploadOpen(false)}
+      onUploaded={reloadPhotos}
+    />
+  );
 
   if (isMobile && mobilePositionId) {
     const position = positions.find((p) => positionId(p) === mobilePositionId);
@@ -575,24 +495,16 @@ function ObjectRecordsPage() {
     return (
       <AppShell>
         <MobileHeader title="Фото объекта" onBack={closePhotos} />
+        {uploadButton && <div className="mt-3 flex">{uploadButton}</div>}
         <div className="mt-4">
-          <PhotoGrid
+          <ObjectPhotoGallery
             photos={photosData}
             loading={photosLoading}
-            onPhotoClick={(dateKey, indexInGroup) => {
-              setPhotoViewerDateKey(dateKey);
-              setPhotoViewerIndex(indexInGroup);
-            }}
+            onChanged={reloadPhotos}
             headerClassName="top-[env(safe-area-inset-top)] bg-background/95"
           />
         </div>
-        {photoViewerIndex !== null && dayPhotos.length > 0 && (
-          <PhotoViewer
-            photos={dayPhotos.map((p) => p.file_path)}
-            initialIndex={photoViewerIndex}
-            onClose={closePhotoViewer}
-          />
-        )}
+        {uploadDialog}
       </AppShell>
     );
   }
@@ -604,6 +516,7 @@ function ObjectRecordsPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <PageHeading context={object.address} title={object.name} />
             <div className="flex items-center gap-2">
+              {uploadButton}
               <button
                 type="button"
                 onClick={() => void openPhotos()}
@@ -800,19 +713,19 @@ function ObjectRecordsPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <h2 className="text-lg font-bold">Фото объекта</h2>
-                <button onClick={requestClosePhotos} aria-label="Закрыть">
-                  <X className="size-5 text-muted-foreground" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {uploadButton}
+                  <button onClick={requestClosePhotos} aria-label="Закрыть">
+                    <X className="size-5 text-muted-foreground" />
+                  </button>
+                </div>
               </div>
               <div className="mt-4">
-                <PhotoGrid
+                <ObjectPhotoGallery
                   photos={photosData}
                   loading={photosLoading}
-                  onPhotoClick={(dateKey, indexInGroup) => {
-                    setPhotoViewerDateKey(dateKey);
-                    setPhotoViewerIndex(indexInGroup);
-                  }}
-                  itemClassName="aspect-square"
+                  onChanged={reloadPhotos}
+                  itemClassName="aspect-square min-w-0"
                   gridClassName="grid grid-cols-4 gap-2 sm:grid-cols-6"
                   headerClassName="bg-card/95"
                 />
@@ -822,13 +735,7 @@ function ObjectRecordsPage() {
           document.body,
         )}
 
-      {photoViewerIndex !== null && dayPhotos.length > 0 && (
-        <PhotoViewer
-          photos={dayPhotos.map((p) => p.file_path)}
-          initialIndex={photoViewerIndex}
-          onClose={closePhotoViewer}
-        />
-      )}
+      {uploadDialog}
 
       {recordsModalPosition && (
         <WorkTypeRecordsModal

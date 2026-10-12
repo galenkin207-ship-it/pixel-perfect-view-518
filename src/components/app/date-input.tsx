@@ -16,6 +16,13 @@ type DateInputProps = {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  // Необязательные границы выбора (yyyy-mm-dd, включительно). todayValue —
+  // что ставит кнопка «Сегодня» (например, сегодня по Москве), clearable=false
+  // прячет «Сбросить». Без них поведение прежнее.
+  min?: string;
+  max?: string;
+  todayValue?: string;
+  clearable?: boolean;
 };
 
 function todayIso(): string {
@@ -34,9 +41,23 @@ function toIso(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export function DateInput({ value, onChange, className }: DateInputProps) {
+export function DateInput({
+  value,
+  onChange,
+  className,
+  min,
+  max,
+  todayValue,
+  clearable = true,
+}: DateInputProps) {
   const [open, setOpen] = useState(false);
   const selected = parseIso(value);
+  const minDate = min ? parseIso(min) : undefined;
+  const maxDate = max ? parseIso(max) : undefined;
+  const disabled = [
+    ...(minDate ? [{ before: minDate }] : []),
+    ...(maxDate ? [{ after: maxDate }] : []),
+  ];
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -66,6 +87,7 @@ export function DateInput({ value, onChange, className }: DateInputProps) {
             locale={ru}
             selected={selected}
             {...(selected ? { defaultMonth: selected } : {})}
+            {...(disabled.length ? { disabled } : {})}
             onSelect={(date) => {
               onChange(date ? toIso(date) : "");
               setOpen(false);
@@ -78,23 +100,25 @@ export function DateInput({ value, onChange, className }: DateInputProps) {
             variant="ghost"
             size="sm"
             onClick={() => {
-              onChange(todayIso());
+              onChange(todayValue ?? todayIso());
               setOpen(false);
             }}
           >
             Сегодня
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              onChange("");
-              setOpen(false);
-            }}
-          >
-            Сбросить
-          </Button>
+          {clearable && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+            >
+              Сбросить
+            </Button>
+          )}
         </div>
       </PopoverContent>
     </Popover>

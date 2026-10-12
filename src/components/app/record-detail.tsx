@@ -299,11 +299,7 @@ export function RecordPhotoGrid({
               decoding="async"
               className="size-full object-cover"
             />
-            {highlighted?.has(p) && (
-              <span className="absolute top-1 left-1 rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-semibold text-primary-foreground">
-                сегодня
-              </span>
-            )}
+            {highlighted?.has(p) && <ThumbBadge>сегодня</ThumbBadge>}
           </button>
         ))}
       </div>
@@ -315,5 +311,14 @@ export function RecordPhotoGrid({
         />
       )}
     </>
+  );
+}
+
+// Бейдж в углу миниатюры фото («сегодня», «Фото-отчёт»).
+export function ThumbBadge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="absolute top-1 left-1 max-w-[calc(100%-0.5rem)] truncate rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-semibold text-primary-foreground">
+      {children}
+    </span>
   );
 }

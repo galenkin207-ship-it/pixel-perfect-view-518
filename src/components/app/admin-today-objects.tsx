@@ -1,11 +1,22 @@
 import { Link } from "@tanstack/react-router";
-import { Archive, Camera, Clock, FileText, MapPin, RefreshCw, Search, X } from "lucide-react";
+import {
+  Archive,
+  Camera,
+  Clock,
+  FileText,
+  Images,
+  MapPin,
+  RefreshCw,
+  Search,
+  X,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { AppShell } from "@/components/app/app-shell";
 import { FieldLabel, PageHeading } from "@/components/app/bits";
+import { ObjectPhotoGallery } from "@/components/app/object-photo-gallery";
 import { PageStateResetButton } from "@/components/app/page-state-reset";
 import { RecordItemsList, RecordPhotoGrid } from "@/components/app/record-detail";
 import { StatusBadge } from "@/components/app/status-badge";
@@ -17,6 +28,7 @@ import {
   type TodayActivityObject,
   type TodayRecord,
 } from "@/lib/api-client";
+import { formatMoscowTime } from "@/lib/moscow-date";
 import { usePageState } from "@/lib/page-state";
 import { itemQty, recordTotal } from "@/lib/record-utils";
 import { cn } from "@/lib/utils";
@@ -24,16 +36,6 @@ import { cn } from "@/lib/utils";
 // Главная «Объекты» для администратора: объекты, по которым сегодня (по Москве)
 // создавались записи или загружались фото, и экран «Объект за сегодня».
 // Для остальных ролей главная не меняется (см. routes/index.tsx).
-
-const moscowTime = new Intl.DateTimeFormat("ru-RU", {
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "Europe/Moscow",
-});
-
-function formatMoscowTime(iso: string | null) {
-  return iso ? moscowTime.format(new Date(iso)) : "";
-}
 
 // date от бэкенда — "yyyy-mm-dd" (сегодня по Москве). Форматируем в UTC от
 // полудня, чтобы часовой пояс устройства не сдвинул день.
@@ -184,10 +186,19 @@ export function AdminTodayObjectsPage() {
                   <FileText className="size-3" />
                   Записей сегодня: {o.records_count_today}
                 </CountChip>
+                {/* photos_count_today — только фото к записям, фото-отчёты
+                    бэкенд считает отдельно (report_photos_today), поэтому
+                    числа не пересекаются и не складываются. */}
                 <CountChip active={o.photos_count_today > 0}>
                   <Camera className="size-3" />
-                  Фото сегодня: {o.photos_count_today}
+                  Фото к записям: {o.photos_count_today}
                 </CountChip>
+                {o.report_photos_today > 0 && (
+                  <CountChip active>
+                    <Images className="size-3" />
+                    Фото-отчёты: {o.report_photos_today}
+                  </CountChip>
+                )}
               </div>
             </button>
           ))}
@@ -330,46 +341,82 @@ function ObjectTodayOverlay({ objectId, onClose }: { objectId: string; onClose: 
           </div>
         ) : (
           <>
-            <section className="mt-4 min-w-0 rounded-2xl border border-border bg-card p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <FieldLabel>Сводка за сегодня</FieldLabel>
-                <div className="flex flex-wrap gap-1.5">
-                  <CountChip active={data.records.length > 0}>
-                    <FileText className="size-3" />
-                    Записей: {data.records.length}
-                  </CountChip>
-                  <CountChip active={photosToday > 0}>
-                    <Camera className="size-3" />
-                    Фото сегодня: {photosToday}
+            {data.records.length > 0 && (
+              <section className="mt-4 min-w-0 rounded-2xl border border-border bg-card p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <FieldLabel>Сводка за сегодня</FieldLabel>
+                  <div className="flex flex-wrap gap-1.5">
+                    <CountChip active>
+                      <FileText className="size-3" />
+                      Записей: {data.records.length}
+                    </CountChip>
+                    <CountChip active={photosToday > 0}>
+                      <Camera className="size-3" />
+                      Фото к записям: {photosToday}
+                    </CountChip>
+                    {data.report_photos.length > 0 && (
+                      <CountChip active>
+                        <Images className="size-3" />
+                        Фото-отчёты: {data.report_photos.length}
+                      </CountChip>
+                    )}
+                  </div>
+                </div>
+                {works.length > 0 ? (
+                  <ul className="mt-3 divide-y divide-border">
+                    {works.map((w) => (
+                      <li key={w.key} className="flex items-start justify-between gap-3 py-2">
+                        <span className="min-w-0 flex-1 text-sm font-semibold break-words">
+                          {w.name}
+                        </span>
+                        <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-sm font-bold whitespace-nowrap text-primary tabular-nums">
+                          {w.qty} {w.unit}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">Виды работ не добавлены</p>
+                )}
+              </section>
+            )}
+
+            {/* «Сегодня» у фото-отчётов — по времени загрузки; у фото,
+                загруженного задним числом, подпись показывает его photo_date. */}
+            {data.report_photos.length > 0 && (
+              <section className="mt-4 min-w-0 rounded-2xl border border-border bg-card p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <FieldLabel>Фото-отчёты за сегодня</FieldLabel>
+                  <CountChip active>
+                    <Images className="size-3" />
+                    {data.report_photos.length}
                   </CountChip>
                 </div>
-              </div>
-              {works.length > 0 ? (
-                <ul className="mt-3 divide-y divide-border">
-                  {works.map((w) => (
-                    <li key={w.key} className="flex items-start justify-between gap-3 py-2">
-                      <span className="min-w-0 flex-1 text-sm font-semibold break-words">
-                        {w.name}
-                      </span>
-                      <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-sm font-bold whitespace-nowrap text-primary tabular-nums">
-                        {w.qty} {w.unit}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-2 text-sm text-muted-foreground">Виды работ не добавлены</p>
-              )}
-            </section>
+                <ObjectPhotoGallery
+                  photos={data.report_photos}
+                  loading={false}
+                  onChanged={() => void load()}
+                  flat
+                  emptyText="Фото-отчётов за сегодня нет"
+                  itemClassName="aspect-square min-w-0"
+                  gridClassName="grid grid-cols-4 gap-2 sm:grid-cols-6"
+                />
+              </section>
+            )}
 
-            <div className="mt-4 space-y-4">
-              {data.records.map((r) => (
-                <TodayRecordCard key={r.id} record={r} />
-              ))}
-              {!data.records.length && (
-                <p className="text-sm text-muted-foreground">Сегодня записей по объекту нет</p>
-              )}
-            </div>
+            {data.records.length > 0 && (
+              <div className="mt-4 space-y-4">
+                {data.records.map((r) => (
+                  <TodayRecordCard key={r.id} record={r} />
+                ))}
+              </div>
+            )}
+
+            {!data.records.length && !data.report_photos.length && (
+              <p className="mt-4 text-sm text-muted-foreground">
+                Сегодня активности по объекту нет
+              </p>
+            )}
           </>
         )}
       </motion.div>

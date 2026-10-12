@@ -198,7 +198,9 @@ export type TodayActivityObject = {
   address: string;
   status: string;
   records_count_today: number;
+  // Только фото записей; фото-отчёты считаются отдельно (report_photos_today).
   photos_count_today: number;
+  report_photos_today: number;
   last_activity_at: string | null;
 };
 
@@ -214,6 +216,110 @@ export type ObjectToday = {
   date: string;
   object: { id: string; name: string; address: string; status: string };
   records: TodayRecord[];
+  // Фото-отчёты, загруженные сегодня (по времени загрузки, не по photo_date).
+  report_photos: ReportPhoto[];
+};
+
+// ---- Фото объекта: фото записей и фото-отчёты (/api/object-photos) ----
+
+// date — "yyyy-mm-dd": records.date у фото записи, photo_date у фото-отчёта.
+// url — полноразмерное фото; превью — photoThumbUrl(url).
+export type RecordPhoto = { source: "record"; record_id: string; date: string; url: string };
+export type ReportPhoto = {
+  source: "report";
+  id: string;
+  date: string;
+  url: string;
+  comment: string | null;
+  author_name: string | null;
+  user_id: string | null;
+  uploaded_at: string;
+};
+export type ObjectPhotoItem = RecordPhoto | ReportPhoto;
+
+type RawReportPhoto = {
+  id: number;
+  file_path: string;
+  comment: string | null;
+  user_id: number | null;
+  author_name: string | null;
+  // Разные эндпоинты называют поля по-разному: /objects/:id/photos —
+  // date/uploaded_at, остальные — photo_date/created_at.
+  date?: string;
+  photo_date?: string;
+  uploaded_at?: string;
+  created_at?: string;
+};
+
+type RawObjectPhoto =
+  | ({ source: "report" } & RawReportPhoto)
+  | { source?: "record"; record_id: number; date: string; file_path: string };
+
+// Единственное место, где строится URL фото объекта: у фото записи — по
+// file_path ("<recordId>/<file>"), у фото-отчёта — по id (file_path у него
+// "object-photos/<objectId>/<file>", photoUrl() для него не подходит).
+export function objectPhotoUrl(
+  photo: { source: "record"; file_path: string } | { source: "report"; id: string | number },
+) {
+  return photo.source === "report"
+    ? `${BASE}/object-photos/${photo.id}/file`
+    : photoUrl(photo.file_path);
+}
+
+function mapReportPhoto(r: RawReportPhoto): ReportPhoto {
+  return {
+    source: "report",
+    id: String(r.id),
+    date: String(r.photo_date ?? r.date ?? "").slice(0, 10),
+    url: objectPhotoUrl({ source: "report", id: r.id }),
+    comment: r.comment ?? null,
+    author_name: r.author_name ?? null,
+    user_id: r.user_id != null ? String(r.user_id) : null,
+    uploaded_at: r.created_at ?? r.uploaded_at ?? "",
+  };
+}
+
+function mapObjectPhoto(p: RawObjectPhoto): ObjectPhotoItem {
+  if (p.source === "report") return mapReportPhoto(p);
+  return {
+    source: "record",
+    record_id: String(p.record_id),
+    date: String(p.date).slice(0, 10),
+    url: objectPhotoUrl({ source: "record", file_path: p.file_path }),
+  };
+}
+
+// Понятный текст ошибки загрузки/правки фото-отчёта по ответу бэкенда
+// (uchet-backend/src/routes/object-photos.js, photo-storage.js).
+export function reportPhotoErrorText(err: unknown): string {
+  if (!(err instanceof ApiError)) {
+    return "Нет связи, фото не отправлены";
+  }
+  const msg = err.message;
+  if (err.status === 413) return "Файл больше 30 МБ";
+  if (err.status === 403) return "Нет прав на это действие";
+  if (err.status === 404) return "Объект или фото не найдены (возможно, удалены)";
+  if (msg.includes("cannot be in the future")) return "Дата не может быть в будущем";
+  if (msg.includes("cannot be older")) return "Дата не может быть старше 30 дней";
+  if (msg.includes("must be YYYY-MM-DD")) return "Некорректная дата";
+  if (msg === "no valid image files") return "Файл не распознан как изображение";
+  if (msg === "no files") return "Не выбрано ни одного фото";
+  return msg || `Ошибка ${err.status}`;
+}
+
+// Сеть недоступна (fetch не дошёл до сервера) — в отличие от ответа с ошибкой.
+export function isNetworkError(err: unknown) {
+  return !(err instanceof ApiError);
+}
+
+// По сколько файлов в одном запросе грузим фото-отчёт: по одному — так
+// прогресс точный («3 из 10»), упавший файл однозначно известен и
+// повторяется отдельно, а запрос не упирается в лимиты размера тела.
+const REPORT_UPLOAD_CHUNK = 1;
+
+export type ReportUploadResult = {
+  uploaded: ReportPhoto[];
+  failed: { file: File; error: unknown }[];
 };
 
 function workRecordToApiPayload(r: WorkRecord) {
@@ -642,6 +748,7 @@ export const api = {
         status: string;
         records_count_today: number | string;
         photos_count_today: number | string;
+        report_photos_today?: number | string;
         last_activity_at: string | null;
       }[];
     }>("/objects/today-activity");
@@ -654,6 +761,7 @@ export const api = {
         status: o.status,
         records_count_today: Number(o.records_count_today) || 0,
         photos_count_today: Number(o.photos_count_today) || 0,
+        report_photos_today: Number(o.report_photos_today) || 0,
         last_activity_at: o.last_activity_at,
       })),
     };
@@ -668,6 +776,7 @@ export const api = {
         photos_today: string[] | null;
         last_activity_at: string | null;
       })[];
+      report_photos?: RawReportPhoto[];
     }>(`/objects/${objectId}/today`);
     return {
       date: res.date,
@@ -683,22 +792,96 @@ export const api = {
         photos_today: (r.photos_today ?? []).map(photoUrl),
         last_activity_at: r.last_activity_at,
       })),
+      report_photos: (res.report_photos ?? []).map(mapReportPhoto),
     };
   },
 
+  // Фото объекта по датам: фото завершённых записей + фото-отчёты.
   async getObjectPhotos(
     objectId: string,
-    from?: string,
-    to?: string,
-  ): Promise<{ photos: { record_id: number; date: string; file_path: string }[] }> {
+    range: { from?: string; to?: string } = {},
+  ): Promise<ObjectPhotoItem[]> {
+    const params = new URLSearchParams({ include: "reports" });
+    if (range.from) params.set("from", range.from);
+    if (range.to) params.set("to", range.to);
+    const result = await request<{ photos: RawObjectPhoto[] }>(
+      `/objects/${objectId}/photos?${params.toString()}`,
+    );
+    return result.photos.map(mapObjectPhoto);
+  },
+
+  async getObjectReportPhotos(objectId: string, from?: string, to?: string): Promise<ReportPhoto[]> {
     const params = new URLSearchParams();
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     const qs = params.toString();
-    const result = await request<{
-      photos: { record_id: number; date: string; file_path: string }[];
-    }>(`/objects/${objectId}/photos${qs ? `?${qs}` : ""}`);
-    return { photos: result.photos.map((p) => ({ ...p, file_path: photoUrl(p.file_path) })) };
+    const result = await request<{ photos: RawReportPhoto[] }>(
+      `/objects/${objectId}/report-photos${qs ? `?${qs}` : ""}`,
+    );
+    return result.photos.map(mapReportPhoto);
+  },
+
+  // Загружает фото-отчёт последовательно, по REPORT_UPLOAD_CHUNK файлов за
+  // запрос. Не бросает исключений: ошибки отдельных файлов — в failed (их можно
+  // отправить повторно), успешно загруженные — в uploaded. Если ошибка не
+  // связана с конкретным файлом (нет сети, дата, права, объект) — остальные
+  // файлы не отправляются и тоже попадают в failed с той же ошибкой.
+  async uploadReportPhotos(
+    objectId: string,
+    files: File[],
+    meta: { photo_date: string; comment: string },
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<ReportUploadResult> {
+    const result: ReportUploadResult = { uploaded: [], failed: [] };
+    onProgress?.(0, files.length);
+    for (let i = 0; i < files.length; i += REPORT_UPLOAD_CHUNK) {
+      const chunk = files.slice(i, i + REPORT_UPLOAD_CHUNK);
+      const form = new FormData();
+      for (const f of chunk) form.append("photos", f);
+      form.append("photo_date", meta.photo_date);
+      if (meta.comment.trim()) form.append("comment", meta.comment.trim());
+      try {
+        const res = await request<{ photos: RawReportPhoto[]; skipped?: string[] }>(
+          `/objects/${objectId}/report-photos`,
+          { method: "POST", body: form },
+        );
+        result.uploaded.push(...res.photos.map(mapReportPhoto));
+        const skipped = res.skipped ?? [];
+        for (const f of chunk) {
+          if (skipped.includes(f.name)) {
+            result.failed.push({ file: f, error: new ApiError(400, "no valid image files") });
+          }
+        }
+      } catch (error) {
+        const fileSpecific =
+          error instanceof ApiError &&
+          (error.status === 413 || error.message === "no valid image files");
+        if (fileSpecific) {
+          for (const f of chunk) result.failed.push({ file: f, error });
+        } else {
+          for (const f of files.slice(i)) result.failed.push({ file: f, error });
+          onProgress?.(files.length, files.length);
+          return result;
+        }
+      }
+      onProgress?.(Math.min(i + REPORT_UPLOAD_CHUNK, files.length), files.length);
+    }
+    return result;
+  },
+
+  async updateObjectPhoto(
+    id: string,
+    patch: { photo_date?: string; comment?: string },
+  ): Promise<ReportPhoto> {
+    const row = await request<RawReportPhoto>(`/object-photos/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+    return mapReportPhoto(row);
+  },
+
+  async deleteObjectPhoto(id: string): Promise<void> {
+    await request<{ deleted: number }>(`/object-photos/${id}`, { method: "DELETE" });
   },
 
   async listEmployees(): Promise<string[]> {

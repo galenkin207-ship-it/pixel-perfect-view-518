@@ -792,6 +792,7 @@ function ReportDetailPage() {
       : 0;
     return createPortal(
       <motion.div
+        data-pull-refresh-ignore
         className="fixed inset-0 z-50 flex items-end bg-black/50 md:items-center md:justify-center md:p-6"
         initial={{ opacity: 0 }}
         animate={{ opacity: itemModalClosing ? 0 : 1 }}
@@ -799,6 +800,7 @@ function ReportDetailPage() {
       >
         <motion.div
           className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-card p-5 md:max-h-[90vh] md:max-w-lg md:rounded-3xl"
+          style={{ overscrollBehaviorY: "contain" }}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: itemModalClosing ? 0 : 1, y: itemModalClosing ? 16 : 0 }}
           transition={{ duration: 0.18, ease: "easeOut" }}

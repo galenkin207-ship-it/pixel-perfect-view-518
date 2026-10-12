@@ -1,4 +1,13 @@
-import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -12,14 +21,35 @@ const BUTTON_ZOOM_FACTOR = 1.4;
 
 type Transform = { scale: number; x: number; y: number };
 
+// Необязательная подпись к фото (например, у фото-отчётов: бейдж, автор,
+// дата/время, комментарий).
+export type PhotoCaption = {
+  badge?: string;
+  author?: string | null;
+  meta?: string;
+  comment?: string | null;
+};
+
+// Действия над текущим фото — меню «⋯» в подписи. Показывается только у фото
+// с подписью и только если canModify(index) вернул true.
+export type PhotoViewerActions = {
+  canModify: (index: number) => boolean;
+  onEdit: (index: number) => void;
+  onDelete: (index: number) => Promise<void>;
+};
+
 export function PhotoViewer({
   photos,
   initialIndex,
   onClose,
+  captions,
+  actions,
 }: {
   photos: string[];
   initialIndex: number;
   onClose: () => void;
+  captions?: (PhotoCaption | null | undefined)[];
+  actions?: PhotoViewerActions;
 }) {
   const [index, setIndex] = useState(initialIndex);
   const [transform, setTransform] = useState<Transform>({ scale: 1, x: 0, y: 0 });
@@ -402,6 +432,19 @@ export function PhotoViewer({
         </div>
       </div>
 
+      {captions?.[index] && (
+        <CaptionBar
+          key={index}
+          caption={captions[index]!}
+          {...(actions && actions.canModify(index)
+            ? {
+                onEdit: () => actions.onEdit(index),
+                onDelete: () => actions.onDelete(index),
+              }
+            : {})}
+        />
+      )}
+
       {canNavigate && (
         <div
           className="flex justify-center gap-2 overflow-x-auto px-4 pb-4 pt-1 md:pb-6"
@@ -423,5 +466,115 @@ export function PhotoViewer({
       )}
     </div>,
     document.body,
+  );
+}
+
+function CaptionBar({
+  caption,
+  onEdit,
+  onDelete,
+}: {
+  caption: PhotoCaption;
+  onEdit?: () => void;
+  onDelete?: () => Promise<void>;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const canModify = !!onEdit && !!onDelete;
+
+  return (
+    // Клики и жесты внутри подписи не должны закрывать просмотрщик и листать фото.
+    <div
+      className="relative mx-auto w-full max-w-3xl px-4 pb-2 text-white"
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-start gap-2 rounded-xl bg-white/10 px-3 py-2">
+        <div className="min-w-0 flex-1 text-xs">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {caption.badge && (
+              <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                {caption.badge}
+              </span>
+            )}
+            {caption.author && <span className="font-semibold">{caption.author}</span>}
+            {caption.meta && <span className="text-white/70">{caption.meta}</span>}
+          </p>
+          {caption.comment && (
+            <p className="mt-1 text-sm break-words whitespace-pre-line">{caption.comment}</p>
+          )}
+        </div>
+        {canModify && (
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen((v) => !v);
+              setConfirming(false);
+            }}
+            aria-label="Действия с фото"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full transition hover:bg-white/20"
+          >
+            <MoreHorizontal className="size-5" />
+          </button>
+        )}
+      </div>
+      {canModify && menuOpen && (
+        <div className="absolute right-4 bottom-full z-10 mb-1 w-64 overflow-hidden rounded-xl border border-border bg-card text-sm text-foreground shadow-lg">
+          {confirming ? (
+            <div className="p-3">
+              <p className="font-medium">Удалить это фото?</p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => {
+                    setDeleting(true);
+                    void onDelete().finally(() => {
+                      setDeleting(false);
+                      setMenuOpen(false);
+                      setConfirming(false);
+                    });
+                  }}
+                  className="flex-1 rounded-lg bg-destructive py-2 text-xs font-semibold text-destructive-foreground disabled:opacity-60"
+                >
+                  {deleting ? "Удаление..." : "Да, удалить"}
+                </button>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => setConfirming(false)}
+                  className="flex-1 rounded-lg bg-surface py-2 text-xs font-semibold disabled:opacity-60"
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onEdit();
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-muted"
+              >
+                <Pencil className="size-4" />
+                Изменить дату/комментарий
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(true)}
+                className="flex w-full items-center gap-2 border-t border-border px-3 py-2.5 text-left text-destructive transition-colors hover:bg-muted"
+              >
+                <Trash2 className="size-4" />
+                Удалить
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
