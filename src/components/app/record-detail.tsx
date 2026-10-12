@@ -45,7 +45,6 @@ export function RecordDetail({
   seamlessBackdrop?: boolean;
 }) {
   const { objects, role, currentUser, deleteRecord } = useApp();
-  const [photoIndex, setPhotoIndex] = useState<number | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const { closing, requestClose } = useModalClose(onClose);
@@ -66,9 +65,6 @@ export function RecordDetail({
       setConfirmingDelete(false);
     }
   };
-  const crew =
-    record.execution_type === "brigade" ? (record.brigade_members ?? []) : record.employees;
-
   // Рендерим через портал в document.body: на iOS position:fixed внутри
   // прокручиваемого #app-scroll-container ведёт себя не как истинный fixed
   // относительно вьюпорта (баг WebKit), из-за чего нижнее мобильное меню
@@ -129,52 +125,7 @@ export function RecordDetail({
           </div>
         </div>
 
-        <div className="mt-4 space-y-3">
-          {record.items.map((item, idx) => {
-            const allocations = item.allocations?.length
-              ? item.allocations
-              : allocationsFor(item, crew);
-            return (
-              <div key={idx} className="rounded-2xl border border-border bg-surface p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="min-w-0 flex-1 font-semibold break-words whitespace-normal">
-                    {item.name}
-                  </p>
-                  <p className="shrink-0 font-mono text-sm font-bold tabular-nums">
-                    {itemQty(item)} {item.unit}
-                  </p>
-                </div>
-                <div className="mt-3 rounded-xl bg-card p-3">
-                  <FieldLabel>Кто и сколько сделал</FieldLabel>
-                  <div className="mt-2 space-y-1.5">
-                    {allocations.map((a) => (
-                      <div key={a.employee} className="flex items-center justify-between gap-3">
-                        <span className="flex min-w-0 flex-1 items-center gap-2 text-sm break-words">
-                          <InitialsAvatar name={a.employee} />
-                          {a.employee}
-                        </span>
-                        <span className="font-mono text-sm font-semibold">
-                          {a.qty} {item.unit}
-                        </span>
-                      </div>
-                    ))}
-                    {allocations.length === 0 && (
-                      <p className="text-sm text-muted-foreground">Состав не указан</p>
-                    )}
-                  </div>
-                </div>
-                {isAdminLike && (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {item.price.toLocaleString("ru-RU")} ₽ / {item.unit} ·{" "}
-                    <span className="font-mono font-semibold text-foreground">
-                      {(itemQty(item) * item.price).toLocaleString("ru-RU")} ₽
-                    </span>
-                  </p>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <RecordItemsList record={record} showPrices={isAdminLike} />
 
         {record.comment && (
           <div className="mt-4">
@@ -185,25 +136,7 @@ export function RecordDetail({
 
         <div className="mt-4">
           <FieldLabel>Фото записи</FieldLabel>
-          {record.photos.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {record.photos.map((p, i) => (
-                <button
-                  key={p}
-                  onClick={() => setPhotoIndex(i)}
-                  className="size-20 overflow-hidden rounded-xl bg-muted"
-                >
-                  <img
-                    src={photoThumbUrl(p)}
-                    alt="Фото к записи"
-                    className="size-full object-cover"
-                  />
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-1 text-sm text-muted-foreground">Фото не добавлены</p>
-          )}
+          <RecordPhotoGrid photos={record.photos} />
         </div>
 
         {isAdminLike && (
@@ -270,16 +203,117 @@ export function RecordDetail({
             Редактировать эту запись может только её автор, куратор или администратор
           </p>
         )}
-
-        {photoIndex !== null && (
-          <PhotoViewer
-            photos={record.photos}
-            initialIndex={photoIndex}
-            onClose={() => setPhotoIndex(null)}
-          />
-        )}
       </motion.div>
     </motion.div>,
     document.body,
+  );
+}
+
+// Позиции записи в полном виде: объём, кто и сколько сделал, цена/сумма.
+// Общий кусок для RecordDetail и экрана "Объект за сегодня" у админа.
+export function RecordItemsList({
+  record,
+  showPrices,
+}: {
+  record: WorkRecord;
+  showPrices: boolean;
+}) {
+  const crew =
+    record.execution_type === "brigade" ? (record.brigade_members ?? []) : record.employees;
+  return (
+    <div className="mt-4 space-y-3">
+      {record.items.map((item, idx) => {
+        const allocations = item.allocations?.length
+          ? item.allocations
+          : allocationsFor(item, crew);
+        return (
+          <div key={idx} className="min-w-0 rounded-2xl border border-border bg-surface p-4">
+            <div className="flex items-start justify-between gap-3">
+              <p className="min-w-0 flex-1 font-semibold break-words whitespace-normal">
+                {item.name}
+              </p>
+              <p className="shrink-0 font-mono text-sm font-bold tabular-nums">
+                {itemQty(item)} {item.unit}
+              </p>
+            </div>
+            <div className="mt-3 rounded-xl bg-card p-3">
+              <FieldLabel>Кто и сколько сделал</FieldLabel>
+              <div className="mt-2 space-y-1.5">
+                {allocations.map((a) => (
+                  <div key={a.employee} className="flex items-center justify-between gap-3">
+                    <span className="flex min-w-0 flex-1 items-center gap-2 text-sm break-words">
+                      <InitialsAvatar name={a.employee} />
+                      {a.employee}
+                    </span>
+                    <span className="font-mono text-sm font-semibold">
+                      {a.qty} {item.unit}
+                    </span>
+                  </div>
+                ))}
+                {allocations.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Состав не указан</p>
+                )}
+              </div>
+            </div>
+            {showPrices && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                {item.price.toLocaleString("ru-RU")} ₽ / {item.unit} ·{" "}
+                <span className="font-mono font-semibold text-foreground">
+                  {(itemQty(item) * item.price).toLocaleString("ru-RU")} ₽
+                </span>
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Сетка миниатюр фото записи (lazy) + полноэкранный просмотр по тапу.
+// highlighted — фото, которые нужно пометить бейджем «сегодня».
+export function RecordPhotoGrid({
+  photos,
+  highlighted,
+}: {
+  photos: string[];
+  highlighted?: Set<string>;
+}) {
+  const [photoIndex, setPhotoIndex] = useState<number | null>(null);
+  if (!photos.length) {
+    return <p className="mt-1 text-sm text-muted-foreground">Фото не добавлены</p>;
+  }
+  return (
+    <>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {photos.map((p, i) => (
+          <button
+            key={p}
+            onClick={() => setPhotoIndex(i)}
+            className="relative size-20 overflow-hidden rounded-xl bg-muted"
+          >
+            <img
+              src={photoThumbUrl(p)}
+              alt="Фото к записи"
+              loading="lazy"
+              decoding="async"
+              className="size-full object-cover"
+            />
+            {highlighted?.has(p) && (
+              <span className="absolute top-1 left-1 rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-semibold text-primary-foreground">
+                сегодня
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      {photoIndex !== null && (
+        <PhotoViewer
+          photos={photos}
+          initialIndex={photoIndex}
+          onClose={() => setPhotoIndex(null)}
+        />
+      )}
+    </>
   );
 }

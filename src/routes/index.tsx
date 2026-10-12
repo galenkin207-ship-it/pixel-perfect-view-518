@@ -3,6 +3,7 @@ import { Archive, MapPin, Pin, PinOff, Plus, Search } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { AdminTodayObjectsPage } from "@/components/app/admin-today-objects";
 import { AppShell } from "@/components/app/app-shell";
 import { PageHeading } from "@/components/app/bits";
 import { PageStateResetButton } from "@/components/app/page-state-reset";
@@ -35,10 +36,17 @@ export const Route = createFileRoute("/")({
   }),
   component: () => (
     <PageStateScope page="/">
-      <ObjectsPage />
+      <ObjectsRoute />
     </PageStateScope>
   ),
 });
+
+// Админ видит объекты с активностью за сегодня (отдельный экран), остальные
+// роли — прежний список объектов.
+function ObjectsRoute() {
+  const { role } = useApp();
+  return role === "admin" ? <AdminTodayObjectsPage /> : <ObjectsPage />;
+}
 
 // WorkRecord.date хранится в виде "dd.mm.yyyy" — парсим в Date для сравнения
 // с сегодняшней датой (без времени).

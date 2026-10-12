@@ -190,6 +190,32 @@ function apiRecordToWorkRecord(r: ApiRecord): WorkRecord {
   };
 }
 
+// ---- «Объекты за сегодня» (только админ, /objects/today-activity и /objects/:id/today) ----
+
+export type TodayActivityObject = {
+  id: string;
+  name: string;
+  address: string;
+  status: string;
+  records_count_today: number;
+  photos_count_today: number;
+  last_activity_at: string | null;
+};
+
+// Запись в составе "Объект за сегодня": обычная WorkRecord плюс признаки
+// сегодняшней активности. photos_today — уже в виде URL, как и photos.
+export type TodayRecord = WorkRecord & {
+  created_today: boolean;
+  photos_today: string[];
+  last_activity_at: string | null;
+};
+
+export type ObjectToday = {
+  date: string;
+  object: { id: string; name: string; address: string; status: string };
+  records: TodayRecord[];
+};
+
 function workRecordToApiPayload(r: WorkRecord) {
   return {
     object_id: r.object_id ? Number(r.object_id) : null,
@@ -604,6 +630,60 @@ export const api = {
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     return request(`/objects/${objectId}/work-summary-detail?${params.toString()}`);
+  },
+
+  async getObjectsTodayActivity(): Promise<{ date: string; objects: TodayActivityObject[] }> {
+    const res = await request<{
+      date: string;
+      objects: {
+        id: number;
+        name: string;
+        address: string | null;
+        status: string;
+        records_count_today: number | string;
+        photos_count_today: number | string;
+        last_activity_at: string | null;
+      }[];
+    }>("/objects/today-activity");
+    return {
+      date: res.date,
+      objects: res.objects.map((o) => ({
+        id: String(o.id),
+        name: o.name,
+        address: o.address ?? "",
+        status: o.status,
+        records_count_today: Number(o.records_count_today) || 0,
+        photos_count_today: Number(o.photos_count_today) || 0,
+        last_activity_at: o.last_activity_at,
+      })),
+    };
+  },
+
+  async getObjectToday(objectId: string): Promise<ObjectToday> {
+    const res = await request<{
+      date: string;
+      object: { id: number; name: string; address: string | null; status: string };
+      records: (ApiRecord & {
+        created_today: boolean;
+        photos_today: string[] | null;
+        last_activity_at: string | null;
+      })[];
+    }>(`/objects/${objectId}/today`);
+    return {
+      date: res.date,
+      object: {
+        id: String(res.object.id),
+        name: res.object.name,
+        address: res.object.address ?? "",
+        status: res.object.status,
+      },
+      records: res.records.map((r) => ({
+        ...apiRecordToWorkRecord(r),
+        created_today: !!r.created_today,
+        photos_today: (r.photos_today ?? []).map(photoUrl),
+        last_activity_at: r.last_activity_at,
+      })),
+    };
   },
 
   async getObjectPhotos(

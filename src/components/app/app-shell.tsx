@@ -73,9 +73,13 @@ const mobileTabs = (role: Role): NavItem[] => [
 export function AppShell({
   children,
   fab,
+  onRefresh,
 }: {
   children: ReactNode;
   fab?: { to: string; label?: string; search?: Record<string, string> };
+  // Дополнительная перезагрузка данных самой страницы при pull-to-refresh
+  // (для страниц, которые грузят что-то помимо общих данных приложения).
+  onRefresh?: () => Promise<void>;
 }) {
   const { role, currentUser, notificationsCount, requests, refreshData, readNotificationIds } =
     useApp();
@@ -245,7 +249,13 @@ export function AppShell({
           className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-background pb-28 desktop:pb-0"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          <PullToRefresh onRefresh={refreshData}>
+          <PullToRefresh
+            onRefresh={
+              onRefresh
+                ? () => Promise.all([refreshData(), onRefresh()]).then(() => undefined)
+                : refreshData
+            }
+          >
             {/* Mobile top bar. Отступ сверху = safe-area-inset-top, чтобы
                 шапка не оказалась под статус-баром/Dynamic Island на iPhone. */}
             <div className="flex items-center justify-between gap-2 px-2 pt-[calc(0.25rem+env(safe-area-inset-top))] desktop:hidden">
